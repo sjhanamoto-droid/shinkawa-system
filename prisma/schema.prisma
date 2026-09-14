@@ -1,0 +1,469 @@
+// シンカワシステム — データモデル
+// 顧客（元請）→ 物件（現場）→ 案件（定期契約／スポット／工事）→ 実施回（カレンダーの1エントリ）→ 配員。
+// 区分値は String + アプリ層（zod）で制約し、許容値とラベルは src/lib/constants.ts に集約する。
+// 日付（date 系）は src/lib/date.ts の規約（サーバーTZの深夜0時を保存、dateFromKey/storedDateKey で往復）に従う。
+
+generator client {
+  // native = ローカル / rhel-openssl-3.0.x = Vercel(サーバーレス) ランタイム
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+// 本番/Preview/ローカル = PostgreSQL(Neon)。url=プール接続(pgbouncer)、directUrl=直結（migrate 用）。
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+// ──────────────────────── AppSetting（アプリ設定・会社情報） ────────────────────────
+// シングルトン（id="singleton" の1行）。
+model AppSetting {
+  id               String   @id @default("singleton")
+  companyName      String?
+  companyAddress   String?
+  companyPhone     String?
+  invoiceNumber    String?
+  defaultStartTime String   @default("09:00") // 予定の開始時刻の初期値
+  defaultEndTime   String   @default("17:00")
+  generateDay      Int      @default(25) // 翌月分の実施回を自動生成する日
+  updatedAt        DateTime @updatedAt
+}
+
+// ───────────────────────────── User（ユーザー＝作業者台帳） ─────────────────────────────
+// 社員・アルバイト・協力会社スタッフ・下請を同じ台帳で持つ。ログインできない作業者は
+// canLogin=false（email/passwordHash は null）。役割（role）は権限、kind は雇用区分。
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  kana         String?
+  email        String?  @unique
+  passwordHash String?
+  role         String   @default("STAFF") // OWNER | OFFICE | SCHEDULER | STAFF
+  kind         String   @default("EMPLOYEE") // EMPLOYEE | PARTTIME | PARTNER_STAFF | SUBCONTRACTOR
+  department   String? // CLEANING | CONSTRUCTION | null（両方／内勤）
+  partnerId    String?
+  tags         String[] @default([])
+  phone        String?
+  canLogin     Boolean  @default(true)
+  avatarColor  String   @default("#2f63f5")
+  avatarImage  String? // プロフィール画像（data URL）。一覧の select には含めず /api/avatars で配信する
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  partner            Partner?              @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  assignments        Assignment[]
+  changeLogs         OccurrenceChangeLog[] @relation("ChangeActor")
+  createdOccurrences Occurrence[]          @relation("OccurrenceCreator")
+  createdProperties  Property[]            @relation("PropertyCreator")
+  propertyMemos      PropertyMemo[]        @relation("PropertyMemoAuthor")
+  reports            DailyReport[]
+  comments           Comment[]
+  notifications      Notification[]        @relation("UserNotifications")
+  pushSubscriptions  PushSubscription[]    @relation("UserPushSubscriptions")
+
+  @@index([active, kind])
+  @@index([partnerId])
+  @@index([department, active])
+}
+
+// ───────────────────────────── Partner（協力会社・下請） ─────────────────────────────
+model Partner {
+  id          String   @id @default(cuid())
+  name        String
+  kana        String?
+  kind        String   @default("PARTNER") // PARTNER(協力会社) | SUBCONTRACTOR(下請)
+  department  String? // CLEANING | CONSTRUCTION
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  memo        String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workers User[]
+
+  @@index([active, kind])
+}
+
+// ─────────────────────── Customer（顧客＝元請・管理会社・オーナー） ───────────────────────
+model Customer {
+  id                String    @id @default(cuid())
+  name              String // 正式名称
+  shortName         String? // カレンダーのチップ表示用（例: グリーンランド）
+  kana              String?
+  registrationType  String    @default("PRIME") // PRIME(元請) | OWNER(オーナー) | PARTNER(同業)
+  tradeStatus       String    @default("CONTINUING") // NEW | CONTINUING | SUSPENDED
+  phone             String?
+  fax               String?
+  email             String?
+  headOfficeAddress String?
+  billingAddress    String?
+  closingDay        String?
+  paymentDueTerm    String?
+  paymentMethod     String? // BANK | NOTE | DENSAI
+  memo              String?
+  cybozuId          String?   @unique // サイボウズ アドレス帳の ID（CSV 取込の冪等キー）
+  importedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  contacts    ContactPerson[]
+  properties  Property[]
+  jobs        Job[]
+  occurrences Occurrence[]
+
+  @@index([name])
+  @@index([kana])
+}
+
+// ──────────────────────── ContactPerson（顧客の担当者・履歴つき） ────────────────────────
+model ContactPerson {
+  id          String    @id @default(cuid())
+  customerId  String
+  name        String
+  department  String?
+  position    String?
+  phone       String?
+  mobile      String?
+  email       String?
+  contactType String    @default("SITE") // SITE | ACCOUNTING | APPROVER
+  isActive    Boolean   @default(true)
+  activeFrom  DateTime?
+  activeTo    DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// ───────────────────────────── Property（物件／現場） ─────────────────────────────
+// 「ここを開けば全部載っている」ハブ。住所・キーBOX・入館メモ・図面・写真・メモ・引き継ぎ。
+model Property {
+  id               String   @id @default(cuid())
+  customerId       String
+  name             String
+  kana             String?
+  address          String?
+  building         String? // 建物名・部屋番号
+  unitCount        Int? // 部屋数・箇所数（案件の既定値）
+  keyboxStatus     String? // HAS | NONE
+  keyboxNumber     String?
+  keyboxPlace      String?
+  keyboxNoneReason String?
+  accessNote       String? // 入館方法・駐車・注意事項
+  contactName      String?
+  contactPhone     String?
+  handoverNote     String?
+  status           String   @default("ACTIVE") // ACTIVE | INACTIVE
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("PropertyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  jobs        Job[]
+  occurrences Occurrence[]
+  photos      Photo[]
+  memos       PropertyMemo[]
+  handovers   Handover[]
+  reports     DailyReport[]
+  relationsA  PropertyRelation[] @relation("PropertyRelationA")
+  relationsB  PropertyRelation[] @relation("PropertyRelationB")
+
+  @@index([customerId])
+  @@index([name])
+  @@index([status])
+}
+
+// 物件メモ（時系列・投稿者つき）
+model PropertyMemo {
+  id          String   @id @default(cuid())
+  propertyId  String
+  content     String
+  atSurvey    Boolean  @default(false) // 現調のときに書いたメモ
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("PropertyMemoAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, createdAt])
+}
+
+// 関連物件（同一ビルの別テナント・系列店舗など）
+model PropertyRelation {
+  id          String   @id @default(cuid())
+  propertyAId String
+  propertyBId String
+  note        String?
+  createdAt   DateTime @default(now())
+
+  propertyA Property @relation("PropertyRelationA", fields: [propertyAId], references: [id], onDelete: Cascade)
+  propertyB Property @relation("PropertyRelationB", fields: [propertyBId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyAId, propertyBId])
+  @@index([propertyAId])
+  @@index([propertyBId])
+}
+
+// ───────────────────────────── Job（案件＝契約） ─────────────────────────────
+// 定期契約（周期ルールから実施回を生成）／スポット／工事。金額は権限者のみ閲覧（select で除外する）。
+model Job {
+  id               String    @id @default(cuid())
+  customerId       String
+  propertyId       String
+  name             String
+  department       String // CLEANING | CONSTRUCTION
+  category         String // constants.CATEGORY のキー
+  contractType     String // REGULAR | SPOT | CONSTRUCTION
+  ruleKind         String? // MONTHLY | TWICE_MONTHLY | WEEKLY | NTH_WEEKDAY | EVERY_N_MONTHS | SEASONAL
+  ruleParams       Json? // src/lib/recurrence.ts の RuleParams
+  unitCount        Int?
+  headcount        Int? // 標準人数
+  defaultStartTime String?
+  defaultEndTime   String?
+  vehicle          String?
+  amount           Int? // 税抜金額（円）。権限で秘匿
+  note             String?
+  status           String    @default("ACTIVE") // ACTIVE | PAUSED | ENDED
+  startsOn         DateTime?
+  endsOn           DateTime?
+  generatedThrough String? // 実施回を生成済みの最終月 "YYYY-MM"
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  property    Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  occurrences Occurrence[]
+
+  @@index([propertyId])
+  @@index([customerId])
+  @@index([status, ruleKind])
+  @@index([department, status])
+}
+
+// ───────────────────────── Occurrence（実施回＝カレンダーの1エントリ） ─────────────────────────
+// date=null は「未割当レーン」（日付未確定）。status は UNASSIGNED → TENTATIVE → CONFIRMED → DONE / CANCELLED。
+// version は楽観ロック（同時編集の競合検知）。
+model Occurrence {
+  id              String    @id @default(cuid())
+  jobId           String?
+  propertyId      String?
+  customerId      String? // フィルタ用に非正規化
+  seriesKey       String?   @unique // `${jobId}:${YYYY-MM}:${slotIndex}`。生成の冪等キー
+  title           String? // 未設定なら顧客短縮名／物件名から導出
+  department      String // CLEANING | CONSTRUCTION
+  category        String
+  targetMonth     String // "YYYY-MM"。未割当レーンの月グルーピング
+  date            DateTime? // 実施日（null=未割当）
+  endDate         DateTime? // 複数日工事の終了日
+  windowStart     DateTime? // 定期ルールが示す候補期間（前半／後半など）
+  windowEnd       DateTime?
+  startTime       String? // "HH:mm"
+  endTime         String?
+  status          String    @default("UNASSIGNED")
+  headcount       Int?
+  unitCount       Int?
+  amount          Int? // 権限で秘匿
+  vehicle         String?
+  note            String?
+  customerNameRaw String? // クイック登録で顧客を解決できなかった時の生文字列
+  source          String    @default("MANUAL") // MANUAL | GENERATED | QUICK
+  version         Int       @default(1)
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  job         Job?                  @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  property    Property?             @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  customer    Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy   User?                 @relation("OccurrenceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignments Assignment[]
+  changeLogs  OccurrenceChangeLog[]
+  photos      Photo[]
+  reports     DailyReport[]
+
+  @@index([date])
+  @@index([targetMonth, status])
+  @@index([jobId, date])
+  @@index([propertyId, date])
+  @@index([customerId])
+  @@index([department, date])
+}
+
+// 配員（作業者 × 実施回）
+model Assignment {
+  id           String   @id @default(cuid())
+  occurrenceId String
+  userId       String
+  isLead       Boolean  @default(false)
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  occurrence Occurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([occurrenceId, userId])
+  @@index([userId])
+}
+
+// 変更履歴（誰が・いつ・何を・どこから→どこへ）
+model OccurrenceChangeLog {
+  id           String   @id @default(cuid())
+  occurrenceId String
+  actorId      String?
+  action       String // CREATE | MOVE | ASSIGN | UNASSIGN | STATUS | EDIT | CANCEL | DELETE | GENERATE
+  field        String?
+  fromValue    String?
+  toValue      String?
+  scope        String? // ONE | FOLLOWING
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  occurrence Occurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  actor      User?      @relation("ChangeActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([occurrenceId, createdAt])
+  @@index([createdAt])
+}
+
+// ──────────────────────────── Photo（写真／動画／PDF） ────────────────────────────
+model Photo {
+  id           String   @id @default(cuid())
+  propertyId   String? // 物件直付け（図面・キーBOX・現調写真）
+  occurrenceId String? // 実施回の作業写真
+  reportId     String?
+  dataUrl      String? // 圧縮済み base64（画像・PDF）
+  thumbUrl     String?
+  blobPath     String? // Vercel Blob 上のパス（動画など）
+  mimeType     String?
+  sizeBytes    Int?
+  duration     Int?
+  caption      String?
+  kind         String   @default("WORK") // WORK | SURVEY | DRAWING | KEYBOX | BEFORE | AFTER | OTHER
+  isVideo      Boolean  @default(false)
+  width        Int?
+  height       Int?
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  property   Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  occurrence Occurrence?  @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  report     DailyReport? @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([occurrenceId])
+  @@index([reportId])
+}
+
+// ──────────────────────── Handover（引き継ぎ事項） ────────────────────────
+model Handover {
+  id           String    @id @default(cuid())
+  propertyId   String
+  reportId     String?
+  content      String
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, resolvedAt])
+}
+
+// ─────────────── DailyReport（日報。Phase 2 で UI を実装。スキーマのみ先行） ───────────────
+model DailyReport {
+  id           String    @id @default(cuid())
+  propertyId   String?
+  occurrenceId String?
+  userId       String
+  workDate     DateTime
+  startTime    String    @default("09:00")
+  endTime      String    @default("17:00")
+  detail       String?
+  vehicle      String?
+  status       String    @default("DRAFT") // DRAFT | SUBMITTED
+  submittedAt  DateTime?
+  handover     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  property   Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  occurrence Occurrence?     @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses   ReportExpense[]
+  photos     Photo[]
+  comments   Comment[]
+
+  @@index([userId, workDate])
+  @@index([occurrenceId])
+  @@index([workDate])
+}
+
+model ReportExpense {
+  id        String      @id @default(cuid())
+  reportId  String
+  label     String
+  amount    Int
+  sortOrder Int         @default(0)
+  report    DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+model Comment {
+  id        String      @id @default(cuid())
+  reportId  String
+  userId    String
+  body      String
+  createdAt DateTime    @default(now())
+  report    DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+// ──────────────────────── Notification（アプリ内通知） ────────────────────────
+model Notification {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String // constants.NotificationType
+  title        String
+  body         String?
+  href         String?
+  read         Boolean  @default(false)
+  occurrenceId String?
+  propertyId   String?
+  dedupeKey    String?
+  createdAt    DateTime @default(now())
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, read])
+}
+
+// ──────────────────── PushSubscription（Web Push 購読情報） ────────────────────
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
