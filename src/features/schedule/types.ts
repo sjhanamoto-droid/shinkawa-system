@@ -68,7 +68,7 @@ export type WorkerOption = PersonRef & {
   partnerName: string | null;
 };
 
-export type CustomerOption = { id: string; name: string; shortName: string | null };
+export type CustomerOption = { id: string; name: string; shortName: string | null; kana?: string | null };
 export type PropertyOption = { id: string; name: string; customerId: string; address: string | null };
 
 export type ChangeLogView = {

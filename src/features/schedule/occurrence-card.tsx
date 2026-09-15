@@ -66,6 +66,8 @@ export function OccurrenceCard({
   const t = timeLabel(o);
 
   if (variant === "chip") {
+    const noWorker = o.assignees.length === 0 && !!o.date && o.status !== "DONE" && o.status !== "CANCELLED" && o.category !== "OFF";
+    const hasMeta = !!o.unitCount || !!o.ruleKind || noWorker || o.assignees.length > 0;
     return (
       <button
         ref={setNodeRef}
@@ -76,7 +78,7 @@ export function OccurrenceCard({
         {...attributes}
         title={`${o.title}${t ? ` ${t}` : ""}${o.assignees.length ? ` / ${o.assignees.map((a) => a.name).join("・")}` : ""}`}
         className={cn(
-          "flex w-full items-center gap-1 rounded-md border px-1 py-[3px] text-left text-[11px] leading-tight transition-shadow",
+          "flex w-full flex-col gap-0.5 rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight transition-shadow",
           statusClass(o),
           isDragging && "opacity-40",
           highlight && "ring-2 ring-brand-400",
@@ -84,14 +86,25 @@ export function OccurrenceCard({
           "hover:shadow-card",
         )}
       >
-        <CategoryBadge category={o.category} short className="text-[9px] px-1 py-px" />
-        {t && <span className="shrink-0 tnum font-semibold text-ink-muted">{o.startTime}</span>}
-        <span className="min-w-0 flex-1 truncate font-semibold text-ink">{o.title}</span>
-        {o.unitCount ? <span className="shrink-0 text-[10px] text-ink-faint">{o.unitCount}件</span> : null}
-        {o.ruleKind && <Repeat className="h-3 w-3 shrink-0 text-ink-faint" aria-label="定期" />}
-        <AvatarStack people={o.assignees} max={3} />
-        {o.assignees.length === 0 && o.date && o.status !== "DONE" && o.status !== "CANCELLED" && o.category !== "OFF" && (
-          <span className="shrink-0 rounded bg-red-100 px-1 text-[9px] font-bold text-red-600">担当未定</span>
+        {/* 1段目：種別・時刻・現場名（隠さない。長ければ折り返す） */}
+        <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+          <CategoryBadge category={o.category} short className="px-1 py-px text-[9px]" />
+          {o.startTime && <span className="shrink-0 tnum font-semibold text-ink-muted">{o.startTime}</span>}
+          <span className="min-w-[4rem] flex-1 break-words font-semibold text-ink">{o.title}</span>
+        </span>
+        {/* 2段目：件数・定期・担当 */}
+        {hasMeta && (
+          <span className="flex items-center gap-1">
+            {o.unitCount ? <span className="text-[10px] text-ink-faint">{o.unitCount}件</span> : null}
+            {o.ruleKind && <Repeat className="h-3 w-3 shrink-0 text-ink-faint" aria-label="定期" />}
+            {noWorker && <span className="rounded bg-red-100 px-1 text-[9px] font-bold text-red-600">担当未定</span>}
+            {o.assignees.length > 0 && (
+              <span className="ml-auto flex min-w-0 items-center gap-1">
+                <AvatarStack people={o.assignees} max={4} />
+                <span className="hidden truncate text-[10px] text-ink-muted xl:inline">{o.assignees.map((a) => a.name).join("・")}</span>
+              </span>
+            )}
+          </span>
         )}
       </button>
     );

@@ -5,6 +5,7 @@ import { AlertCircle, Save, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { SearchSelect } from "@/components/ui/search-select";
 import {
   CATEGORY,
   CATEGORY_OPTIONS,
@@ -195,41 +196,36 @@ export function OccurrenceForm({
 
         {!isPersonal && (
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="顧客" htmlFor="of-customer">
-              <Select
+            <Field label="顧客" htmlFor="of-customer" hint="名前で検索">
+              <SearchSelect
                 id="of-customer"
                 value={customerId}
-                onChange={(e) => {
-                  setCustomerId(e.target.value);
+                onChange={(v) => {
+                  setCustomerId(v);
                   setPropertyId("");
                 }}
-              >
-                <option value="">未選択</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.shortName ? `${c.shortName}（${c.name}）` : c.name}
-                  </option>
-                ))}
-              </Select>
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: c.shortName ? `${c.shortName}（${c.name}）` : c.name,
+                  keywords: c.kana ?? null,
+                }))}
+                placeholder="顧客名で検索"
+                emptyLabel="未選択"
+              />
             </Field>
-            <Field label="物件" htmlFor="of-property" hint={customerId ? undefined : "顧客を選ぶと絞り込まれます"}>
-              <Select
+            <Field label="物件" htmlFor="of-property" hint={customerId ? "名前で検索" : "顧客を選ぶと絞り込まれます"}>
+              <SearchSelect
                 id="of-property"
                 value={propertyId}
-                onChange={(e) => {
-                  const pid = e.target.value;
+                onChange={(pid) => {
                   setPropertyId(pid);
                   const p = properties.find((x) => x.id === pid);
                   if (p) setCustomerId(p.customerId);
                 }}
-              >
-                <option value="">未選択</option>
-                {propertyOptions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </Select>
+                options={propertyOptions.map((p) => ({ value: p.id, label: p.name, sub: p.address ?? null }))}
+                placeholder="物件名で検索"
+                emptyLabel="未選択"
+              />
             </Field>
           </div>
         )}

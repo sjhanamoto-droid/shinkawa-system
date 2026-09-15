@@ -198,7 +198,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
       select: { id: true, kind: true, department: true, tags: true, partner: { select: { name: true } } },
       orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
     }),
-    db.customer.findMany({ select: { id: true, name: true, shortName: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
     db.property.findMany({
       where: { status: "ACTIVE" },
       select: { id: true, name: true, customerId: true, address: true },

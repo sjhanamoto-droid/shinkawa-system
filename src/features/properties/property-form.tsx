@@ -6,6 +6,7 @@ import { Save, AlertCircle, KeyRound, FileText, Camera } from "lucide-react";
 import { createProperty, updateProperty, type PropertyFormState } from "./actions";
 import { PropertyPhotoField, type PropertyPhotoInit } from "./property-photo-field";
 import { Field, Input, Textarea, Select } from "@/components/ui/form";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,7 @@ export type PropertyFormValues = {
   status?: string | null;
 };
 
-export type CustomerChoice = { id: string; name: string; shortName: string | null };
+export type CustomerChoice = { id: string; name: string; shortName: string | null; kana?: string | null };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -52,6 +53,7 @@ export function PropertyForm({
   const isEdit = Boolean(property?.id);
   const [state, formAction] = useActionState<PropertyFormState, FormData>(isEdit ? updateProperty : createProperty, {});
   const [keybox, setKeybox] = useState<string>(property?.keyboxStatus ?? "");
+  const [customerId, setCustomerId] = useState<string>(property?.customerId ?? "");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -60,15 +62,21 @@ export function PropertyForm({
       <section className="space-y-3">
         <SectionTitle>基本情報</SectionTitle>
         <Card className="space-y-3 p-4">
-          <Field label="顧客（元請・管理会社）" required htmlFor="customerId">
-            <Select id="customerId" name="customerId" defaultValue={property?.customerId ?? ""} required>
-              <option value="">選択してください</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.shortName ? `${c.shortName}（${c.name}）` : c.name}
-                </option>
-              ))}
-            </Select>
+          <Field label="顧客（元請・管理会社）" required htmlFor="customerId" hint="名前・ふりがなで検索">
+            <SearchSelect
+              id="customerId"
+              name="customerId"
+              required
+              value={customerId}
+              onChange={(v) => setCustomerId(v)}
+              options={customers.map((c) => ({
+                value: c.id,
+                label: c.shortName ? `${c.shortName}（${c.name}）` : c.name,
+                keywords: c.kana ?? null,
+              }))}
+              placeholder="顧客名を入力して検索"
+              emptyLabel="選択を解除"
+            />
           </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="物件名" required htmlFor="name">

@@ -14,7 +14,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
       where: { id },
       include: { photos: { where: { kind: { in: ["KEYBOX", "DRAWING", "SURVEY"] } }, select: { id: true, caption: true, isVideo: true, width: true, kind: true }, orderBy: { createdAt: "asc" } } },
     }),
-    db.customer.findMany({ select: { id: true, name: true, shortName: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
   ]);
   if (!property) notFound();
   const pick = (kind: string) => property.photos.filter((p) => p.kind === kind).map(({ id, caption, isVideo, width }) => ({ id, caption, isVideo, width }));

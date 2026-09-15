@@ -6,6 +6,7 @@ import { Save, AlertCircle } from "lucide-react";
 import { createJob, updateJob, type JobFormState } from "./actions";
 import { RuleEditor } from "./rule-editor";
 import { Field, Input, Textarea, Select } from "@/components/ui/form";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import {
@@ -97,21 +98,27 @@ export function JobForm({
         <SectionTitle>基本情報</SectionTitle>
         <Card className="space-y-3 p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="顧客" htmlFor="job-customer" hint="物件の絞り込み用">
-              <Select id="job-customer" value={customerId} onChange={(e) => { setCustomerId(e.target.value); setPropertyId(""); }}>
-                <option value="">すべて</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
+            <Field label="顧客" htmlFor="job-customer" hint="物件の絞り込み用（名前で検索）">
+              <SearchSelect
+                id="job-customer"
+                value={customerId}
+                onChange={(v) => { setCustomerId(v); setPropertyId(""); }}
+                options={customers.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder="顧客名で検索"
+                emptyLabel="すべて"
+              />
             </Field>
-            <Field label="物件（現場）" htmlFor="propertyId" required>
-              <Select id="propertyId" name="propertyId" value={propertyId} onChange={(e) => { setPropertyId(e.target.value); const p = properties.find((x) => x.id === e.target.value); if (p) setCustomerId(p.customerId); }} required>
-                <option value="">選択してください</option>
-                {propertyOptions.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}{!customerId ? `（${p.customerName}）` : ""}</option>
-                ))}
-              </Select>
+            <Field label="物件（現場）" htmlFor="propertyId" required hint="名前で検索">
+              <SearchSelect
+                id="propertyId"
+                name="propertyId"
+                required
+                value={propertyId}
+                onChange={(v) => { setPropertyId(v); const p = properties.find((x) => x.id === v); if (p) setCustomerId(p.customerId); }}
+                options={propertyOptions.map((p) => ({ value: p.id, label: p.name, sub: p.customerName, keywords: p.customerName }))}
+                placeholder="物件名で検索"
+                emptyLabel="選択を解除"
+              />
             </Field>
           </div>
           <Field label="案件名" htmlFor="name" required hint="例：共用部定期清掃 / 引渡し清掃 101号">
