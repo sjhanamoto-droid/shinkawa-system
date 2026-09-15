@@ -1,182 +1,101 @@
-# Mielba（ミエルバ）
+# シンカワシステム
 
-> 建設業向け 現場管理アプリ — クロジカ後継／建設業特化リプレイス
-> 要件定義書 v0.3 準拠
+> 株式会社シンカワ（清掃・工事）向けの予定管理システム。Mielba（建設業向け現場管理アプリ）を母体に再構成。
+> 白板（仮組み）＋サイボウズ（確定）の二段運用を、ひとつのカレンダーに置き換える。
 
-現場スタッフがスマホ・iPad で、移動中・現場でストレスなく入力できることを最優先に設計した、建設業の現場管理 DX システムです。
-**現場（案件）を中心軸**に、顧客・カレンダー・日報・TODO を横断的に一元管理します。
-
-## 主な機能（今回スコープ：5機能＋権限）
+## Phase 1 の範囲
 
 | 機能 | 概要 |
 | --- | --- |
-| 顧客管理 | 元請企業マスター。現場が外部キーで参照。担当者履歴・取引条件を保持（§4.1） |
-| 現場管理 | 案件マスター＝全機能の中心軸。現調／進行中／過去のステータス、関連現場リンク（§4.2） |
-| カレンダー | 現場・個人予定。日報由来（配達・支給品納品）と手動予定を区別表示（§4.4） |
-| 報告書（日報） | 個人×日の日報。勤怠（作業時間）内包・AIサポート・コメント・写真（§4.3） |
-| TODO | 現場・個人タスク。未対応をホームに即表示（§4.5） |
-| ユーザー権限 | 管理者／スタッフの2区分。顧客・現場の作成は管理者のみ（§4.7） |
+| **カレンダー**（`/schedule`） | 月／週／日／担当者ボード。週ビューの左に「未割当レーン」。PC はドラッグ＆ドロップ、スマホは「移動」シート。定期の回を動かすと「この回だけ／以降の定期も」を選択。変更履歴・競合検知・30秒ポーリング。1行入力「9/24 直井さん 1人」からの仮登録（クイック登録） |
+| 顧客（`/customers`） | 元請・管理会社。サイボウズ アドレス帳の CSV 取込（Shift_JIS/UTF-8、列マッピング、dryRun） |
+| 現場＝物件（`/properties`） | 住所・キーBOX（番号・場所・写真）・入館メモ・図面PDF・現調写真・メモ・引き継ぎ・関連物件 |
+| 案件（`/jobs`） | 定期契約（毎月／月2回／毎週／第n曜日／nか月ごと／季節）・スポット・工事。翌月分の実施回を「未割当」で自動生成（毎月の設定日 cron ＋手動ボタン） |
+| 作業者（`/workers`）／協力会社（`/partners`） | 社員・アルバイト（タグ）・協力会社スタッフ・下請。ログインの有無を分けられる |
+| 権限 | 最高管理者 / 事務・経理 / 手配担当（自部門のみ編集） / スタッフ（自分の予定・完了のみ）。**金額は最高管理者・事務経理にしかHTMLに含めない** |
 
-### 設計の柱
-- **現場中心**：どの画面からでも、ある現場の予定・日報・TODO・写真・引き継ぎを横断して辿れる
-- **個人×日**：日報はスタッフ一人ひとりが1日1枚。現場ビューで同日の全員分を束ねて閲覧
-- **入力負担の最小化**：現場名は自動入力、作業時間は初期値（8:00–17:00）から修正、マスタ選択式
-- **ホームで「次の行動」**：日報未提出・未打刻・未対応TODO・本日の予定を起動直後に表示
-- **写真の軽量・高速アップロード**：クライアント側で自動圧縮（最大1280px）してから保存
-
-### 将来フェーズに向けた土台（今回は項目定義のみ）
-原価・利益率／金額・収支／法令・書類などは、**データ構造（nullable項目）として確保**済み。
-入力UI・集計は後続フェーズで有効化できます。
-
-## 役割ごとの体験（管理者 / スタッフ）
-ナビ・ホーム・日報・カレンダーが役割に最適化されます。
-
-| | 管理者 | スタッフ |
-| --- | --- | --- |
-| 主な役割 | マスター管理・全体確認・スケジュール登録 | 現場での**日報入力（メイン業務）** |
-| ナビ | ホーム / 現場 / 顧客 / カレンダー / 日報 / TODO | ホーム / **日報** / 現場 / カレンダー / TODO |
-| 日報画面 | 全現場の日報を日付別に確認（現場の動き） | 担当現場ごとに「日報を書く」へ**最短1タップ** |
-| 作成権限 | 顧客・現場の登録/編集・予定登録 | 日報・自分の予定・TODO・コメント |
-
-**カレンダー**は全員が自分の予定を登録でき、各予定に「担当（現場に行く人）」を指定できます。
-カレンダー上で **誰が現場に行くか（担当アバター）** と **誰が入力したか（入力者）** が一目で分かります。
-
-## 現場入り（出面）— その日の配員と日報
-「**配属（メンバー）**」と「**その日の現場入り**」を分離。日報は **その日に行った現場だけ** に連動します（配属されていても行っていない現場の日報は出ません）。
-
-- **配属（SiteAssignment）**：その現場の担当プール（基本は全員×全現場）。閲覧範囲のベース
-- **現場入り（SiteVisit／出面）**：その日に誰がどの現場へ行くか（日替わり）。**日報・未提出・未打刻はこれに連動**
-- **配員ボード（管理者・`/dispatch`）**：日付ごとに、各現場へ行くスタッフをタップで ON/OFF。合計人数も表示
-- **自己申告（スタッフ）**：日報画面の「**別の現場に行った**」から自分の現場入りを追加（配属済み現場のみ）
-- **カレンダー連動**：管理者がカレンダーで「**現場・日時・カテゴリー・場所・内容・参加者**」を登録すると、**参加者の現場入りが自動作成**され、その日の日報にカレンダー情報が**基盤として表示**（作業時間も予定の時刻を初期値に反映）。参加者スタッフのカレンダー・ホーム・日報に反映されます
-- **未打刻/未提出**：その日の現場入りのうち、日報なし＝未打刻／下書き＝未提出。ホームに表示
-- **管理者の今日の配員サマリー**：ホームに「○名が現場入り・提出/未提出」を表示し配員ボードへ
-- 安全策：日報が既にある現場入りは取り消し不可
-
-## 設定・スタッフ管理（管理者）
-サイドバー（PC）下部 ／ モバイルのアカウントメニューの「**設定**」から各種設定にアクセスできます。
-
-- **スタッフ管理（管理者のみ）**：ユーザーの追加・編集・**権限（管理者／スタッフ）の選択設定**・無効化・削除
-  - 日報などの記録があるユーザーは「**無効化**」（ログイン不可・記録は保持）。記録の無いユーザーのみ完全削除可能
-  - 最後の管理者・自分自身は無効化／削除できない安全ガード付き
-  - **スタッフはこの画面にアクセスできません**（管理者専用。未認可はホームへリダイレクト）
-- **アプリ設定・会社情報（管理者のみ）**：会社名・住所・インボイス番号・**日報の既定作業時間**（新規日報の初期値に反映）
-- **アカウント設定（全ユーザー）**：氏名・部署・アバター色・パスワードの変更
-
-## 画面デザイン（レスポンシブ：2デバイス両対応）
-1つのアプリで、デバイスに応じて最適なUIに切り替わります。
-
-| デバイス | レイアウト | 想定ユーザー |
-| --- | --- | --- |
-| **PC / iPad（横）** `md`以上 | **左サイドバー＋多カラムの業務ダッシュボード**（システム画面）。現場詳細は「これを見れば全部わかる」2カラムハブ、一覧はカードグリッド、カレンダーは大きな月表示 | 管理者の確認・管理業務 |
-| **iPad（縦）** `md`〜`lg` | サイドバー＋単一カラム（広め） | 確認・入力の両用 |
-| **スマートフォン** `md`未満 | **ボトムナビ＋単一カラム**。最短タップの日報入力・写真撮影投稿に最適化 | 現場スタッフの日々の投稿 |
-
-ブレークポイントは Tailwind 標準（md=768px / lg=1024px）。モバイルの入力体験を保ちつつ、デスクトップでは情報密度と機能性を高めています。
-
-- **サイドバーは開閉可**：上部のトグルボタンで最小化でき、閉じるとアイコンのみの最小表示に。状態は cookie に保存され次回も維持されます。
-- **カレンダーは全幅表示**：重要画面のため上限幅を外し、サイドバーを畳むと画面いっぱいに。月＝大きなグリッド、週＝全幅7カラムボード（参加者アバター表示）、日＝時刻軸タイムライン（重なりは自動で列分け）で表示します。
-- **予定クリックで詳細モーダル**：月・週・日すべてで予定をタップ/クリックすると、日時・現場・場所・内容・参加者・入力者を**モーダル表示**。「**現場詳細を見る**」ボタンからその現場の詳細画面へ移動できます。手動予定はモーダルから**編集**（件名・日時・現場・場所・内容・**参加者の追加/変更**）・削除が可能で、参加者を変えると各自の**現場入り＝日報にも自動連動**します。
-
-## v0.4 の主な変更点
-- **写真の配信方式を刷新**：写真（base64）をページの RSC ペイロードに載せず、認証必須の
-  `GET /api/photos/[id]`（`?v=thumb` でサムネイル）から `<img loading="lazy">` で配信。
-  一覧・詳細ページの転送量を大幅削減（本番サイトが重い問題の修正）
-- **タイムゾーン修正**：「今日」の判定を `src/lib/date.ts`（Asia/Tokyo 基準）に統一。
-  Vercel（UTC）で朝9時まで前日扱いになるバグを解消
-- **引き継ぎ事項（Handover）**：日報から現場への引き継ぎを登録し、未解決分を
-  アンバー警告バナーで表示。「確認して停止」で解決済みにできる
-- **材料マスタ（MaterialMaster）**：日報の材料入力をマスタ選択式に
-- **人工（にんく）管理**：現場に予定人工・最終人工、日報に駐車場代を追加
-- **現場情報の拡充**：現場連絡先電話・キーBOX（番号/場所）・図面/工程表/キーBOX写真
-- **PWA 対応**：ホーム画面に追加してアプリとして起動可能（standalone）。
-  オフライン時はフォールバックページを表示（`public/sw.js`。API・写真はキャッシュしない）
-- **ログイン画面の改善**：デモ認証情報の画面表示を撤去し、パスワード再設定の案内を常設。
-  同一メールで5回連続失敗すると60秒の待機（簡易レート制限）
-- **ダークモード**：設定画面のテーマ切替（ライト/ダーク/システム）
-- **マイグレーション運用**：本番（PostgreSQL）を `prisma migrate deploy` 方式へ移行（後述）
-- **AIサポートの実LLM対応**：環境変数 `ANTHROPIC_API_KEY` を設定すると
-  `@anthropic-ai/sdk`（モデルは `ANTHROPIC_MODEL`、既定 `claude-opus-4-8`）で日報を要約。
-  未設定時は従来のローカルエンジン（`src/lib/ai.ts`）に自動フォールバック
-
-## 技術スタック
-- **Next.js 15**（App Router）/ React 19 / TypeScript
-- **Prisma** + **SQLite**（ローカル開発。本番は PostgreSQL/Neon）
-- **Tailwind CSS**（スマホファーストのデザインシステム）
-- 認証：Cookie セッション（JWT/jose）+ bcrypt。Middleware でルート保護
-- AIサポート：`ANTHROPIC_API_KEY` 設定時は Claude API、未設定時はローカルの決定論的エンジン（`src/lib/ai.ts`）
-- PWA：`public/manifest.webmanifest` + `public/sw.js`（オフラインフォールバックのみ。プッシュ通知は将来フェーズ）
+Phase 2 以降（日報・経費OCR・勤怠CSV・LINE連携）は `docs/` の計画を参照。
 
 ## セットアップ
 
 ```bash
-# 1. 依存インストール
 npm install
-
-# 2. DB 作成 + シード投入（初回のみ）
-npm run setup        # = prisma generate && prisma db push && seed
-
-# 3. 開発サーバー起動
-npm run dev
-# → http://localhost:3000
+cp .env.example .env      # Neon の接続文字列・AUTH_SECRET などを設定
+npx prisma migrate dev --name init   # 初回（開発DB）。以降は npm run db:migrate
+npm run db:seed           # デモデータ（顧客300・物件約450・実施回3ヶ月分）
+npm run dev               # http://localhost:3000
 ```
 
-### デモ用ログイン（開発用。パスワード共通：`mielba123`）
-> セキュリティのため、v0.4 からログイン画面にはデモ認証情報を表示しません。
-> 開発時はこの表を参照してください（シードデータ `prisma/seed.ts` 由来）。
+ローカルに PostgreSQL が無い場合は Neon の開発ブランチを使う（`POSTGRES_PRISMA_URL` にプール接続、`POSTGRES_URL_NON_POOLING` に直結）。
 
-| 区分 | メール |
+### デモログイン（パスワード共通：`shinkawa123`、`SEED_PASSWORD` で変更可）
+
+| 役割 | メール |
 | --- | --- |
-| 管理者 | `admin@mielba.app` |
-| スタッフ | `sato@mielba.app` |
-| スタッフ | `suzuki@mielba.app` |
-| スタッフ | `takahashi@mielba.app` |
+| 最高管理者 | `kondo@example.com` |
+| 事務・経理 | `jimu@example.com` |
+| 手配担当（清掃） | `tehai-c@example.com` |
+| 手配担当（工事） | `tehai-k@example.com` |
+| スタッフ | `fujino@example.com` ほか |
+| アルバイト | `pt01@example.com` 〜 `pt08@example.com` |
 
-### その他コマンド
+## コマンド
+
 ```bash
-npm run db:reset    # DB を初期化して再シード
-npm run db:studio   # Prisma Studio でデータ閲覧
-npm run build       # 本番ビルド
+npm run build        # prisma generate && next build
+npm run lint         # next lint
+npm run typecheck    # tsc --noEmit
+npm test             # vitest（周期ルール・権限・CSV）
+npm run db:migrate   # prisma migrate dev
+npm run db:deploy    # prisma migrate deploy（本番）
+npm run db:seed      # シード
+npm run db:reset     # 開発DBを作り直してシード
+npm run test:routes  # スモーク（dev サーバー起動後。BASE=http://localhost:3000）
 ```
 
-## マイグレーション（本番 = PostgreSQL）
-本番（Vercel / Neon PostgreSQL）は `prisma migrate deploy` 方式で運用する。
-毎デプロイ `prisma db push` を実行する旧方式は、スキーマ差分の強制適用により
-本番データを破壊するリスクがあったため廃止した。
+## 環境変数（`.env.example`）
 
-- `prisma/migrations/**` は **PostgreSQL 専用**。ローカル（SQLite）では使用しない。
-  - `0000_baseline` … v0.3 時点の全スキーマ（db push で構築済みの既存本番DBのベースライン）
-  - `0001_v0_4_features` … v0.4 の追加分（ADD COLUMN / CREATE TABLE のみ、additive）
-- `vercel-build` は `scripts/migrate-deploy.mjs` を実行する：
-  - 既存DB（`User` テーブルあり・`_prisma_migrations` なし）→ `prisma migrate resolve --applied 0000_baseline` でベースライン化してから `prisma migrate deploy`
-  - 空DB / migrate 管理下のDB → そのまま `prisma migrate deploy`（未適用分のみ適用）
-- **ローカル開発は従来通り `npm run db:push`（SQLite への db push）**。マイグレーションファイルは使わない。
-- 今後スキーマを変更するときは、PG 版スキーマ同士の `prisma migrate diff --script` で
-  additive な SQL を生成し、`prisma/migrations/000N_xxx/migration.sql` として追加すること
-  （DROP を含む差分はレビュー必須）。
+| 変数 | 用途 |
+| --- | --- |
+| `POSTGRES_PRISMA_URL` / `POSTGRES_URL_NON_POOLING` | Neon PostgreSQL（プール／直結） |
+| `AUTH_SECRET` | セッション JWT の署名鍵 |
+| `NEXT_PUBLIC_APP_NAME` | 表示名（既定 シンカワ） |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | クイック登録の抽出（未設定なら正規表現で動作） |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob（写真・PDF。Vercel 上は OIDC で自動） |
+| `CRON_SECRET` | Vercel Cron の認可 |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
+| `SEED_PASSWORD` / `SEED_ONLY_IF_EMPTY` | シード |
+
+## デプロイ（Vercel ＋ Neon）
+
+- `vercel-build`：`prisma generate && prisma migrate deploy && SEED_ONLY_IF_EMPTY=1 tsx prisma/seed.ts && next build`
+- `vercel.json` の cron：`/api/cron/daily-checks`（毎日 18:00 JST：明日の予定通知・Blob掃除）、`/api/cron/generate-occurrences`（毎日 09:00 JST に呼び、設定日と一致する日だけ翌月分を生成）
+- リージョンは Neon と揃える（既定 `sin1`）。
+
+## マイグレーション方針
+
+- `prisma/migrations/` は PostgreSQL 専用。初回は `prisma migrate dev --name init` で1本の baseline を作る。
+- 以後のスキーマ変更は additive を基本にし、DROP を含む差分はレビュー必須。本番は `prisma migrate deploy`。
 
 ## ディレクトリ構成
+
 ```
 prisma/
-  schema.prisma        データモデル（§5 準拠。将来項目も定義済み）
-  seed.ts              デモデータ
+  schema.prisma        顧客→物件→案件→実施回→配員 のデータモデル
+  seed.ts              決定的なデモデータ
 src/
-  app/
-    login/             ログイン
-    (app)/             認証必須の各画面（ホーム/顧客/現場/カレンダー/日報/TODO）
-  components/
-    ui/                デザインシステム（Button/Card/Badge/Form/...）
-    app-shell/         ボトムナビ・ヘッダ・メニュー
-    *-card / *-item    現場・日報・TODO・写真の表示部品
-  features/            機能ごとの Server Action とフォーム
-  lib/                 db / auth / session / constants / utils / ai
-  middleware.ts        認証ガード
+  app/(app)/           認証必須の各画面（schedule / customers / properties / jobs / workers / partners / settings …）
+  app/api/             avatars / photos / media / cron
+  features/schedule/   カレンダー（query / actions / D&D / 各ビュー / ドロワー / 移動シート / クイック登録）
+  features/customers|properties|jobs|partners|users|settings|notifications|auth
+  lib/                 permissions（権限マトリクス） / recurrence（周期ルール） / generate-occurrences / csv / date / session / media …
+  components/          UI部品・App Shell
+scripts/smoke.mts      ルートのスモークテスト
 ```
 
-## メモ
-- 既存データの移行は不要（要件§9.1）。
-- 勤怠は GPS・時刻自動取得なし。作業時間の手動修正方式（要件§4.6）。
-- オフライン入力の一時保存・後送は次フェーズ候補（要件§7）。
+## 設計メモ
 
----
-© 2026 Mielba — 建設業向け現場管理アプリ v0.3
+- 実施回（Occurrence）の状態：`UNASSIGNED（未割当）→ TENTATIVE（仮）→ CONFIRMED（確定）→ DONE / CANCELLED`。`date=null` は未割当レーン。
+- 楽観ロック：`Occurrence.version`。他の人が先に動かしていたら CONFLICT を返し、画面は最新に更新する。
+- 日付は `src/lib/date.ts` の規約（サーバーTZの深夜0時を保存、`storedDateKey` で復元）。`@db.Date` は使わない。
+- 金額は `canViewAmounts(user)` のときだけ Prisma の `select` に含める（クライアントに渡さない）。

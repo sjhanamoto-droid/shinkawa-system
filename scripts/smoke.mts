@@ -1,138 +1,114 @@
+// ルートのスモークテスト。開発サーバー（BASE、既定 http://localhost:3000）に対して、
+// シード済みユーザーのセッション Cookie を発行し、各ページが 200 かつ期待する文言を含むかを確認する。
+//   npm run dev  →  別ターミナルで  npm run test:routes
+
 import { PrismaClient } from "@prisma/client";
 import { SignJWT } from "jose";
 import { readFileSync } from "node:fs";
 
 const env = readFileSync(new URL("../.env", import.meta.url), "utf8");
-const AUTH_SECRET = env.match(/AUTH_SECRET="?([^"\n]+)"?/)?.[1] ?? "";
+const AUTH_SECRET = process.env.AUTH_SECRET ?? env.match(/AUTH_SECRET="?([^"\n]+)"?/)?.[1] ?? "";
 const secret = new TextEncoder().encode(AUTH_SECRET);
 const db = new PrismaClient();
-const BASE = process.env.BASE ?? "http://localhost:3100";
+const BASE = process.env.BASE ?? "http://localhost:3000";
+const COOKIE = "shinkawa_session";
 
 async function mint(userId: string, role: string, name: string) {
-  return new SignJWT({ role, name })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(userId)
-    .setIssuedAt()
-    .setExpirationTime("1h")
-    .sign(secret);
+  return new SignJWT({ role, name }).setProtectedHeader({ alg: "HS256" }).setSubject(userId).setIssuedAt().setExpirationTime("1h").sign(secret);
 }
 
-// 各ルートで「実際に描画されるべき内容」を positive assert する
 async function check(path: string, cookie: string, expect: string[]) {
-  const res = await fetch(BASE + path, {
-    headers: { Cookie: `mielba_session=${cookie}` },
-    redirect: "manual",
-  });
+  const res = await fetch(BASE + path, { headers: { Cookie: `${COOKIE}=${cookie}` }, redirect: "manual" });
   const body = res.status === 200 ? await res.text() : "";
-  // 本文の <body>...</body> 内に notFound の主表示が出ていないか（フライト埋め込みは除外して main を見る）
   const mainNotFound = /<h1[^>]*>404<\/h1>|<h2[^>]*>This page could not be found/.test(body);
   const missing = expect.filter((e) => !body.includes(e));
   const ok = res.status === 200 && !mainNotFound && missing.length === 0;
-  const mark = ok ? "✅" : "❌";
-  console.log(
-    `${mark}  ${String(res.status).padEnd(3)} ${path}` +
-      (mainNotFound ? "  [404本文]" : "") +
-      (missing.length ? `  欠落:[${missing.join(", ")}]` : ""),
-  );
+  console.log(`${ok ? "✅" : "❌"}  ${String(res.status).padEnd(3)} ${path}${mainNotFound ? "  [404本文]" : ""}${missing.length ? `  欠落:[${missing.join(", ")}]` : ""}`);
   return { path, status: res.status, ok };
 }
 
+async function checkRedirect(path: string, cookie: string, label: string) {
+  const r = await fetch(BASE + path, { headers: { Cookie: `${COOKIE}=${cookie}` }, redirect: "manual" });
+  const body = r.status === 200 ? await r.text() : "";
+  const streamed = r.status === 200 && /http-equiv="refresh"/.test(body) && body.includes("NEXT_REDIRECT");
+  const ok = r.status === 307 || r.status === 302 || streamed;
+  console.log(`${ok ? "✅" : "❌"}  ${r.status} ${path}（${label}→リダイレクト期待）`);
+  return ok;
+}
+
 async function main() {
-  const admin = await db.user.findFirst({ where: { role: "ADMIN" } });
-  const staff = await db.user.findFirst({ where: { email: "sato@mielba.app" } });
-  const site = await db.site.findFirst({ where: { siteStatus: "ACTIVE" }, include: { customer: true } });
-  const surveySite = await db.site.findFirst({ where: { siteStatus: "SURVEY" } });
-  // 認可テスト用: スタッフ(sato)が割り当てられていない進行中現場
-  const unassignedSite = await db.site.findFirst({
-    where: { siteStatus: "ACTIVE", assignments: { none: { userId: staff!.id } } },
-  });
-  const customer = await db.customer.findFirst({ where: { sites: { some: {} } } });
-  const report = await db.dailyReport.findFirst({ include: { site: true, user: true } });
+  const owner = await db.user.findFirst({ where: { role: "OWNER" } });
+  const office = await db.user.findFirst({ where: { role: "OFFICE" } });
+  const scheduler = await db.user.findFirst({ where: { role: "SCHEDULER" } });
+  const staff = await db.user.findFirst({ where: { role: "STAFF", kind: "EMPLOYEE", canLogin: true } });
+  const customer = await db.customer.findFirst({ where: { properties: { some: {} } } });
+  const property = await db.property.findFirst({ where: { status: "ACTIVE" } });
+  const job = await db.job.findFirst({ where: { ruleKind: { not: null } } });
+  const partner = await db.partner.findFirst();
   const someUser = await db.user.findFirst({ where: { role: "STAFF" } });
-  if (!admin || !staff || !site || !customer || !report || !surveySite || !someUser) throw new Error("seed not found");
+  if (!owner || !office || !scheduler || !staff || !customer || !property || !job || !partner || !someUser) throw new Error("seed not found");
 
-  const a = await mint(admin.id, admin.role, admin.name);
+  const o = await mint(owner.id, owner.role, owner.name);
   const s = await mint(staff.id, staff.role, staff.name);
+  const sc = await mint(scheduler.id, scheduler.role, scheduler.name);
   const results: { ok: boolean; path: string; status: number }[] = [];
+  const today = new Date().toISOString().slice(0, 10);
 
-  console.log("\n=== 管理者 ===");
-  results.push(await check("/", a, ["次にやること", admin.name]));
-  results.push(await check("/customers", a, ["顧客", customer.name]));
-  results.push(await check(`/customers/${customer.id}`, a, [customer.name, "この顧客の現場"]));
-  results.push(await check(`/customers/${customer.id}/edit`, a, ["顧客名", customer.name]));
-  results.push(await check("/customers/new", a, ["顧客名"]));
-  results.push(await check("/sites", a, ["現場"]));
-  results.push(await check("/sites?status=SURVEY", a, ["現場"]));
-  results.push(await check(`/sites/${site.id}`, a, [site.name, "引き継ぎ", "職人", "関連現場", "協力会社"]));
-  results.push(await check(`/sites/${site.id}/edit`, a, [site.name]));
-  results.push(await check(`/sites/${surveySite.id}/survey`, a, ["キーBOX", "現調写真"]));
-  results.push(await check(`/sites/${site.id}/reports`, a, [site.name]));
-  results.push(await check("/sites/new", a, ["案件名"]));
-  results.push(await check("/calendar", a, ["カレンダー"]));
-  results.push(await check("/calendar?ym=2026-07", a, ["カレンダー"]));
-  results.push(await check("/calendar?view=week", a, ["カレンダー"]));
-  results.push(await check("/calendar?view=day", a, ["カレンダー"]));
-  results.push(await check("/todos", a, ["TODO"]));
-  results.push(await check("/todos?view=all", a, ["TODO"]));
-  results.push(await check(`/reports/${report.id}`, a, [report.user.name, report.site.name]));
-  results.push(await check(`/reports/${report.id}/edit`, a, ["作業日", "現場詳細"]));
-  results.push(await check(`/reports/new?siteId=${site.id}`, a, [site.name, "現場詳細"]));
-  results.push(await check("/reports", a, ["日報", "現場の動き"]));
-  results.push(await check("/settings", a, ["設定", "スタッフ管理"]));
-  results.push(await check("/settings/staff", a, ["スタッフ管理", admin.name]));
-  results.push(await check("/settings/staff/new", a, ["スタッフを追加", "初期パスワード"]));
-  results.push(await check(`/settings/staff/${someUser.id}/edit`, a, ["スタッフを編集", someUser.name]));
-  results.push(await check("/settings/account", a, ["アカウント設定", "パスワード"]));
-  results.push(await check("/settings/app", a, ["会社情報", "既定値"]));
-  results.push(await check("/dispatch", a, ["配員", "現場入り"]));
+  console.log("\n=== 最高管理者 ===");
+  results.push(await check("/", o, ["今日の予定", owner.name]));
+  results.push(await check("/schedule", o, ["カレンダー", "未割当"]));
+  results.push(await check(`/schedule?view=month&d=${today}`, o, ["カレンダー"]));
+  results.push(await check(`/schedule?view=day&d=${today}`, o, ["カレンダー"]));
+  results.push(await check(`/schedule?view=board&d=${today}`, o, ["担当未定"]));
+  results.push(await check("/customers", o, ["顧客", customer.name]));
+  results.push(await check(`/customers/${customer.id}`, o, [customer.name, "物件（現場）"]));
+  results.push(await check(`/customers/${customer.id}/edit`, o, ["顧客名"]));
+  results.push(await check("/customers/new", o, ["顧客名"]));
+  results.push(await check("/customers/import", o, ["CSV"]));
+  results.push(await check("/properties", o, ["現場（物件）"]));
+  results.push(await check(`/properties/${property.id}`, o, [property.name, "基本情報", "メモ・引き継ぎ"]));
+  results.push(await check(`/properties/${property.id}/edit`, o, ["物件名", "キーBOX"]));
+  results.push(await check("/properties/new", o, ["物件名"]));
+  results.push(await check("/jobs", o, ["案件"]));
+  results.push(await check(`/jobs/${job.id}`, o, [job.name, "実施回"]));
+  results.push(await check(`/jobs/${job.id}/edit`, o, ["案件名", "周期"]));
+  results.push(await check("/jobs/new", o, ["案件名"]));
+  results.push(await check("/workers", o, ["作業者", owner.name]));
+  results.push(await check("/workers/new", o, ["作業者を追加"]));
+  results.push(await check(`/workers/${someUser.id}/edit`, o, ["作業者を編集", someUser.name]));
+  results.push(await check("/partners", o, ["協力会社", partner.name]));
+  results.push(await check(`/partners/${partner.id}/edit`, o, [partner.name]));
+  results.push(await check("/notifications", o, ["通知"]));
+  results.push(await check("/settings", o, ["設定", "作業者管理"]));
+  results.push(await check("/settings/app", o, ["会社情報"]));
+  results.push(await check("/settings/account", o, ["アカウント設定"]));
+  results.push(await check("/menu", o, ["メニュー"]));
+  results.push(await check("/help", o, ["使い方"]));
 
   console.log("\n=== スタッフ ===");
-  results.push(await check("/", s, ["次にやること", staff.name]));
-  results.push(await check("/reports", s, ["日報", "今日の現場入り"]));
+  results.push(await check("/", s, ["今日のあなたの予定", staff.name]));
+  results.push(await check("/schedule", s, ["カレンダー"]));
+  results.push(await check("/properties", s, ["現場（物件）"]));
+  results.push(await check(`/properties/${property.id}`, s, [property.name]));
   results.push(await check("/settings", s, ["設定", "アカウント設定"]));
-  results.push(await check("/settings/account", s, ["アカウント設定"]));
-  results.push(await check(`/sites/${site.id}`, s, [site.name]));
-  results.push(await check("/todos", s, ["TODO"]));
-  results.push(await check("/calendar", s, ["カレンダー"]));
-  results.push(await check(`/reports/new?siteId=${site.id}`, s, [site.name]));
 
-  // 注: (app)/loading.tsx 追加によりページはストリーミング配信となり、
-  //     ページ内の redirect()/notFound() は HTTP 200 のままストリーム内で通知される
-  //     （リダイレクトは meta refresh + NEXT_REDIRECT、404 は not-found UI）。新仕様として両対応で判定する。
-  console.log("\n=== 認可（スタッフは未割当現場を閲覧不可＝404） ===");
+  console.log("\n=== 手配担当 ===");
+  results.push(await check("/jobs", sc, ["案件"]));
+  results.push(await check("/customers", sc, ["顧客"]));
+
+  console.log("\n=== 認可 ===");
   let authzOk = true;
-  if (unassignedSite) {
-    const r = await fetch(BASE + `/sites/${unassignedSite.id}`, {
-      headers: { Cookie: `mielba_session=${s}` },
-      redirect: "manual",
-    });
-    const body = r.status === 200 ? await r.text() : "";
-    const streamedNotFound =
-      r.status === 200 &&
-      body.includes("This page could not be found") &&
-      !body.includes(unassignedSite.name); // 現場情報が漏れていないこと
-    const ok = r.status === 404 || streamedNotFound;
-    authzOk = ok;
-    console.log(`${ok ? "✅" : "❌"}  ${r.status} /sites/${unassignedSite.id}（404期待: ${unassignedSite.name}${streamedNotFound ? " / ストリーム内404" : ""}）`);
-  } else {
-    console.log("⚠️  未割当の進行中現場が無く認可テストをスキップ");
+  authzOk = (await checkRedirect("/workers", s, "スタッフ")) && authzOk;
+  authzOk = (await checkRedirect("/jobs", s, "スタッフ")) && authzOk;
+  authzOk = (await checkRedirect("/customers/import", sc, "手配担当")) && authzOk;
+  authzOk = (await checkRedirect("/partners", sc, "手配担当")) && authzOk;
+  // スタッフの HTML に金額が含まれないこと
+  {
+    const r = await fetch(BASE + `/jobs/${job.id}`, { headers: { Cookie: `${COOKIE}=${s}` }, redirect: "manual" });
+    const ok = r.status !== 200 || !(await r.text()).includes("金額");
+    console.log(`${ok ? "✅" : "❌"}  ${r.status} /jobs/${job.id}（スタッフに金額が出ない）`);
+    authzOk = ok && authzOk;
   }
-
-  // 管理者専用ページ: 302/307 またはストリーム内リダイレクト（meta refresh + NEXT_REDIRECT）を許容
-  async function checkAdminOnlyRedirect(path: string) {
-    const r = await fetch(BASE + path, {
-      headers: { Cookie: `mielba_session=${s}` },
-      redirect: "manual",
-    });
-    const body = r.status === 200 ? await r.text() : "";
-    const streamedRedirect =
-      r.status === 200 && /http-equiv="refresh"/.test(body) && body.includes("NEXT_REDIRECT");
-    const ok = r.status === 307 || r.status === 302 || streamedRedirect;
-    console.log(`${ok ? "✅" : "❌"}  ${r.status} ${path}（スタッフ→リダイレクト期待${streamedRedirect ? " / ストリーム内リダイレクト" : ""}）`);
-    return ok;
-  }
-  authzOk = (await checkAdminOnlyRedirect("/settings/staff")) && authzOk;
-  authzOk = (await checkAdminOnlyRedirect("/dispatch")) && authzOk;
 
   console.log("\n=== ガード（未ログイン→/login） ===");
   const noauth = await fetch(BASE + "/", { redirect: "manual" });

@@ -13,6 +13,7 @@ export type OccurrenceView = {
   version: number;
   jobId: string | null;
   ruleKind: string | null; // 定期由来なら Job.ruleKind
+  ruleSummary: string | null; // describeRule の結果（定期のときのみ）
   title: string; // 表示名（title ?? 顧客短縮名 ?? 物件名）
   department: string;
   category: string;
@@ -68,6 +69,7 @@ export type WorkerOption = PersonRef & {
 };
 
 export type CustomerOption = { id: string; name: string; shortName: string | null };
+export type PropertyOption = { id: string; name: string; customerId: string; address: string | null };
 
 export type ChangeLogView = {
   id: string;
@@ -89,3 +91,43 @@ export type ActionResult<T = undefined> =
       code?: "CONFLICT" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION";
       latest?: OccurrenceView;
     };
+
+export type MoveInput = {
+  date: string | null;
+  workerAdd?: string[];
+  workerRemove?: string[];
+  scope: "ONE" | "FOLLOWING";
+  reason?: string;
+};
+
+export type OccurrenceInput = {
+  department: string;
+  category: string;
+  customerId: string | null;
+  propertyId: string | null;
+  title: string | null;
+  date: string | null;
+  endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  headcount: number | null;
+  unitCount: number | null;
+  vehicle: string | null;
+  note: string | null;
+  amount?: number | null;
+  workerIds: string[];
+};
+
+export type ScheduleData = {
+  filters: FilterState;
+  range: { start: string; end: string }; // end は排他
+  occurrences: OccurrenceView[];
+  unassigned: OccurrenceView[];
+  workers: WorkerOption[];
+  customers: CustomerOption[];
+  properties: PropertyOption[];
+  showAmount: boolean;
+  today: string;
+  me: { id: string; name: string; role: string; department: string | null };
+  defaultTimes: { start: string; end: string };
+};
