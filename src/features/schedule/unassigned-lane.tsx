@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Inbox, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,11 @@ export function UnassignedLane({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: LANE_DROP_ID, disabled: !dnd });
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState(!collapsible);
+  // PC では常に開く。スマホ（collapsible）では初期状態を畳み、日付列を先に見せる
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    if (collapsible && window.matchMedia("(max-width: 767px)").matches) setOpen(false);
+  }, [collapsible]);
 
   const groups = useMemo(() => {
     const t = q.trim();

@@ -325,9 +325,15 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         {can(actor, "occurrence.create") && (
           <QuickEntry
             onCreated={(o, unresolved) => {
+              if (unresolved) toast("顧客が見つからなかったので、件名に残しました。編集で顧客を選んでください", { type: "error" });
+              // 表示範囲の外に入った予定は、その日の週へ移動して見せる（未割当はレーンに出る）
+              const inRange = !o.date || (o.date >= range.start && o.date < range.end);
+              if (!inRange && o.date) {
+                navigate({ view: filters.view === "month" ? "month" : "week", date: o.date });
+                return;
+              }
               store.upsert(o);
               setSelectedId(o.id);
-              if (unresolved) toast("顧客が見つからなかったので、件名に残しました。編集で顧客を選んでください", { type: "error" });
             }}
           />
         )}

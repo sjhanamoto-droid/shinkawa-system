@@ -10,7 +10,6 @@ import { dateFromKey, storedDateKey, jstDateKey } from "@/lib/date";
 import {
   CATEGORY_OPTIONS,
   DEPARTMENT_OPTIONS,
-  OCCURRENCE_STATUS_OPTIONS,
   NON_WORK_CATEGORIES,
   CATEGORY,
   OCCURRENCE_STATUS_LABEL,
@@ -583,5 +582,3 @@ export async function refreshOccurrence(id: string): Promise<ActionResult<{ occu
   return run(async (me) => ({ occurrence: await fetchOccurrenceView(id, me) }));
 }
 
-export type { OccurrenceStatus };
-export const OCCURRENCE_STATUSES = OCCURRENCE_STATUS_OPTIONS;
