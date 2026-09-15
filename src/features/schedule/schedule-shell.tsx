@@ -21,7 +21,7 @@ import { OccurrenceCard } from "./occurrence-card";
 import { OccurrenceDrawer } from "./occurrence-drawer";
 import { OccurrenceForm } from "./occurrence-form";
 import { MoveSheet } from "./move-sheet";
-import { MoveRecurringDialog } from "./move-recurring-dialog";
+import { MoveConfirmDialog } from "./move-confirm-dialog";
 import { FilterBar } from "./filter-bar";
 import { QuickEntry } from "./quick-entry";
 import { Legend } from "./legend";
@@ -128,7 +128,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   const selected = selectedId ? (store.items.find((o) => o.id === selectedId) ?? null) : null;
   const [form, setForm] = useState<{ open: boolean; occurrence: OccurrenceView | null; date: string | null }>({ open: false, occurrence: null, date: null });
   const [moveFor, setMoveFor] = useState<OccurrenceView | null>(null);
-  const [recurring, setRecurring] = useState<{ occurrence: OccurrenceView; move: MoveInput } | null>(null);
+  const [confirm, setConfirm] = useState<{ occurrence: OccurrenceView; move: MoveInput } | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState<OccurrenceView | null>(null);
 
@@ -163,11 +163,14 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     [store, personById, toast, router],
   );
 
+  // confirmAlways=true（ドラッグ＆ドロップ）は常に確認ダイアログを出す。
+  // 移動シートからは本人が入力済みなので、定期の日付変更のときだけ「この回だけ／以降も」を確認する。
   const requestMove = useCallback(
-    (o: OccurrenceView, move: MoveInput) => {
+    (o: OccurrenceView, move: MoveInput, opts: { confirmAlways?: boolean } = {}) => {
       const dateChanged = move.date !== o.date;
-      if (dateChanged && move.date && o.ruleKind && o.jobId) {
-        setRecurring({ occurrence: o, move });
+      const recurring = dateChanged && !!move.date && !!o.ruleKind && !!o.jobId;
+      if (opts.confirmAlways || recurring) {
+        setConfirm({ occurrence: o, move });
         return;
       }
       void performMove(o, { ...move, scope: "ONE" });
@@ -190,12 +193,12 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     const o = d.occurrence;
     if (target.kind === "lane") {
       if (!o.date) return;
-      requestMove(o, { date: null, scope: "ONE" });
+      requestMove(o, { date: null, scope: "ONE" }, { confirmAlways: true });
       return;
     }
     if (target.kind === "day") {
       if (o.date === target.date) return;
-      requestMove(o, { date: target.date, scope: "ONE" });
+      requestMove(o, { date: target.date, scope: "ONE" }, { confirmAlways: true });
       return;
     }
     // 担当者ボードのセル
@@ -207,7 +210,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
       if (to && !o.assignees.some((a) => a.id === to)) move.workerAdd = [to];
     }
     if (o.date === target.date && !move.workerAdd && !move.workerRemove) return;
-    requestMove(o, move);
+    requestMove(o, move, { confirmAlways: true });
   }
 
   // ── 状態・担当・削除 ──
@@ -414,16 +417,17 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         }}
       />
 
-      <MoveRecurringDialog
-        open={!!recurring}
-        occurrence={recurring?.occurrence ?? null}
-        toDate={recurring?.move.date ?? null}
-        onClose={() => setRecurring(null)}
+      <MoveConfirmDialog
+        open={!!confirm}
+        occurrence={confirm?.occurrence ?? null}
+        move={confirm?.move ?? null}
+        workers={workers}
+        onClose={() => setConfirm(null)}
         pending={busy}
-        onConfirm={(scope) => {
-          const r = recurring;
-          setRecurring(null);
-          if (r) void performMove(r.occurrence, { ...r.move, scope });
+        onConfirm={(scope, reason) => {
+          const r = confirm;
+          setConfirm(null);
+          if (r) void performMove(r.occurrence, { ...r.move, scope, reason: reason ?? r.move.reason });
         }}
       />
     </DndContext>
