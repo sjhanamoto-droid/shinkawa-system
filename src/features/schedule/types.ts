@@ -8,6 +8,21 @@ export type PersonRef = {
   avatarUrl: string | null;
 };
 
+export type VehicleRef = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+export type VehicleOption = VehicleRef & {
+  plateNumber: string | null;
+  vehicleType: string | null;
+  department: string | null;
+};
+
+/** 同じ日にその車両を使う他の予定（車両 id → 予定の一覧）。重複の警告に使う */
+export type VehicleUsage = Record<string, { id: string; title: string; startTime: string | null }[]>;
+
 export type OccurrenceView = {
   id: string;
   version: number;
@@ -38,7 +53,7 @@ export type OccurrenceView = {
   } | null;
   headcount: number | null;
   unitCount: number | null;
-  vehicle: string | null;
+  vehicles: VehicleRef[];
   note: string | null;
   customerNameRaw: string | null;
   assignees: PersonRef[];
@@ -112,7 +127,7 @@ export type OccurrenceInput = {
   endTime: string | null;
   headcount: number | null;
   unitCount: number | null;
-  vehicle: string | null;
+  vehicleIds: string[];
   note: string | null;
   amount?: number | null;
   workerIds: string[];
@@ -124,6 +139,7 @@ export type ScheduleData = {
   occurrences: OccurrenceView[];
   unassigned: OccurrenceView[];
   workers: WorkerOption[];
+  vehicles: VehicleOption[];
   customers: CustomerOption[];
   properties: PropertyOption[];
   showAmount: boolean;

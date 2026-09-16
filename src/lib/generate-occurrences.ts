@@ -49,22 +49,25 @@ export async function generateOccurrencesForMonth(input: GenerateInput): Promise
       headcount: true,
       defaultStartTime: true,
       defaultEndTime: true,
-      vehicle: true,
+      vehicleId: true,
       amount: true,
     },
   });
 
   const rows: Prisma.OccurrenceCreateManyInput[] = [];
+  const vehicleBySeriesKey = new Map<string, string>(); // 既定の車両を持つ案件の回 → vehicleId
   for (const job of jobs) {
     if (!isRuleKind(job.ruleKind)) continue;
     const params = (job.ruleParams ?? {}) as RuleParams;
     const slots = slotsForMonth(job.ruleKind, params, month);
     for (const slot of slots) {
+      const key = seriesKey(job.id, month, slot.index);
+      if (job.vehicleId) vehicleBySeriesKey.set(key, job.vehicleId);
       rows.push({
         jobId: job.id,
         propertyId: job.propertyId,
         customerId: job.customerId,
-        seriesKey: seriesKey(job.id, month, slot.index),
+        seriesKey: key,
         title: null,
         department: job.department,
         category: job.category,
@@ -78,7 +81,6 @@ export async function generateOccurrencesForMonth(input: GenerateInput): Promise
         headcount: job.headcount,
         unitCount: job.unitCount,
         amount: job.amount,
-        vehicle: job.vehicle,
         source: "GENERATED",
         createdById: input.actorId ?? null,
       });
@@ -87,8 +89,21 @@ export async function generateOccurrencesForMonth(input: GenerateInput): Promise
 
   let created = 0;
   if (rows.length > 0) {
+    // 既定の車両は「この実行で新しく作った回」にだけ付ける（既存の回で外した車両を復活させない）
+    const keys = Array.from(vehicleBySeriesKey.keys());
+    const existing = keys.length
+      ? new Set((await db.occurrence.findMany({ where: { seriesKey: { in: keys } }, select: { seriesKey: true } })).map((o) => o.seriesKey))
+      : new Set<string | null>();
     const res = await db.occurrence.createMany({ data: rows, skipDuplicates: true });
     created = res.count;
+    const fresh = keys.filter((k) => !existing.has(k));
+    if (fresh.length) {
+      const made = await db.occurrence.findMany({ where: { seriesKey: { in: fresh } }, select: { id: true, seriesKey: true } });
+      await db.occurrenceVehicle.createMany({
+        data: made.map((o) => ({ occurrenceId: o.id, vehicleId: vehicleBySeriesKey.get(o.seriesKey!)!, createdById: input.actorId ?? null })),
+        skipDuplicates: true,
+      });
+    }
   }
   const skipped = rows.length - created;
 

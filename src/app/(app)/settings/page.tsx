@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users2, Building2, UserCog, ChevronRight, Info, Bell, Handshake } from "lucide-react";
+import { Users2, Building2, UserCog, ChevronRight, Info, Bell, Handshake, Car } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
@@ -24,7 +24,9 @@ function SettingRow({ href, icon, title, desc }: { href: string; icon: React.Rea
 export default async function SettingsPage() {
   const user = await requireUser();
   const manager = can(user, "worker.manage");
-  const workerCount = manager ? await db.user.count({ where: { active: true } }) : 0;
+  const [workerCount, vehicleCount] = manager
+    ? await Promise.all([db.user.count({ where: { active: true } }), db.vehicle.count({ where: { active: true } })])
+    : [0, 0];
 
   return (
     <div>
@@ -46,6 +48,12 @@ export default async function SettingsPage() {
                   icon={<Handshake className="h-5 w-5" />}
                   title="協力会社・下請"
                   desc="会社マスターと所属作業者"
+                />
+                <SettingRow
+                  href="/vehicles"
+                  icon={<Car className="h-5 w-5" />}
+                  title="車両管理"
+                  desc={`カレンダーで選ぶ社有車の台帳（${vehicleCount}台）`}
                 />
                 <SettingRow
                   href="/settings/app"

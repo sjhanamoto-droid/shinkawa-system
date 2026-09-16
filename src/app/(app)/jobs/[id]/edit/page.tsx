@@ -11,12 +11,12 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
   const user = await requireCan("job.manage");
   const showAmount = canViewAmounts(user);
   const { id } = await params;
-  const [job, properties] = await Promise.all([
+  const [job, properties, vehicles] = await Promise.all([
     db.job.findUnique({
       where: { id },
       select: {
         id: true, propertyId: true, customerId: true, name: true, department: true, category: true, contractType: true, ruleKind: true, ruleParams: true,
-        unitCount: true, headcount: true, defaultStartTime: true, defaultEndTime: true, vehicle: true, note: true, status: true, startsOn: true, endsOn: true,
+        unitCount: true, headcount: true, defaultStartTime: true, defaultEndTime: true, vehicleId: true, note: true, status: true, startsOn: true, endsOn: true,
         amount: showAmount,
       },
     }),
@@ -24,6 +24,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
       select: { id: true, name: true, customerId: true, customer: { select: { shortName: true, name: true } } },
       orderBy: [{ customer: { kana: "asc" } }, { name: "asc" }],
     }),
+    db.vehicle.findMany({ select: { id: true, name: true, vehicleType: true, active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
   ]);
   if (!job) notFound();
   if (!canEditDepartment(user, job.department)) redirect(`/jobs/${id}`);
@@ -40,6 +41,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             endsOn: job.endsOn ? storedDateKey(job.endsOn) : null,
           }}
           properties={properties.map((p) => ({ id: p.id, name: p.name, customerId: p.customerId, customerName: p.customer.shortName ?? p.customer.name }))}
+          vehicles={vehicles}
           showAmount={showAmount}
           currentMonth={jstMonthKey()}
         />

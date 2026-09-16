@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useOccurrenceStore } from "./use-occurrence-store";
 import { useIsCoarsePointer, useScheduleSensors, parseDropId, type DragData } from "./dnd";
 import { scheduleHref, stepDate, rangeFor, shiftKey, fmtYm, fmtKeyLong, fmtKeyShort, weekStartOf, ymOf } from "./filters";
-import { moveOccurrence, setOccurrenceStatus, assignWorkers, deleteOccurrence } from "./actions";
+import { moveOccurrence, setOccurrenceStatus, assignWorkers, assignVehicles, deleteOccurrence } from "./actions";
 import { MonthView } from "./month-view";
 import { WeekView } from "./week-view";
 import { DayView } from "./day-view";
@@ -25,7 +25,7 @@ import { MoveConfirmDialog } from "./move-confirm-dialog";
 import { FilterBar } from "./filter-bar";
 import { QuickEntry } from "./quick-entry";
 import { Legend } from "./legend";
-import type { FilterState, MoveInput, OccurrenceView, PersonRef, ScheduleData, ViewMode } from "./types";
+import type { FilterState, MoveInput, OccurrenceView, PersonRef, ScheduleData, VehicleRef, ViewMode } from "./types";
 
 const POLL_MS = 30_000;
 
@@ -40,7 +40,7 @@ function nextStatusClient(o: OccurrenceView, date: string | null, assigneeCount:
 export function ScheduleShell({ data }: { data: ScheduleData }) {
   const router = useRouter();
   const toast = useToast();
-  const { filters, workers, customers, properties, showAmount, today, me, defaultTimes } = data;
+  const { filters, workers, vehicles, customers, properties, showAmount, today, me, defaultTimes } = data;
   const actor: Actor = { id: me.id, role: me.role, department: me.department };
   const canEdit = isPlanner(actor);
   const coarse = useIsCoarsePointer();
@@ -60,6 +60,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   }, [data.occurrences, data.unassigned]);
   const store = useOccurrenceStore(initial);
   const personById = useMemo(() => new Map<string, PersonRef>(workers.map((w) => [w.id, w])), [workers]);
+  const vehicleById = useMemo(() => new Map<string, VehicleRef>(vehicles.map((v) => [v.id, { id: v.id, name: v.name, color: v.color }])), [vehicles]);
 
   const range = rangeFor(filters);
   const byDay = useMemo(() => {
@@ -245,6 +246,24 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     }
   }
 
+  async function onAssignVehicles(o: OccurrenceView, ids: string[]) {
+    // 無効化済みで選択肢に無い車両は、今付いているものから名前を引く
+    const current = new Map(o.vehicles.map((v) => [v.id, v]));
+    const next = ids.map((id) => vehicleById.get(id) ?? current.get(id)).filter((v): v is VehicleRef => !!v);
+    store.apply(o.id, { vehicles: next });
+    setBusy(true);
+    const r = await assignVehicles(o.id, ids, o.version);
+    setBusy(false);
+    if (r.ok) {
+      store.commit(o.id, r.data.occurrence);
+      toast(next.length ? `使用車両を更新しました（${next.map((v) => v.name).join("・")}）` : "使用車両を外しました");
+    } else {
+      store.rollback(o.id);
+      toast(r.error, { type: "error" });
+      if (r.code === "CONFLICT") router.refresh();
+    }
+  }
+
   async function onDelete(o: OccurrenceView, scope: "ONE" | "FOLLOWING") {
     setBusy(true);
     const r = await deleteOccurrence(o.id, scope);
@@ -374,12 +393,14 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         <OccurrenceDrawer
           occurrence={selected}
           workers={workers}
+          vehicles={vehicles}
           me={actor}
           onClose={() => setSelectedId(null)}
           onEdit={openEdit}
           onMove={(o) => setMoveFor(o)}
           onStatus={onStatus}
           onAssign={onAssign}
+          onAssignVehicles={onAssignVehicles}
           onDelete={onDelete}
           busy={busy}
         />
@@ -393,6 +414,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         customers={customers}
         properties={properties}
         workers={workers}
+        vehicles={vehicles}
         showAmount={showAmount}
         defaultDepartment={defaultDepartment}
         defaultTimes={defaultTimes}

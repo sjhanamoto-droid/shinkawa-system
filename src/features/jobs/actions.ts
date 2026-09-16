@@ -44,7 +44,7 @@ const jobSchema = z.object({
   headcount: z.coerce.number().int().min(0).max(99).nullable(),
   defaultStartTime: z.string().regex(timeRe, "開始時刻の形式が正しくありません").nullable(),
   defaultEndTime: z.string().regex(timeRe, "終了時刻の形式が正しくありません").nullable(),
-  vehicle: z.string().trim().max(50).nullable(),
+  vehicleId: z.string().trim().max(50).nullable(),
   amount: z.coerce.number().int().min(0).max(100_000_000).nullable(),
   note: z.string().trim().max(2000).nullable(),
   status: z.enum(JOB_STATUS_OPTIONS),
@@ -66,7 +66,7 @@ function parseJob(formData: FormData, allowAmount: boolean) {
     headcount: nz(formData.get("headcount")),
     defaultStartTime: nz(formData.get("defaultStartTime")),
     defaultEndTime: nz(formData.get("defaultEndTime")),
-    vehicle: nz(formData.get("vehicle")),
+    vehicleId: nz(formData.get("vehicleId")),
     amount: allowAmount ? nz(formData.get("amount")) : null,
     note: nz(formData.get("note")),
     status: formData.get("status") || "ACTIVE",
@@ -107,7 +107,7 @@ function normalize(d: Parsed): { data: Omit<Prisma.JobUncheckedCreateInput, "cus
       headcount: d.headcount,
       defaultStartTime: d.defaultStartTime,
       defaultEndTime: d.defaultEndTime,
-      vehicle: d.vehicle,
+      vehicleId: d.vehicleId,
       note: d.note,
       status: d.status,
       startsOn: d.startsOn ? dateFromKey(d.startsOn) : null,
@@ -132,6 +132,7 @@ export async function createJob(_prev: JobFormState, formData: FormData): Promis
   if ("error" in n) return { error: n.error };
   const property = await db.property.findUnique({ where: { id: d.propertyId }, select: { customerId: true } });
   if (!property) return { error: "物件が見つかりません" };
+  if (d.vehicleId && !(await db.vehicle.findUnique({ where: { id: d.vehicleId }, select: { id: true } }))) return { error: "車両が見つかりません" };
 
   const job = await db.job.create({
     data: { ...n.data, customerId: property.customerId, propertyId: d.propertyId, amount: allowAmount ? d.amount : null, createdById: me.id },
@@ -163,6 +164,7 @@ export async function updateJob(_prev: JobFormState, formData: FormData): Promis
   if ("error" in n) return { error: n.error };
   const property = await db.property.findUnique({ where: { id: d.propertyId }, select: { customerId: true } });
   if (!property) return { error: "物件が見つかりません" };
+  if (d.vehicleId && !(await db.vehicle.findUnique({ where: { id: d.vehicleId }, select: { id: true } }))) return { error: "車両が見つかりません" };
 
   await db.job.update({
     where: { id },

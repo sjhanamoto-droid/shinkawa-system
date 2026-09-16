@@ -45,8 +45,9 @@ async function main() {
   const property = await db.property.findFirst({ where: { status: "ACTIVE" } });
   const job = await db.job.findFirst({ where: { ruleKind: { not: null } } });
   const partner = await db.partner.findFirst();
+  const vehicle = await db.vehicle.findFirst({ where: { active: true } });
   const someUser = await db.user.findFirst({ where: { role: "STAFF" } });
-  if (!owner || !office || !scheduler || !staff || !customer || !property || !job || !partner || !someUser) throw new Error("seed not found");
+  if (!owner || !office || !scheduler || !staff || !customer || !property || !job || !partner || !vehicle || !someUser) throw new Error("seed not found");
 
   const o = await mint(owner.id, owner.role, owner.name);
   const s = await mint(staff.id, staff.role, staff.name);
@@ -78,8 +79,11 @@ async function main() {
   results.push(await check(`/workers/${someUser.id}/edit`, o, ["作業者を編集", someUser.name]));
   results.push(await check("/partners", o, ["協力会社", partner.name]));
   results.push(await check(`/partners/${partner.id}/edit`, o, [partner.name]));
+  results.push(await check("/vehicles", o, ["車両", vehicle.name]));
+  results.push(await check("/vehicles/new", o, ["車両を追加"]));
+  results.push(await check(`/vehicles/${vehicle.id}/edit`, o, ["車両を編集", vehicle.name]));
   results.push(await check("/notifications", o, ["通知"]));
-  results.push(await check("/settings", o, ["設定", "作業者管理"]));
+  results.push(await check("/settings", o, ["設定", "作業者管理", "車両管理"]));
   results.push(await check("/settings/app", o, ["会社情報"]));
   results.push(await check("/settings/account", o, ["アカウント設定"]));
   results.push(await check("/menu", o, ["メニュー"]));
@@ -102,6 +106,7 @@ async function main() {
   authzOk = (await checkRedirect("/jobs", s, "スタッフ")) && authzOk;
   authzOk = (await checkRedirect("/customers/import", sc, "手配担当")) && authzOk;
   authzOk = (await checkRedirect("/partners", sc, "手配担当")) && authzOk;
+  authzOk = (await checkRedirect("/vehicles", sc, "手配担当")) && authzOk;
   // スタッフの HTML に金額が含まれないこと
   {
     const r = await fetch(BASE + `/jobs/${job.id}`, { headers: { Cookie: `${COOKIE}=${s}` }, redirect: "manual" });

@@ -9,14 +9,15 @@ import { Avatar } from "@/components/ui/avatar";
 import { CategoryBadge, OccurrenceStatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, Modal } from "@/components/ui/modal";
-import { CHANGE_ACTION_LABEL, DEPARTMENT_LABEL, OCCURRENCE_SOURCE_LABEL, isDepartment, type ChangeAction } from "@/lib/constants";
+import { CHANGE_ACTION_LABEL, DEPARTMENT_LABEL, NON_WORK_CATEGORIES, OCCURRENCE_SOURCE_LABEL, isDepartment, type ChangeAction } from "@/lib/constants";
 import { can, type Actor } from "@/lib/permissions";
 import { cn, fmtYen, mapSearchUrl } from "@/lib/utils";
 import { AssigneePicker } from "./assignee-picker";
-import { getChangeLog } from "./actions";
+import { VehiclePicker } from "./vehicle-picker";
+import { getChangeLog, getVehicleUsage } from "./actions";
 import { fmtKeyLong, fmtKeyShort } from "./filters";
 import { timeLabel } from "./occurrence-card";
-import type { ChangeLogView, OccurrenceView, WorkerOption } from "./types";
+import type { ChangeLogView, OccurrenceView, VehicleOption, VehicleUsage, WorkerOption } from "./types";
 
 function fmtLogValue(field: string | null, v: string | null, people: Map<string, string>): string {
   if (v == null) return "—";
@@ -28,23 +29,27 @@ function fmtLogValue(field: string | null, v: string | null, people: Map<string,
 export function OccurrenceDrawer({
   occurrence: o,
   workers,
+  vehicles,
   me,
   onClose,
   onEdit,
   onMove,
   onStatus,
   onAssign,
+  onAssignVehicles,
   onDelete,
   busy = false,
 }: {
   occurrence: OccurrenceView | null;
   workers: WorkerOption[];
+  vehicles: VehicleOption[];
   me: Actor;
   onClose: () => void;
   onEdit: (o: OccurrenceView) => void;
   onMove: (o: OccurrenceView) => void;
   onStatus: (o: OccurrenceView, status: string, reason?: string) => Promise<void>;
   onAssign: (o: OccurrenceView, ids: string[]) => Promise<void>;
+  onAssignVehicles: (o: OccurrenceView, ids: string[]) => Promise<void>;
   onDelete: (o: OccurrenceView, scope: "ONE" | "FOLLOWING") => Promise<void>;
   busy?: boolean;
 }) {
@@ -53,6 +58,10 @@ export function OccurrenceDrawer({
   const [loadingLogs, startLogs] = useTransition();
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignIds, setAssignIds] = useState<string[]>([]);
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [vehicleIds, setVehicleIds] = useState<string[]>([]);
+  const [usage, setUsage] = useState<VehicleUsage | null>(null);
+  const [loadingUsage, startUsage] = useTransition();
   const [confirm, setConfirm] = useState<null | "cancel" | "delete">(null);
   const [deleteScope, setDeleteScope] = useState<"ONE" | "FOLLOWING">("ONE");
   const [cancelReason, setCancelReason] = useState("");
@@ -63,7 +72,25 @@ export function OccurrenceDrawer({
     setTab("detail");
     setLogs(null);
     setAssignIds(o.assignees.map((a) => a.id));
+    setVehicleIds(o.vehicles.map((v) => v.id));
+    setUsage(null);
   }, [o?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 車両の変更モーダルを開いたら、同じ日の使用状況を取りに行く（日付が無い＝未割当なら不要）
+  useEffect(() => {
+    if (!vehicleOpen || !o) return;
+    setVehicleIds(o.vehicles.map((v) => v.id));
+    if (!o.date) {
+      setUsage({});
+      return;
+    }
+    const date = o.date;
+    const id = o.id;
+    startUsage(async () => {
+      const r = await getVehicleUsage(date, id);
+      setUsage(r.ok ? r.data.usage : {});
+    });
+  }, [vehicleOpen, o?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!o || tab !== "history" || logs !== null) return;
@@ -94,6 +121,9 @@ export function OccurrenceDrawer({
   const canCancel = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "CANCELLED" }) && o.status !== "CANCELLED" && o.status !== "DONE";
   const canReopen = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "TENTATIVE" }) && (o.status === "DONE" || o.status === "CANCELLED");
   const t = timeLabel(o);
+  // 日付が決まっていて、まだ終わっていない作業なのに車両が未選択 → 当日までに決める対象として目立たせる
+  const vehicleMissing =
+    o.vehicles.length === 0 && !!o.date && o.status !== "DONE" && o.status !== "CANCELLED" && !(NON_WORK_CATEGORIES as string[]).includes(o.category);
 
   return (
     <>
@@ -208,12 +238,6 @@ export function OccurrenceDrawer({
                     {o.headcount}名
                   </span>
                 )}
-                {o.vehicle && (
-                  <span className="flex items-center gap-1">
-                    <Car className="h-4 w-4 text-ink-faint" />
-                    {o.vehicle}
-                  </span>
-                )}
                 {o.amount !== undefined && (
                   <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">金額 {o.amount != null ? fmtYen(o.amount) : "未設定"}</span>
                 )}
@@ -249,6 +273,37 @@ export function OccurrenceDrawer({
                   </div>
                 )}
               </div>
+
+              {/* 使用車両（休みなどの非作業種別では出さない） */}
+              {!(NON_WORK_CATEGORIES as string[]).includes(o.category) && (
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <p className="flex items-center gap-1.5 text-sm font-bold text-ink">
+                      <Car className="h-4 w-4 text-ink-muted" />
+                      使用車両 {o.vehicles.length > 0 && <span className="text-ink-muted">{o.vehicles.length}台</span>}
+                    </p>
+                    {canEdit && (
+                      <button type="button" onClick={() => setVehicleOpen(true)} className="text-xs font-bold text-brand-600">
+                        {o.vehicles.length === 0 ? "選ぶ" : "変更"}
+                      </button>
+                    )}
+                  </div>
+                  {o.vehicles.length === 0 ? (
+                    <p className={cn("rounded-lg px-3 py-2 text-xs font-semibold", vehicleMissing ? "bg-amber-50 text-amber-700" : "bg-surface-subtle text-ink-muted")}>
+                      {vehicleMissing ? "車両が決まっていません（当日までに選んでください）" : "車両は未選択"}
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {o.vehicles.map((v) => (
+                        <span key={v.id} className="flex items-center gap-1.5 rounded-full border border-line bg-surface py-1 pl-2 pr-2.5 text-sm font-semibold text-ink">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: v.color }} />
+                          {v.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <p className="text-[11px] text-ink-faint">
                 {OCCURRENCE_SOURCE_LABEL[o.source as keyof typeof OCCURRENCE_SOURCE_LABEL] ?? o.source}
@@ -347,6 +402,28 @@ export function OccurrenceDrawer({
             onClick={async () => {
               await onAssign(o, assignIds);
               setAssignOpen(false);
+            }}
+          >
+            保存する
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 使用車両の変更 */}
+      <Modal open={vehicleOpen} onClose={() => setVehicleOpen(false)} title="使用車両を選ぶ">
+        {o.date && <p className="mb-3 text-xs text-ink-muted">{fmtKeyLong(o.date)} に使う車両を選びます。同じ日に他の予定でも使う車両には「同日」の印が付きます。</p>}
+        <VehiclePicker vehicles={vehicles} value={vehicleIds} onChange={setVehicleIds} department={o.department} current={o.vehicles} usage={usage} loadingUsage={loadingUsage} />
+        <div className="mt-4 flex gap-2">
+          <Button type="button" variant="secondary" className="flex-1" onClick={() => setVehicleOpen(false)}>
+            キャンセル
+          </Button>
+          <Button
+            type="button"
+            className="flex-1"
+            disabled={busy}
+            onClick={async () => {
+              await onAssignVehicles(o, vehicleIds);
+              setVehicleOpen(false);
             }}
           >
             保存する

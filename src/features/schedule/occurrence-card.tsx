@@ -67,7 +67,7 @@ export function OccurrenceCard({
 
   if (variant === "chip") {
     const noWorker = o.assignees.length === 0 && !!o.date && o.status !== "DONE" && o.status !== "CANCELLED" && o.category !== "OFF";
-    const hasMeta = !!o.unitCount || !!o.ruleKind || noWorker || o.assignees.length > 0;
+    const hasMeta = !!o.unitCount || !!o.ruleKind || noWorker || o.assignees.length > 0 || o.vehicles.length > 0;
     return (
       <button
         ref={setNodeRef}
@@ -97,6 +97,14 @@ export function OccurrenceCard({
           <span className="flex items-center gap-1">
             {o.unitCount ? <span className="text-[10px] text-ink-faint">{o.unitCount}件</span> : null}
             {o.ruleKind && <Repeat className="h-3 w-3 shrink-0 text-ink-faint" aria-label="定期" />}
+            {o.vehicles.length > 0 && (
+              <span className="flex shrink-0 items-center gap-0.5" title={o.vehicles.map((v) => v.name).join("・")} aria-label={`車両: ${o.vehicles.map((v) => v.name).join("・")}`}>
+                <Car className="h-3 w-3 text-ink-faint" />
+                {o.vehicles.map((v) => (
+                  <span key={v.id} className="h-2 w-2 rounded-full ring-1 ring-white" style={{ backgroundColor: v.color }} />
+                ))}
+              </span>
+            )}
             {noWorker && <span className="rounded bg-red-100 px-1 text-[9px] font-bold text-red-600">担当未定</span>}
             {o.assignees.length > 0 && (
               <span className="ml-auto flex min-w-0 items-center gap-1">
@@ -177,10 +185,16 @@ export function OccurrenceCard({
                 {o.headcount}名
               </span>
             ) : null}
-            {o.vehicle && (
+            {o.vehicles.length > 0 && (
               <span className="flex items-center gap-1">
                 <Car className="h-3.5 w-3.5" />
-                {o.vehicle}
+                {o.vehicles.map((v, i) => (
+                  <span key={v.id} className="flex items-center gap-0.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: v.color }} />
+                    {v.name}
+                    {i < o.vehicles.length - 1 && "・"}
+                  </span>
+                ))}
               </span>
             )}
           </span>

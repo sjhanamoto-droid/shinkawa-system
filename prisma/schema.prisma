@@ -167,8 +167,8 @@ model Property {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  createdBy   User?        @relation("PropertyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  customer    Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy   User?              @relation("PropertyCreator", fields: [createdById], references: [id], onDelete: SetNull)
   jobs        Job[]
   occurrences Occurrence[]
   photos      Photo[]
@@ -231,7 +231,7 @@ model Job {
   headcount        Int? // 標準人数
   defaultStartTime String?
   defaultEndTime   String?
-  vehicle          String?
+  vehicleId        String? // 既定の車両（実施回を生成するときに付ける）
   amount           Int? // 税抜金額（円）。権限で秘匿
   note             String?
   status           String    @default("ACTIVE") // ACTIVE | PAUSED | ENDED
@@ -244,12 +244,14 @@ model Job {
 
   customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   property    Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   occurrences Occurrence[]
 
   @@index([propertyId])
   @@index([customerId])
   @@index([status, ruleKind])
   @@index([department, status])
+  @@index([vehicleId])
 }
 
 // ───────────────────────── Occurrence（実施回＝カレンダーの1エントリ） ─────────────────────────
@@ -275,7 +277,6 @@ model Occurrence {
   headcount       Int?
   unitCount       Int?
   amount          Int? // 権限で秘匿
-  vehicle         String?
   note            String?
   customerNameRaw String? // クイック登録で顧客を解決できなかった時の生文字列
   source          String    @default("MANUAL") // MANUAL | GENERATED | QUICK
@@ -289,6 +290,7 @@ model Occurrence {
   customer    Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdBy   User?                 @relation("OccurrenceCreator", fields: [createdById], references: [id], onDelete: SetNull)
   assignments Assignment[]
+  vehicles    OccurrenceVehicle[]
   changeLogs  OccurrenceChangeLog[]
   photos      Photo[]
   reports     DailyReport[]
@@ -315,6 +317,43 @@ model Assignment {
 
   @@unique([occurrenceId, userId])
   @@index([userId])
+}
+
+// ───────────────────────────── Vehicle（車両マスタ） ─────────────────────────────
+// 社有車の台帳。実施回ごとに「当日使う車両」を OccurrenceVehicle で複数選べる。
+// 廃車・貸出中などは active=false（過去の実施回には残る）。
+model Vehicle {
+  id          String   @id @default(cuid())
+  name        String // 呼び名（例：ハイエース1）
+  plateNumber String? // ナンバー（例：春日部 400 あ 12-34）
+  vehicleType String? // 車種（例：ハイエース／軽バン／2tトラック）
+  department  String? // CLEANING | CONSTRUCTION | null（共用）
+  color       String   @default("#2f63f5") // カレンダーのチップ色
+  memo        String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  occurrences OccurrenceVehicle[]
+  jobs        Job[]
+
+  @@index([active, sortOrder])
+}
+
+// 使用車両（車両 × 実施回）
+model OccurrenceVehicle {
+  id           String   @id @default(cuid())
+  occurrenceId String
+  vehicleId    String
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  occurrence Occurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  vehicle    Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([occurrenceId, vehicleId])
+  @@index([vehicleId])
 }
 
 // 変更履歴（誰が・いつ・何を・どこから→どこへ）

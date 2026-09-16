@@ -14,6 +14,8 @@ import type {
   PersonRef,
   ScheduleData,
   WorkerOption,
+  VehicleOption,
+  VehicleUsage,
   CustomerOption,
   PropertyOption,
   ChangeLogView,
@@ -40,7 +42,6 @@ export function occurrenceSelect(showAmount: boolean) {
     endTime: true,
     headcount: true,
     unitCount: true,
-    vehicle: true,
     note: true,
     customerNameRaw: true,
     amount: showAmount,
@@ -49,8 +50,19 @@ export function occurrenceSelect(showAmount: boolean) {
       select: { id: true, name: true, address: true, keyboxNumber: true, keyboxPlace: true, accessNote: true },
     },
     assignments: { select: { userId: true }, orderBy: { createdAt: "asc" as const } },
+    vehicles: { select: { vehicle: { select: { id: true, name: true, color: true } } }, orderBy: { createdAt: "asc" as const } },
     createdBy: { select: { id: true, name: true, avatarColor: true } },
   } satisfies Prisma.OccurrenceSelect;
+}
+
+/** 表示名（title ?? 顧客短縮名 ?? 顧客名 ?? 物件名 ?? 生文字列） */
+export function occurrenceTitle(row: {
+  title: string | null;
+  customer: { name: string; shortName: string | null } | null;
+  property: { name: string } | null;
+  customerNameRaw: string | null;
+}): string {
+  return row.title ?? row.customer?.shortName ?? row.customer?.name ?? row.property?.name ?? row.customerNameRaw ?? "予定";
 }
 
 export type OccurrenceRow = Prisma.OccurrenceGetPayload<{ select: ReturnType<typeof occurrenceSelect> }>;
@@ -90,7 +102,7 @@ function windowLabelOf(start: Date | null, end: Date | null): string | null {
 export function toOccurrenceView(row: OccurrenceRow, people: Map<string, PersonRef>, showAmount: boolean): OccurrenceView {
   const ruleKind = row.job?.ruleKind ?? null;
   const ruleSummary = isRuleKind(ruleKind) ? describeRule(ruleKind, (row.job?.ruleParams ?? {}) as RuleParams) : null;
-  const title = row.title ?? row.customer?.shortName ?? row.customer?.name ?? row.property?.name ?? row.customerNameRaw ?? "予定";
+  const title = occurrenceTitle(row);
   const view: OccurrenceView = {
     id: row.id,
     version: row.version,
@@ -114,7 +126,7 @@ export function toOccurrenceView(row: OccurrenceRow, people: Map<string, PersonR
     property: row.property,
     headcount: row.headcount,
     unitCount: row.unitCount,
-    vehicle: row.vehicle,
+    vehicles: row.vehicles.map((v) => v.vehicle),
     note: row.note,
     customerNameRaw: row.customerNameRaw,
     assignees: row.assignments
@@ -170,7 +182,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
 
   const select = occurrenceSelect(showAmount);
 
-  const [rows, laneRows, people, workers, customers, properties, settings] = await Promise.all([
+  const [rows, laneRows, people, workers, vehicles, customers, properties, settings] = await Promise.all([
     db.occurrence.findMany({
       where: {
         AND: [
@@ -198,6 +210,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
       select: { id: true, kind: true, department: true, tags: true, partner: { select: { name: true } } },
       orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
     }),
+    loadVehicleOptions(),
     db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
     db.property.findMany({
       where: { status: "ACTIVE" },
@@ -221,6 +234,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
     occurrences: rows.map((r) => toOccurrenceView(r, people, showAmount)),
     unassigned: laneRows.map((r) => toOccurrenceView(r, people, showAmount)),
     workers: workerOptions,
+    vehicles,
     customers: customers as CustomerOption[],
     properties: properties as PropertyOption[],
     showAmount,
@@ -228,6 +242,47 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
     me: { id: user.id, name: user.name, role: user.role, department: user.department },
     defaultTimes: { start: settings.defaultStartTime, end: settings.defaultEndTime },
   };
+}
+
+/** 車両の選択肢（有効なものだけ。表示順→名前） */
+export async function loadVehicleOptions(): Promise<VehicleOption[]> {
+  return db.vehicle.findMany({
+    where: { active: true },
+    select: { id: true, name: true, color: true, plateNumber: true, vehicleType: true, department: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+}
+
+/**
+ * 指定日に車両を使う予定（中止以外・自分以外）を車両ごとにまとめる。
+ * 複数日の工事は期間中の日すべてに含める。フィルタに関係なく全件を見るのでサーバーで計算する。
+ */
+export async function loadVehicleUsage(dateKey: string, excludeOccurrenceId?: string | null): Promise<VehicleUsage> {
+  const day = dateFromKey(dateKey);
+  const rows = await db.occurrence.findMany({
+    where: {
+      ...(excludeOccurrenceId ? { id: { not: excludeOccurrenceId } } : {}),
+      status: { not: "CANCELLED" },
+      vehicles: { some: {} },
+      OR: [{ date: day }, { date: { lte: day }, endDate: { gte: day } }],
+    },
+    select: {
+      id: true,
+      title: true,
+      startTime: true,
+      customerNameRaw: true,
+      customer: { select: { name: true, shortName: true } },
+      property: { select: { name: true } },
+      vehicles: { select: { vehicleId: true } },
+    },
+    orderBy: [{ startTime: "asc" }, { createdAt: "asc" }],
+  });
+  const usage: VehicleUsage = {};
+  for (const r of rows) {
+    const entry = { id: r.id, title: occurrenceTitle(r), startTime: r.startTime };
+    for (const v of r.vehicles) (usage[v.vehicleId] ??= []).push(entry);
+  }
+  return usage;
 }
 
 export async function loadChangeLog(occurrenceId: string): Promise<ChangeLogView[]> {

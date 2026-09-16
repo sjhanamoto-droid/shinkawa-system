@@ -39,7 +39,7 @@ export type JobFormValues = {
   headcount?: number | null;
   defaultStartTime?: string | null;
   defaultEndTime?: string | null;
-  vehicle?: string | null;
+  vehicleId?: string | null;
   amount?: number | null;
   note?: string | null;
   status?: string | null;
@@ -48,6 +48,7 @@ export type JobFormValues = {
 };
 
 export type PropertyChoice = { id: string; name: string; customerId: string; customerName: string };
+export type VehicleChoice = { id: string; name: string; vehicleType: string | null; active: boolean };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -61,11 +62,13 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 export function JobForm({
   job,
   properties,
+  vehicles,
   showAmount,
   currentMonth,
 }: {
   job?: JobFormValues;
   properties: PropertyChoice[];
+  vehicles: VehicleChoice[];
   showAmount: boolean;
   currentMonth: string;
 }) {
@@ -177,8 +180,19 @@ export function JobForm({
             </Field>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="車両" htmlFor="vehicle">
-              <Input id="vehicle" name="vehicle" defaultValue={job?.vehicle ?? ""} placeholder="ハイエース1" maxLength={50} />
+            <Field label="既定の車両" htmlFor="vehicleId" hint="生成した実施回に付きます。当日の変更はカレンダーで">
+              <Select id="vehicleId" name="vehicleId" defaultValue={job?.vehicleId ?? ""}>
+                <option value="">指定なし（当日に選ぶ）</option>
+                {vehicles
+                  .filter((v) => v.active || v.id === job?.vehicleId)
+                  .map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                      {v.vehicleType ? `（${v.vehicleType}）` : ""}
+                      {!v.active ? " ※無効" : ""}
+                    </option>
+                  ))}
+              </Select>
             </Field>
             {showAmount && (
               <Field label="金額（税抜・円）" htmlFor="amount" hint="1回あたり。最高管理者・事務経理のみ表示">

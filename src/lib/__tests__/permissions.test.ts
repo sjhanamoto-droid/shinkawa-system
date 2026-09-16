@@ -45,8 +45,8 @@ describe("permissions: staff", () => {
 });
 
 describe("permissions: management", () => {
-  it("import/worker/partner/settings are OWNER/OFFICE only", () => {
-    for (const action of ["customer.import", "worker.manage", "partner.manage", "settings.manage"] as const) {
+  it("import/worker/partner/vehicle/settings are OWNER/OFFICE only", () => {
+    for (const action of ["customer.import", "worker.manage", "partner.manage", "vehicle.manage", "settings.manage"] as const) {
       expect(can(owner, action)).toBe(true);
       expect(can(office, action)).toBe(true);
       expect(can(schedAll, action)).toBe(false);

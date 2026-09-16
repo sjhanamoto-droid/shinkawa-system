@@ -100,6 +100,7 @@ async function main() {
   const todayKey = jstDateKey();
 
   console.log("🧹 既存データを削除中...");
+  await db.occurrenceVehicle.deleteMany();
   await db.assignment.deleteMany();
   await db.occurrenceChangeLog.deleteMany();
   await db.notification.deleteMany();
@@ -111,6 +112,7 @@ async function main() {
   await db.handover.deleteMany();
   await db.occurrence.deleteMany();
   await db.job.deleteMany();
+  await db.vehicle.deleteMany();
   await db.propertyRelation.deleteMany();
   await db.propertyMemo.deleteMany();
   await db.property.deleteMany();
@@ -141,6 +143,22 @@ async function main() {
       db.partner.create({ data: { ...p, kana: p.name, contactName: `${pick(LAST)} ${pick(FIRST)}`, phone: `048-${int(100, 999)}-${int(1000, 9999)}`, sortOrder: i } }),
     ),
   );
+
+  // ── 車両 ──
+  console.log("🚐 車両");
+  const vehicleDefs: Prisma.VehicleCreateManyInput[] = [
+    { id: "v_hiace1", name: "ハイエース1", vehicleType: "ハイエース", plateNumber: "春日部 400 あ 12-34", department: "CLEANING", color: "#2f63f5", sortOrder: 0 },
+    { id: "v_hiace2", name: "ハイエース2", vehicleType: "ハイエース", plateNumber: "春日部 400 あ 56-78", department: "CLEANING", color: "#0ea5e9", sortOrder: 1 },
+    { id: "v_caravan", name: "キャラバン", vehicleType: "NV350キャラバン", plateNumber: "春日部 400 い 90-12", department: "CLEANING", color: "#10b981", sortOrder: 2 },
+    { id: "v_keivan", name: "軽バン", vehicleType: "エブリイ", plateNumber: "春日部 480 う 34-56", department: null, color: "#f59e0b", sortOrder: 3, memo: "現調・小物の配達用" },
+    { id: "v_keitora", name: "軽トラ", vehicleType: "ハイゼット", plateNumber: "春日部 480 え 78-90", department: "CONSTRUCTION", color: "#f97316", sortOrder: 4 },
+    { id: "v_truck", name: "2tトラック", vehicleType: "エルフ", plateNumber: "春日部 100 か 11-22", department: "CONSTRUCTION", color: "#8b5cf6", sortOrder: 5, memo: "工事の資材運搬。運転は要中型" },
+    { id: "v_old", name: "旧ハイエース", vehicleType: "ハイエース", plateNumber: null, department: "CLEANING", color: "#64748b", sortOrder: 9, active: false, memo: "2026年8月に廃車" },
+  ];
+  await db.vehicle.createMany({ data: vehicleDefs });
+  console.log(`  車両: ${vehicleDefs.length}台`);
+  const cleaningVehicles = ["v_hiace1", "v_hiace2", "v_caravan", "v_keivan"];
+  const constructionVehicles = ["v_keitora", "v_truck", "v_keivan"];
 
   // ── ユーザー（作業者台帳） ──
   console.log("👤 作業者");
@@ -299,6 +317,7 @@ async function main() {
         headcount: int(1, 3),
         defaultStartTime: pick(["09:00", "09:00", "10:00", "13:00", null]),
         defaultEndTime: null,
+        vehicleId: chance(0.4) ? pick(cleaningVehicles) : null, // 既定の車両（4割の定期に付ける）
         amount: int(80, 1200) * 100,
         status: "ACTIVE",
         _rule: { kind, params },
@@ -321,6 +340,7 @@ async function main() {
   console.log("🗓 実施回");
   const occurrences: Prisma.OccurrenceCreateManyInput[] = [];
   const assignments: Prisma.AssignmentCreateManyInput[] = [];
+  const occurrenceVehicles: Prisma.OccurrenceVehicleCreateManyInput[] = [];
   const changeLogs: Prisma.OccurrenceChangeLogCreateManyInput[] = [];
   let oi = 0;
   const statusFor = (dateKey: string | null, ym: string): string => {
@@ -343,7 +363,7 @@ async function main() {
     }
     picked.forEach((userId, i) => assignments.push({ occurrenceId: occId, userId, isLead: i === 0, createdById: "u_jimu" }));
   };
-  const pushOcc = (o: Omit<Prisma.OccurrenceCreateManyInput, "id" | "version">, dept: string, headcount: number) => {
+  const pushOcc = (o: Omit<Prisma.OccurrenceCreateManyInput, "id" | "version">, dept: string, headcount: number, defaultVehicleId: string | null = null) => {
     const id = cuidLike("o", oi++);
     let status = o.status ?? "UNASSIGNED";
     // 日付あり・担当なし（担当未定）を1割ほど混ぜる
@@ -351,6 +371,12 @@ async function main() {
     if (noWorker) status = "UNASSIGNED";
     occurrences.push({ ...o, id, status, version: 1 });
     if (!noWorker) assign(id, dept, headcount, status);
+    // 使用車両：案件の既定があればそれ。無ければ7割に1台（たまに2台）。残りは「当日までに選ぶ」状態
+    if (o.date != null && status !== "CANCELLED" && o.category !== "OFF") {
+      const pool = dept === "CONSTRUCTION" ? constructionVehicles : cleaningVehicles;
+      const chosen = defaultVehicleId ? [defaultVehicleId] : chance(0.7) ? shuffle(pool).slice(0, chance(0.15) ? 2 : 1) : [];
+      for (const vehicleId of chosen) occurrenceVehicles.push({ occurrenceId: id, vehicleId, createdById: "u_jimu" });
+    }
     return id;
   };
 
@@ -381,6 +407,7 @@ async function main() {
             },
             j.department,
             j.headcount ?? 1,
+            j.vehicleId ?? null,
           );
         }
       }
@@ -435,6 +462,7 @@ async function main() {
     return true;
   });
   await createMany("配員", uniqAssignments, (c) => db.assignment.createMany({ data: c }));
+  await createMany("使用車両", occurrenceVehicles, (c) => db.occurrenceVehicle.createMany({ data: c, skipDuplicates: true }));
 
   // ── 変更履歴（移動30件） ──
   const movable = occurrences.filter((o) => o.date && o.targetMonth !== nextMonth);
@@ -475,7 +503,7 @@ async function main() {
   const counts = Array.from(perDay.values());
   const avg = counts.reduce((a, b) => a + b, 0) / Math.max(1, counts.length);
   console.log("\n✅ シード完了");
-  console.log(`  顧客 ${customers.length} / 物件 ${properties.length} / 案件 ${jobs.length} / 実施回 ${occurrences.length}（未割当 ${occurrences.filter((o) => !o.date).length}） / 配員 ${uniqAssignments.length}`);
+  console.log(`  顧客 ${customers.length} / 物件 ${properties.length} / 案件 ${jobs.length} / 実施回 ${occurrences.length}（未割当 ${occurrences.filter((o) => !o.date).length}） / 配員 ${uniqAssignments.length} / 車両 ${vehicleDefs.length}台（使用 ${occurrenceVehicles.length}件）`);
   console.log(`  1日あたり平均 ${avg.toFixed(1)} 件（最小 ${Math.min(...counts)} / 最大 ${Math.max(...counts)}）`);
   console.log(`\n  ログイン: kondo@example.com（最高管理者） / jimu@example.com（事務）/ tehai-c@example.com（清掃手配）/ fujino@example.com（スタッフ）  パスワード: ${password}`);
 }

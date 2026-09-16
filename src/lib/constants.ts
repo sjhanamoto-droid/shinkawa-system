@@ -203,6 +203,7 @@ export type ChangeAction =
   | "UNASSIGN"
   | "STATUS"
   | "EDIT"
+  | "VEHICLE"
   | "CANCEL"
   | "DELETE"
   | "GENERATE";
@@ -213,6 +214,7 @@ export const CHANGE_ACTION_LABEL: Record<ChangeAction, string> = {
   UNASSIGN: "担当解除",
   STATUS: "状態変更",
   EDIT: "編集",
+  VEHICLE: "車両変更",
   CANCEL: "中止",
   DELETE: "削除",
   GENERATE: "生成",

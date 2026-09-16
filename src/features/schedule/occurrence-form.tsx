@@ -15,8 +15,9 @@ import {
   type Department,
 } from "@/lib/constants";
 import { AssigneePicker } from "./assignee-picker";
-import { createOccurrence, updateOccurrence } from "./actions";
-import type { ActionResult, CustomerOption, OccurrenceInput, OccurrenceView, PropertyOption, WorkerOption } from "./types";
+import { VehiclePicker } from "./vehicle-picker";
+import { createOccurrence, updateOccurrence, getVehicleUsage } from "./actions";
+import type { ActionResult, CustomerOption, OccurrenceInput, OccurrenceView, PropertyOption, VehicleOption, VehicleUsage, WorkerOption } from "./types";
 
 function numOrNull(v: string): number | null {
   const t = v.trim();
@@ -33,6 +34,7 @@ export function OccurrenceForm({
   customers,
   properties,
   workers,
+  vehicles,
   showAmount,
   defaultDepartment,
   defaultTimes,
@@ -45,6 +47,7 @@ export function OccurrenceForm({
   customers: CustomerOption[];
   properties: PropertyOption[];
   workers: WorkerOption[];
+  vehicles: VehicleOption[];
   showAmount: boolean;
   defaultDepartment: Department;
   defaultTimes: { start: string; end: string };
@@ -68,7 +71,9 @@ export function OccurrenceForm({
   const [endTime, setEndTime] = useState(defaultTimes.end);
   const [headcount, setHeadcount] = useState("");
   const [unitCount, setUnitCount] = useState("");
-  const [vehicle, setVehicle] = useState("");
+  const [vehicleIds, setVehicleIds] = useState<string[]>([]);
+  const [usage, setUsage] = useState<VehicleUsage | null>(null);
+  const [loadingUsage, startUsage] = useTransition();
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState("");
   const [workerIds, setWorkerIds] = useState<string[]>([]);
@@ -91,7 +96,7 @@ export function OccurrenceForm({
       setEndTime(occurrence.endTime ?? defaultTimes.end);
       setHeadcount(occurrence.headcount?.toString() ?? "");
       setUnitCount(occurrence.unitCount?.toString() ?? "");
-      setVehicle(occurrence.vehicle ?? "");
+      setVehicleIds(occurrence.vehicles.map((v) => v.id));
       setNote(occurrence.note ?? "");
       setAmount(occurrence.amount != null ? String(occurrence.amount) : "");
       setWorkerIds(occurrence.assignees.map((a) => a.id));
@@ -110,12 +115,26 @@ export function OccurrenceForm({
       setEndTime(defaultTimes.end);
       setHeadcount("");
       setUnitCount("");
-      setVehicle("");
+      setVehicleIds([]);
       setNote("");
       setAmount("");
       setWorkerIds([]);
     }
   }, [open, occurrence, initialDate, defaultDepartment, defaultTimes]);
+
+  // 日付が決まっていれば、同じ日の車両の使用状況を取りに行く（重複の注意表示用）
+  const usageDate = open && !undated && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  useEffect(() => {
+    if (!usageDate) {
+      setUsage(null);
+      return;
+    }
+    const excludeId = occurrence?.id ?? null;
+    startUsage(async () => {
+      const r = await getVehicleUsage(usageDate, excludeId);
+      setUsage(r.ok ? r.data.usage : {});
+    });
+  }, [usageDate, occurrence?.id]);
 
   // 種別に部門が決まっていれば追従
   useEffect(() => {
@@ -152,7 +171,7 @@ export function OccurrenceForm({
       endTime: timed ? endTime : null,
       headcount: numOrNull(headcount),
       unitCount: numOrNull(unitCount),
-      vehicle: vehicle.trim() || null,
+      vehicleIds: isPersonal ? [] : vehicleIds,
       note: note.trim() || null,
       workerIds,
     };
@@ -278,17 +297,19 @@ export function OccurrenceForm({
         </div>
 
         {!isPersonal && (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="人数" htmlFor="of-head">
-              <Input id="of-head" type="number" inputMode="numeric" min={0} max={99} value={headcount} onChange={(e) => setHeadcount(e.target.value)} placeholder="例：2" />
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="人数" htmlFor="of-head">
+                <Input id="of-head" type="number" inputMode="numeric" min={0} max={99} value={headcount} onChange={(e) => setHeadcount(e.target.value)} placeholder="例：2" />
+              </Field>
+              <Field label="部屋数・箇所" htmlFor="of-unit">
+                <Input id="of-unit" type="number" inputMode="numeric" min={0} max={999} value={unitCount} onChange={(e) => setUnitCount(e.target.value)} placeholder="例：15" />
+              </Field>
+            </div>
+            <Field label="使用車両" hint={vehicleIds.length ? `${vehicleIds.length}台` : "当日までに選べばOK"}>
+              <VehiclePicker vehicles={vehicles} value={vehicleIds} onChange={setVehicleIds} department={department} current={occurrence?.vehicles ?? []} usage={usage} loadingUsage={loadingUsage} />
             </Field>
-            <Field label="部屋数・箇所" htmlFor="of-unit">
-              <Input id="of-unit" type="number" inputMode="numeric" min={0} max={999} value={unitCount} onChange={(e) => setUnitCount(e.target.value)} placeholder="例：15" />
-            </Field>
-            <Field label="車両" htmlFor="of-vehicle">
-              <Input id="of-vehicle" value={vehicle} onChange={(e) => setVehicle(e.target.value)} placeholder="例：ハイエース1" maxLength={50} />
-            </Field>
-          </div>
+          </>
         )}
 
         {showAmount && !isPersonal && (

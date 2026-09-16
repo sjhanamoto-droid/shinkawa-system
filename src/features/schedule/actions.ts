@@ -20,9 +20,9 @@ import {
 import { ruleFromDate, slotsForMonth, type RuleParams } from "@/lib/recurrence";
 import { createNotificationForUsers } from "@/lib/notifications";
 import type { NotificationType } from "@/lib/constants";
-import { fetchOccurrenceView, loadChangeLog } from "./query";
+import { fetchOccurrenceView, loadChangeLog, loadVehicleUsage } from "./query";
 import { fmtKeyShort, shiftKey, ymOf } from "./filters";
-import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView } from "./types";
+import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage } from "./types";
 
 // ─────────────────────────── 共通 ───────────────────────────
 
@@ -55,7 +55,7 @@ const inputSchema = z.object({
   endTime: z.string().regex(TIME_RE, "時刻の形式が正しくありません").nullable(),
   headcount: z.number().int().min(0).max(99).nullable(),
   unitCount: z.number().int().min(0).max(999).nullable(),
-  vehicle: z.string().trim().max(50).nullable(),
+  vehicleIds: z.array(z.string()).max(10),
   note: z.string().trim().max(2000).nullable(),
   amount: z.number().int().min(0).max(100_000_000).nullable().optional(),
   workerIds: z.array(z.string()).max(20),
@@ -118,13 +118,13 @@ async function loadForMutation(tx: Tx, id: string) {
       endTime: true,
       headcount: true,
       unitCount: true,
-      vehicle: true,
       note: true,
       amount: true,
       customer: { select: { shortName: true, name: true } },
       property: { select: { name: true } },
       job: { select: { ruleKind: true, ruleParams: true } },
       assignments: { select: { userId: true } },
+      vehicles: { select: { vehicleId: true, vehicle: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!occ) throw new NotFoundError();
@@ -132,6 +132,43 @@ async function loadForMutation(tx: Tx, id: string) {
 }
 
 type Loaded = Awaited<ReturnType<typeof loadForMutation>>;
+
+/** 車両 id の実在確認（重複除去・最大10台）。名前は履歴の表示用 */
+async function resolveVehicles(tx: Tx, ids: string[]): Promise<{ ids: string[]; names: Map<string, string> }> {
+  const uniq = Array.from(new Set(ids)).slice(0, 10);
+  if (uniq.length === 0) return { ids: [], names: new Map() };
+  const rows = await tx.vehicle.findMany({ where: { id: { in: uniq } }, select: { id: true, name: true } });
+  if (rows.length !== uniq.length) throw new ValidationError("車両が見つかりません（削除された可能性があります）");
+  return { ids: uniq, names: new Map(rows.map((r) => [r.id, r.name])) };
+}
+
+/** 使用車両を差し替え、変わっていれば履歴に「車両変更 A・B → C」を残す。戻り値は変更の有無 */
+async function syncVehicles(
+  tx: Tx,
+  occ: { id: string; vehicles: { vehicleId: string; vehicle: { name: string } }[] },
+  actorId: string,
+  nextIds: string[],
+): Promise<boolean> {
+  const before = occ.vehicles.map((v) => v.vehicleId);
+  const { ids: after, names } = await resolveVehicles(tx, nextIds);
+  const added = after.filter((id) => !before.includes(id));
+  const removed = before.filter((id) => !after.includes(id));
+  if (added.length === 0 && removed.length === 0) return false;
+  if (removed.length) await tx.occurrenceVehicle.deleteMany({ where: { occurrenceId: occ.id, vehicleId: { in: removed } } });
+  if (added.length) {
+    await tx.occurrenceVehicle.createMany({
+      data: added.map((vehicleId) => ({ occurrenceId: occ.id, vehicleId, createdById: actorId })),
+      skipDuplicates: true,
+    });
+  }
+  await log(tx, occ.id, actorId, {
+    action: "VEHICLE",
+    field: "vehicle",
+    fromValue: occ.vehicles.map((v) => v.vehicle.name).join("・") || null,
+    toValue: after.map((id) => names.get(id) ?? id).join("・") || null,
+  });
+  return true;
+}
 
 function labelOfOcc(occ: Loaded): string {
   return occ.title ?? occ.customer?.shortName ?? occ.customer?.name ?? occ.property?.name ?? "予定";
@@ -231,7 +268,6 @@ export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResu
           endTime: input.endTime,
           headcount: input.headcount,
           unitCount: input.unitCount,
-          vehicle: input.vehicle,
           note: input.note,
           amount: canViewAmounts(me) ? (input.amount ?? null) : null,
           status,
@@ -243,6 +279,7 @@ export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResu
       });
       await log(tx, occ.id, me.id, { action: "CREATE", toValue: input.date ?? "日付未定" });
       for (const userId of workerIds) await log(tx, occ.id, me.id, { action: "ASSIGN", field: "assignee", toValue: userId });
+      await syncVehicles(tx, { id: occ.id, vehicles: [] }, me.id, input.vehicleIds);
       return occ;
     });
 
@@ -303,7 +340,6 @@ export async function updateOccurrence(
         endTime: input.endTime,
         headcount: input.headcount,
         unitCount: input.unitCount,
-        vehicle: input.vehicle,
         note: input.note,
         ...(amountChanged ? { amount: input.amount ?? null } : {}),
         status,
@@ -315,6 +351,7 @@ export async function updateOccurrence(
           skipDuplicates: true,
         });
       }
+      await syncVehicles(tx, occ, me.id, input.vehicleIds);
       await log(tx, id, me.id, { action: "EDIT" });
       if (dateChanged) await log(tx, id, me.id, { action: "MOVE", field: "date", fromValue: oldDate ?? "日付未定", toValue: input.date ?? "日付未定", scope: "ONE" });
       for (const u of added) await log(tx, id, me.id, { action: "ASSIGN", field: "assignee", toValue: u });
@@ -530,6 +567,35 @@ export async function assignWorkers(
     }
     revalidateAll(view.property?.id);
     return { occurrence: view };
+  });
+}
+
+// ─────────────────────────── 使用車両 ───────────────────────────
+
+export async function assignVehicles(
+  id: string,
+  vehicleIds: string[],
+  expectedVersion: number,
+): Promise<ActionResult<{ occurrence: OccurrenceView }>> {
+  return run(async (me) => {
+    await db.$transaction(async (tx) => {
+      const occ = await loadForMutation(tx, id);
+      assertCan(me, "occurrence.edit", { department: occ.department });
+      await bump(tx, occ, expectedVersion, {});
+      await syncVehicles(tx, occ, me.id, vehicleIds);
+    });
+    const view = await fetchOccurrenceView(id, me);
+    if (!view) throw new NotFoundError();
+    revalidateAll(view.property?.id);
+    return { occurrence: view };
+  });
+}
+
+/** 指定日に各車両を使う他の予定（重複の警告用） */
+export async function getVehicleUsage(dateKey: string, excludeOccurrenceId?: string | null): Promise<ActionResult<{ usage: VehicleUsage }>> {
+  return run(async () => {
+    if (!DATE_RE.test(dateKey)) throw new ValidationError("日付の形式が正しくありません");
+    return { usage: await loadVehicleUsage(dateKey, excludeOccurrenceId) };
   });
 }
 

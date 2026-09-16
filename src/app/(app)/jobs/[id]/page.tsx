@@ -26,7 +26,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     where: { id },
     select: {
       id: true, name: true, department: true, category: true, contractType: true, ruleKind: true, ruleParams: true, status: true,
-      headcount: true, unitCount: true, defaultStartTime: true, defaultEndTime: true, vehicle: true, note: true, startsOn: true, endsOn: true, generatedThrough: true,
+      headcount: true, unitCount: true, defaultStartTime: true, defaultEndTime: true, note: true, startsOn: true, endsOn: true, generatedThrough: true,
+      vehicle: { select: { id: true, name: true, color: true, active: true } },
       amount: showAmount,
       customer: { select: { id: true, name: true, shortName: true } },
       property: { select: { id: true, name: true, address: true } },
@@ -68,7 +69,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                 <DataRow label="物件" value={<Link href={`/properties/${job.property.id}`} className="flex items-center justify-end gap-1 text-brand-600"><Building className="h-3.5 w-3.5" />{job.property.name}</Link>} />
                 <DataRow label="周期" value={rule ? <span className="flex items-center justify-end gap-1"><Repeat className="h-3.5 w-3.5 text-ink-faint" />{describeRule(rule.kind, rule.params)}</span> : "単発"} />
                 <DataRow label="標準" value={[job.headcount ? `${job.headcount}名` : null, job.unitCount ? `${job.unitCount}件` : null, job.defaultStartTime ? `${job.defaultStartTime}〜${job.defaultEndTime ?? ""}` : null].filter(Boolean).join(" ・ ") || null} />
-                <DataRow label="車両" value={job.vehicle ? <span className="flex items-center justify-end gap-1"><Car className="h-3.5 w-3.5 text-ink-faint" />{job.vehicle}</span> : null} />
+                <DataRow label="既定の車両" value={job.vehicle ? <span className="flex items-center justify-end gap-1.5"><Car className="h-3.5 w-3.5 text-ink-faint" /><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: job.vehicle.color }} />{job.vehicle.name}{!job.vehicle.active && <span className="text-xs text-ink-faint">（無効）</span>}</span> : null} />
                 {showAmount && <DataRow label="金額（1回・税抜）" value={"amount" in job && job.amount != null ? <span className="font-bold tnum text-emerald-700">{fmtYen(job.amount)}</span> : "未設定"} />}
                 <DataRow label="契約期間" value={job.startsOn || job.endsOn ? `${job.startsOn ? fmtDate(job.startsOn) : "—"} 〜 ${job.endsOn ? fmtDate(job.endsOn) : "—"}` : null} />
                 <DataRow label="生成済み" value={job.generatedThrough ? `〜 ${job.generatedThrough.replace("-", "年")}月` : "未生成"} />
