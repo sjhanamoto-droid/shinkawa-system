@@ -8,15 +8,15 @@
  * - /api/（写真配信・Server Action 等）は一切キャッシュしない
  * - CACHE_VERSION を上げると古いキャッシュは activate 時に破棄される
  */
-const CACHE_VERSION = "shinkawa-v0.1.0";
+const CACHE_VERSION = "shinkawa-v0.2.0";
 const OFFLINE_URL = "/offline";
 
 // プリキャッシュ対象（/offline は未ログイン時に取得できないことがあるため個別に best-effort）
 const PRECACHE_ASSETS = [
   "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/apple-touch-icon.png",
+  "/icons/icon-192.png?v=2",
+  "/icons/icon-512.png?v=2",
+  "/apple-touch-icon.png?v=2",
 ];
 
 self.addEventListener("install", (event) => {
@@ -109,8 +109,8 @@ self.addEventListener("push", (event) => {
   const url = payload.url || "/";
   const options = {
     body: payload.body || "",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: "/icons/icon-192.png?v=2",
+    badge: "/icons/icon-192.png?v=2",
     data: { url },
     // 同種の通知は最新1件にまとめる（連投で埋もれないように）
     tag: payload.tag || undefined,

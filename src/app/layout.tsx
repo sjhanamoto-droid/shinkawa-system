@@ -10,8 +10,12 @@ export const metadata: Metadata = {
   applicationName: APP_NAME,
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    icon: [
+      { url: "/favicon.ico?v=2", sizes: "any" },
+      { url: "/icons/favicon-32.png?v=2", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png?v=2", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: { capable: true, statusBarStyle: "default", title: APP_NAME },
   formatDetection: { telephone: false },
