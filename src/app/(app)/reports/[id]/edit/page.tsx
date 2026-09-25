@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { isBlobConfigured } from "@/lib/media";
-import { canEditReport, isProxyWrite } from "@/lib/reports";
+import { canEditReport, isProxyWrite, roundTimeToStep } from "@/lib/reports";
 import { isPhotoKind } from "@/lib/constants";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -53,8 +53,8 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
           workDays={[r.workDateKey]}
           initial={{
             workDate: r.workDateKey,
-            startTime: r.startTime,
-            endTime: r.endTime,
+            startTime: roundTimeToStep(r.startTime, "09:00"),
+            endTime: roundTimeToStep(r.endTime, "17:00"),
             detail: r.detail ?? "",
             parkingChoice: choiceOf(r.parkingFee),
             parkingFee: r.parkingFee ? String(r.parkingFee) : "",

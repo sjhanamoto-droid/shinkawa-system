@@ -78,6 +78,24 @@ export function workMinutes(start: string, end: string): number {
   return Math.max(0, toMin(end) - toMin(start));
 }
 
+/** 日報の時刻の刻み（分） */
+export const REPORT_TIME_STEP = 10;
+
+/** 'HH:mm' が10分単位か */
+export function isTimeOnStep(t: string, step = REPORT_TIME_STEP): boolean {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(t);
+  return !!m && Number(m[2]) % step === 0;
+}
+
+/** 'HH:mm' を近い10分に丸める（23:55 以降は 23:50）。形式が違えば fallback を返す */
+export function roundTimeToStep(t: string | null | undefined, fallback: string, step = REPORT_TIME_STEP): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t ?? "");
+  if (!m) return fallback;
+  let total = Math.round((Number(m[1]) * 60 + Number(m[2])) / step) * step;
+  total = Math.min(total, 23 * 60 + 60 - step);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export function fmtWorkHours(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

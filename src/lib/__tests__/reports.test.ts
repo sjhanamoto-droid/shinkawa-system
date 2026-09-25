@@ -6,6 +6,8 @@ import {
   shouldAutoComplete,
   workMinutes,
   fmtWorkHours,
+  isTimeOnStep,
+  roundTimeToStep,
   canWriteReportFor,
   canViewReport,
   canEditReport,
@@ -95,5 +97,20 @@ describe("reports: 権限", () => {
     expect(canSeeReportExpenses(sched, mine)).toBe(false);
     expect(canSeeReportExpenses(owner, mine)).toBe(true);
     expect(canSeeReportExpenses(other, mine)).toBe(false);
+  });
+});
+
+describe("reports: 10分刻み", () => {
+  it("10分単位かを判定する", () => {
+    expect(isTimeOnStep("08:30")).toBe(true);
+    expect(isTimeOnStep("08:45")).toBe(false);
+    expect(isTimeOnStep("8:30")).toBe(false);
+  });
+  it("近い10分に丸める", () => {
+    expect(roundTimeToStep("08:45", "09:00")).toBe("08:50");
+    expect(roundTimeToStep("08:44", "09:00")).toBe("08:40");
+    expect(roundTimeToStep("8:15", "09:00")).toBe("08:20");
+    expect(roundTimeToStep("23:59", "09:00")).toBe("23:50");
+    expect(roundTimeToStep(null, "09:00")).toBe("09:00");
   });
 });

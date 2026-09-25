@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/session";
 import { jstDateKey, storedDateKey } from "@/lib/date";
 import { getAppSettings } from "@/lib/settings";
 import { isBlobConfigured } from "@/lib/media";
-import { canWriteReportFor, isProxyWrite, isReportDue, occurrenceWorkDays } from "@/lib/reports";
+import { canWriteReportFor, isProxyWrite, isReportDue, occurrenceWorkDays, roundTimeToStep } from "@/lib/reports";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { EmptyState } from "@/components/ui/misc";
@@ -96,8 +96,8 @@ export default async function NewReportPage({
           workDays={workDays}
           initial={{
             workDate,
-            startTime: o.startTime ?? settings.defaultStartTime,
-            endTime: o.endTime ?? settings.defaultEndTime,
+            startTime: roundTimeToStep(o.startTime ?? settings.defaultStartTime, "09:00"),
+            endTime: roundTimeToStep(o.endTime ?? settings.defaultEndTime, "17:00"),
             detail: "",
             parkingChoice: "",
             parkingFee: "",

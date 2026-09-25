@@ -13,6 +13,7 @@ import {
   canViewReport,
   canWriteReportFor,
   isReportDue,
+  isTimeOnStep,
   lastWorkDay,
   occurrenceWorkDays,
   shouldAutoComplete,
@@ -154,7 +155,9 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
   const startTime = str(fd, "startTime");
   const endTime = str(fd, "endTime");
   if (!TIME_RE.test(startTime)) fieldErrors.startTime = "開始時刻を入力してください";
+  else if (!isTimeOnStep(startTime)) fieldErrors.startTime = "開始時刻は10分単位で入力してください";
   if (!TIME_RE.test(endTime)) fieldErrors.endTime = "終了時刻を入力してください";
+  else if (!isTimeOnStep(endTime)) fieldErrors.endTime = "終了時刻は10分単位で入力してください";
   if (TIME_RE.test(startTime) && TIME_RE.test(endTime) && endTime <= startTime) fieldErrors.endTime = "終了時刻は開始時刻より後にしてください";
 
   const detail = str(fd, "detail").slice(0, 4000);

@@ -11,7 +11,7 @@ import { buttonClass } from "@/components/ui/button";
 import { PhotoUploader, type UploaderPhoto } from "@/components/photo-uploader";
 import { cn } from "@/lib/utils";
 import { fmtKeyLong, fmtKeyShort } from "@/features/schedule/filters";
-import { fmtWorkHours, workMinutes } from "@/lib/reports";
+import { fmtWorkHours, REPORT_TIME_STEP, workMinutes } from "@/lib/reports";
 import { saveReport, type ReportFormState } from "./actions";
 
 type Choice = "" | "yes" | "no";
@@ -87,6 +87,34 @@ function SubmitButtons({ submitted, uploading }: { submitted: boolean; uploading
         <Send className="h-5 w-5" />
         {uploading ? "写真・動画をアップロード中..." : pending ? "送信中..." : submitted ? "保存して提出" : "提出する"}
       </button>
+    </div>
+  );
+}
+
+const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
+const MINUTES = Array.from({ length: 60 / REPORT_TIME_STEP }, (_, i) => String(i * REPORT_TIME_STEP).padStart(2, "0"));
+
+/** 時・分（10分刻み）を選ぶ。値は 'HH:mm' で hidden input に入る */
+function TimeSelect({ id, name, value, onChange }: { id: string; name: string; value: string; onChange: (t: string) => void }) {
+  const [h, m] = (/^\d{2}:\d{2}$/.test(value) ? value : "09:00").split(":");
+  return (
+    <div className="flex items-center gap-1">
+      <input type="hidden" name={name} value={value} />
+      <Select id={`${id}-h`} value={h} onChange={(e) => onChange(`${e.target.value}:${m}`)} className="h-11 pl-3 pr-8" wrapperClassName="flex-1" aria-label="時">
+        {HOURS.map((x) => (
+          <option key={x} value={x}>
+            {Number(x)}
+          </option>
+        ))}
+      </Select>
+      <span className="font-bold text-ink-soft">:</span>
+      <Select id={`${id}-m`} value={m} onChange={(e) => onChange(`${h}:${e.target.value}`)} className="h-11 pl-3 pr-8" wrapperClassName="flex-1" aria-label="分">
+        {MINUTES.map((x) => (
+          <option key={x} value={x}>
+            {x}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
@@ -294,11 +322,11 @@ export function ReportForm(props: ReportFormProps) {
             </Field>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="開始時刻" htmlFor="rf-start" required error={fe.startTime}>
-              <Input id="rf-start" name="startTime" type="time" value={v.startTime} onChange={(e) => set("startTime", e.target.value)} className="h-11" />
+            <Field label="開始時刻" htmlFor="rf-start-h" required error={fe.startTime}>
+              <TimeSelect id="rf-start" name="startTime" value={v.startTime} onChange={(t) => set("startTime", t)} />
             </Field>
-            <Field label="終了時刻" htmlFor="rf-end" required error={fe.endTime}>
-              <Input id="rf-end" name="endTime" type="time" value={v.endTime} onChange={(e) => set("endTime", e.target.value)} className="h-11" />
+            <Field label="終了時刻" htmlFor="rf-end-h" required error={fe.endTime}>
+              <TimeSelect id="rf-end" name="endTime" value={v.endTime} onChange={(t) => set("endTime", t)} />
             </Field>
           </div>
           <p className="text-xs text-ink-muted">
