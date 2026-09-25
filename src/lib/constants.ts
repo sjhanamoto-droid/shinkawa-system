@@ -36,18 +36,23 @@ export function isDepartment(v: string | null | undefined): v is Department {
   return v === "CLEANING" || v === "CONSTRUCTION";
 }
 
-// ── 種別（サイボウズのバッジを踏襲。色は種別固定） ──
+// ── 種別（サイボウズのカレンダーのラベルに合わせる。色は種別固定） ──
+// 並び順＝予定の追加フォームや凡例に出る順。キーは保存値なので変えないこと（表示名は label を変える）。
 export type CategoryKey =
-  | "REGULAR_CLEANING"
   | "HANDOVER_CLEANING"
+  | "REGULAR_CLEANING"
   | "FLOOR_CLEANING"
   | "AIRCON"
   | "POST_REFORM_CLEANING"
+  | "VACANT"
   | "INTERIOR"
   | "EXTERIOR"
+  | "CLOTH"
   | "SURVEY"
+  | "WASTE_DISPOSAL"
   | "SUPPORT"
-  | "OFF";
+  | "OFF"
+  | "OTHER";
 export type CategoryDef = {
   label: string;
   short: string;
@@ -55,16 +60,20 @@ export type CategoryDef = {
   department: Department | null; // null は両部門共通
 };
 export const CATEGORY: Record<CategoryKey, CategoryDef> = {
-  REGULAR_CLEANING: { label: "定期清掃", short: "定期", color: "#10b981", department: "CLEANING" },
   HANDOVER_CLEANING: { label: "引渡し清掃", short: "引渡", color: "#14b8a6", department: "CLEANING" },
+  REGULAR_CLEANING: { label: "定期清掃", short: "定期", color: "#10b981", department: "CLEANING" },
   FLOOR_CLEANING: { label: "床清掃", short: "床", color: "#0ea5e9", department: "CLEANING" },
   AIRCON: { label: "エアコン", short: "AC", color: "#3b82f6", department: "CLEANING" },
   POST_REFORM_CLEANING: { label: "リフォーム後清掃", short: "R後", color: "#06b6d4", department: "CLEANING" },
+  VACANT: { label: "空室", short: "空室", color: "#6366f1", department: "CLEANING" },
   INTERIOR: { label: "内装工事", short: "内装", color: "#f97316", department: "CONSTRUCTION" },
   EXTERIOR: { label: "外壁工事", short: "外壁", color: "#ef4444", department: "CONSTRUCTION" },
+  CLOTH: { label: "クロス工事", short: "クロス", color: "#d946ef", department: "CONSTRUCTION" },
   SURVEY: { label: "現調", short: "現調", color: "#8b5cf6", department: null },
+  WASTE_DISPOSAL: { label: "産廃処分", short: "産廃", color: "#78716c", department: null },
   SUPPORT: { label: "作業応援", short: "応援", color: "#f59e0b", department: null },
   OFF: { label: "休み", short: "休", color: "#64748b", department: null },
+  OTHER: { label: "その他", short: "他", color: "#94a3b8", department: null },
 };
 export const CATEGORY_OPTIONS = Object.keys(CATEGORY) as CategoryKey[];
 export const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
