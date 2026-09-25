@@ -188,7 +188,7 @@ export function PropertyForm({
       <section className="space-y-3">
         <SectionTitle>引き継ぎ・備考</SectionTitle>
         <Card className="p-4">
-          <Field label="常時の申し送り" htmlFor="handoverNote" hint="毎回の作業で気を付けること">
+          <Field label="業務連絡" htmlFor="handoverNote" hint="毎回の作業で気を付けること">
             <Textarea id="handoverNote" name="handoverNote" defaultValue={property?.handoverNote ?? ""} placeholder="例：ワックスはA棟のみ。植木の水やりを頼まれることがある。" className="min-h-[80px]" />
           </Field>
         </Card>

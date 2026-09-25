@@ -18,8 +18,8 @@ export default async function MenuPage() {
   const unreadCount = await db.notification.count({ where: { userId: user.id, read: false } });
 
   const shortcuts: { href: string; label: string; icon: LucideIcon }[] = [
-    ...(can(user, "customer.manage") ? [{ href: "/customers", label: "顧客", icon: Building2 }] : []),
     ...(can(user, "job.manage") ? [{ href: "/jobs", label: "案件（定期契約）", icon: Briefcase }] : []),
+    ...(can(user, "customer.manage") ? [{ href: "/customers", label: "顧客", icon: Building2 }] : []),
     ...(can(user, "worker.manage") ? [{ href: "/workers", label: "作業者（スタッフ・アルバイト）", icon: Users }] : []),
     ...(can(user, "partner.manage") ? [{ href: "/partners", label: "協力会社・下請", icon: Handshake }] : []),
     ...(can(user, "vehicle.manage") ? [{ href: "/vehicles", label: "車両", icon: Car }] : []),

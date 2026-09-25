@@ -100,7 +100,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       )}
       {property.handoverNote && (
         <div className="rounded-xl border border-line bg-surface-subtle p-3 text-sm text-ink-soft">
-          <p className="mb-1 text-xs font-bold text-ink-muted">常時の申し送り</p>
+          <p className="mb-1 text-xs font-bold text-ink-muted">業務連絡</p>
           <p className="whitespace-pre-wrap">{property.handoverNote}</p>
         </div>
       )}

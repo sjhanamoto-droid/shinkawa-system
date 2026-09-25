@@ -26,9 +26,9 @@ const VEHICLES: NavItem = { href: "/vehicles", label: "車両", icon: Car, match
 const ENTRIES: NavEntry[] = [
   { item: HOME, bottom: true },
   { item: SCHEDULE, bottom: true },
+  { item: JOBS, action: "job.manage", bottom: false },
   { item: PROPERTIES, bottom: true },
   { item: CUSTOMERS, action: "customer.manage", bottom: true },
-  { item: JOBS, action: "job.manage", bottom: false },
   { item: WORKERS, action: "worker.manage", bottom: false },
   { item: PARTNERS, action: "partner.manage", bottom: false },
   { item: VEHICLES, action: "vehicle.manage", bottom: false },
