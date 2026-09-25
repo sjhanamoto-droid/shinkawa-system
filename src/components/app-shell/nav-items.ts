@@ -1,5 +1,5 @@
 import {
-  Home, CalendarDays, Building2, Building, Briefcase, Users, Handshake, Car,
+  Home, CalendarDays, ClipboardList, Building2, Building, Briefcase, Users, Handshake, Car,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action, type Actor } from "@/lib/permissions";
@@ -15,6 +15,7 @@ type NavEntry = { item: NavItem; action?: Action; bottom: boolean };
 
 const HOME: NavItem = { href: "/", label: "ホーム", icon: Home, match: (p) => p === "/" };
 const SCHEDULE: NavItem = { href: "/schedule", label: "カレンダー", icon: CalendarDays, match: (p) => p.startsWith("/schedule") };
+const REPORTS: NavItem = { href: "/reports", label: "日報", icon: ClipboardList, match: (p) => p.startsWith("/reports") };
 const PROPERTIES: NavItem = { href: "/properties", label: "現場", icon: Building, match: (p) => p.startsWith("/properties") };
 const CUSTOMERS: NavItem = { href: "/customers", label: "顧客", icon: Building2, match: (p) => p.startsWith("/customers") };
 const JOBS: NavItem = { href: "/jobs", label: "案件", icon: Briefcase, match: (p) => p.startsWith("/jobs") };
@@ -26,6 +27,7 @@ const VEHICLES: NavItem = { href: "/vehicles", label: "車両", icon: Car, match
 const ENTRIES: NavEntry[] = [
   { item: HOME, bottom: true },
   { item: SCHEDULE, bottom: true },
+  { item: REPORTS, bottom: true },
   { item: JOBS, action: "job.manage", bottom: false },
   { item: PROPERTIES, bottom: true },
   { item: CUSTOMERS, action: "customer.manage", bottom: true },

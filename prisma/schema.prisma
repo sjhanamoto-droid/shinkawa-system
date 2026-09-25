@@ -59,7 +59,8 @@ model User {
   createdOccurrences Occurrence[]          @relation("OccurrenceCreator")
   createdProperties  Property[]            @relation("PropertyCreator")
   propertyMemos      PropertyMemo[]        @relation("PropertyMemoAuthor")
-  reports            DailyReport[]
+  reports            DailyReport[]         @relation("ReportUser")
+  createdReports     DailyReport[]         @relation("ReportCreator")
   comments           Comment[]
   notifications      Notification[]        @relation("UserNotifications")
   pushSubscriptions  PushSubscription[]    @relation("UserPushSubscriptions")
@@ -421,33 +422,42 @@ model Handover {
   @@index([propertyId, resolvedAt])
 }
 
-// ─────────────── DailyReport（日報。Phase 2 で UI を実装。スキーマのみ先行） ───────────────
+// ─────────────── DailyReport（日報） ───────────────
+// 単位は「作業者 × 実施回 × 作業日」。同じ実施回に複数人いれば、1人1通ずつ並ぶ（共有しない）。
+// 複数日の工事は日ごとに1通。ログインしない作業者の分は事務が代理入力する（createdById が入力者）。
+// 担当者全員の「最終日」の日報が提出されたら、実施回を自動で完了にする（src/lib/reports.ts）。
 model DailyReport {
   id           String    @id @default(cuid())
   propertyId   String?
   occurrenceId String?
-  userId       String
+  userId       String // 誰の日報か（作業者）
+  createdById  String? // 実際に入力した人（代理入力なら事務）
   workDate     DateTime
-  startTime    String    @default("09:00")
+  startTime    String    @default("09:00") // 勤怠を兼ねる
   endTime      String    @default("17:00")
-  detail       String?
-  vehicle      String?
+  detail       String? // 作業内容（提出時必須）
+  parkingFee   Int? // 駐車場代（円）。「なし」は 0、未選択は null
+  trainFare    Int? // 電車賃（円）。同上
+  handover     String? // 引き継ぎ事項（提出時に Handover として起票）
+  handoverNone Boolean? // 引き継ぎ「なし」を選んだ
   status       String    @default("DRAFT") // DRAFT | SUBMITTED
-  submittedAt  DateTime?
-  handover     String?
+  submittedAt  DateTime? // 最初に提出した日時（再提出では変えない）
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   property   Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   occurrence Occurrence?     @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User            @relation("ReportUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy  User?           @relation("ReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
   expenses   ReportExpense[]
   photos     Photo[]
   comments   Comment[]
 
+  @@unique([occurrenceId, userId, workDate])
   @@index([userId, workDate])
   @@index([occurrenceId])
   @@index([workDate])
+  @@index([propertyId, workDate])
 }
 
 model ReportExpense {

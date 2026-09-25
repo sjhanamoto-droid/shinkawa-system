@@ -21,6 +21,9 @@ import { describeRule, type RuleParams } from "@/lib/recurrence";
 import { fmtKeyShort } from "@/features/schedule/filters";
 import { CONTRACT_TYPE_LABEL, JOB_STATUS_LABEL, isRuleKind, type ContractType, type JobStatus } from "@/lib/constants";
 import { fmtYen, mapSearchUrl } from "@/lib/utils";
+import { canViewAllReports } from "@/lib/reports";
+import { loadPropertyReports } from "@/features/reports/queries";
+import { ReportListRow } from "@/features/reports/report-items";
 
 const MEMO_LIMIT = 30;
 
@@ -72,6 +75,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
   // メモ・引き継ぎの投稿者
   const authorIds = Array.from(new Set([...property.memos.map((m) => m.createdById), ...property.handovers.flatMap((h) => [h.createdById, h.resolvedById])].filter((x): x is string => !!x)));
+  const reports = canViewAllReports(user) ? await loadPropertyReports(id, 5) : null;
   const authorRows = await db.user.findMany({ where: { id: { in: [...authorIds, user.id] } }, select: { id: true, name: true, avatarColor: true, avatarImage: true, updatedAt: true } });
   const authors: Record<string, PropertyMemoAuthor> = {};
   for (const a of authorRows) authors[a.id] = { id: a.id, name: a.name, avatarColor: a.avatarColor, avatarUrl: avatarUrlFor(a) };
@@ -227,6 +231,31 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </Card>
         )}
       </section>
+
+      {reports && (
+        <section className="space-y-2.5">
+          <SectionTitle
+            action={
+              reports.total > 0 ? (
+                <Link href={`/reports/all?property=${id}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
+                  すべて見る（{reports.total}）
+                </Link>
+              ) : undefined
+            }
+          >
+            日報 <span className="text-ink-faint">{reports.total}件</span>
+          </SectionTitle>
+          {reports.items.length === 0 ? (
+            <p className="card p-4 text-center text-sm text-ink-muted">日報はまだありません</p>
+          ) : (
+            <Card className="divide-y divide-line">
+              {reports.items.map((r) => (
+                <ReportListRow key={r.id} r={r} />
+              ))}
+            </Card>
+          )}
+        </section>
+      )}
 
       <section className="space-y-2.5">
         <SectionTitle>関連物件</SectionTitle>

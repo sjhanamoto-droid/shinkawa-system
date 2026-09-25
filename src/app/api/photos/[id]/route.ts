@@ -8,6 +8,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { signedReadUrl } from "@/lib/media";
+import { canViewReport } from "@/lib/reports";
 
 /** 'data:<mime>;base64,<data>' をパースする（不正なら null） */
 function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer } | null {
@@ -39,9 +40,10 @@ export async function GET(
 
   const photo = await db.photo.findUnique({
     where: { id },
-    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true },
+    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true, report: { select: { userId: true, createdById: true } } },
   });
-  if (!photo) {
+  // 日報の写真は、その日報を見られる人にだけ返す
+  if (!photo || (photo.report && !canViewReport(user, photo.report))) {
     return NextResponse.json({ error: "写真が見つかりません" }, { status: 404 });
   }
 

@@ -293,6 +293,9 @@ export const PHOTO_KIND_LABEL: Record<PhotoKind, string> = {
   AFTER: "作業後",
   OTHER: "その他",
 };
+export function isPhotoKind(v: string | null | undefined): v is PhotoKind {
+  return !!v && v in PHOTO_KIND_LABEL;
+}
 
 // ── 通知の種別 ──
 export type NotificationType =

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Bell, CalendarDays, ChevronRight, Inbox, AlertTriangle, Clock3, Users } from "lucide-react";
+import { Bell, CalendarDays, ChevronRight, Inbox, AlertTriangle, Clock3, Users, ClipboardList, UserCheck } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { canViewAmounts, isPlanner } from "@/lib/permissions";
+import { canViewAmounts, isManager, isPlanner } from "@/lib/permissions";
 import { dayRangeForKey, jstDateKey, jstMonthKey, addDaysKey } from "@/lib/date";
 import { DEPARTMENT_LABEL } from "@/lib/constants";
 import { PageHeader } from "@/components/app-shell/page-header";
@@ -13,6 +13,8 @@ import { occurrenceSelect, loadPersonMap, toOccurrenceView } from "@/features/sc
 import { OccurrenceCard } from "@/features/schedule/occurrence-card";
 import { fmtKeyLong } from "@/features/schedule/filters";
 import { notificationMeta } from "@/features/notifications/notification-meta";
+import { loadMyReportTodo, loadProxyTodo } from "@/features/reports/queries";
+import { DueRow } from "@/features/reports/report-items";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,10 @@ export default async function HomePage() {
   const select = occurrenceSelect(showAmount);
   const mineWhere = planner ? {} : { assignments: { some: { userId: user.id } } };
 
+  const [reportTodo, proxyTodo] = await Promise.all([
+    loadMyReportTodo(user.id),
+    isManager(user) ? loadProxyTodo() : Promise.resolve([]),
+  ]);
   const [todayRows, tomorrowRows, people, unread, unassignedCount, tentativeCount, noWorkerCount] = await Promise.all([
     db.occurrence.findMany({
       where: { date: dayRangeForKey(today), status: { notIn: ["CANCELLED"] }, ...mineWhere },
@@ -85,6 +91,43 @@ export default async function HomePage() {
                 <StatCard href={`/schedule?view=week&d=${today}&status=TENTATIVE`} label="仮の予定（今月）" value={tentativeCount} tone="sky" icon={<Clock3 className="h-5 w-5" />} />
                 <StatCard href={`/schedule?view=board&d=${today}`} label="担当未定（今日以降）" value={noWorkerCount} tone="rose" icon={<AlertTriangle className="h-5 w-5" />} />
               </div>
+            )}
+
+            {(reportTodo.today.length > 0 || reportTodo.missing.length > 0 || proxyTodo.length > 0) && (
+              <section className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <SectionTitle>
+                    <span className="flex items-center gap-1.5">
+                      <ClipboardList className="h-4 w-4" />
+                      今日の日報
+                    </span>
+                  </SectionTitle>
+                  <Link href="/reports" className="text-xs font-bold text-brand-600">
+                    日報へ
+                  </Link>
+                </div>
+                {reportTodo.today.length > 0 && (
+                  <div className="card divide-y divide-line">
+                    {reportTodo.today.map((i) => (
+                      <DueRow key={`${i.occurrenceId}-${i.workDate}`} item={i} />
+                    ))}
+                  </div>
+                )}
+                {reportTodo.missing.length > 0 && (
+                  <Link href="/reports" className="card flex items-center gap-2 border-red-200 bg-red-50/60 px-3.5 py-3 text-sm font-bold text-red-700">
+                    <Inbox className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">未提出の日報が {reportTodo.missing.length} 件あります</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )}
+                {proxyTodo.length > 0 && (
+                  <Link href="/reports" className="card flex items-center gap-2 border-violet-200 bg-violet-50/60 px-3.5 py-3 text-sm font-bold text-violet-700">
+                    <UserCheck className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">代理入力が必要な日報が {proxyTodo.length} 件あります（ログインしない作業者の分）</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )}
+              </section>
             )}
 
             <section className="space-y-2.5">

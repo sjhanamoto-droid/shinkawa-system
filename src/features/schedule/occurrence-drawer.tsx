@@ -15,6 +15,8 @@ import { cn, fmtYen, mapSearchUrl } from "@/lib/utils";
 import { AssigneePicker } from "./assignee-picker";
 import { VehiclePicker } from "./vehicle-picker";
 import { getChangeLog, getVehicleUsage } from "./actions";
+import { OccurrenceReportPanel } from "@/features/reports/occurrence-report-panel";
+import { isReportDue } from "@/lib/reports";
 import { fmtKeyLong, fmtKeyShort } from "./filters";
 import { timeLabel } from "./occurrence-card";
 import type { ChangeLogView, OccurrenceView, VehicleOption, VehicleUsage, WorkerOption } from "./types";
@@ -303,6 +305,11 @@ export function OccurrenceDrawer({
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* 日報（日付があり、中止・休みでない予定） */}
+              {isReportDue({ date: o.date, status: o.status, category: o.category }) && (
+                <OccurrenceReportPanel occurrenceId={o.id} me={me} refreshKey={`${o.version}-${o.assignees.map((a) => a.id).join(",")}`} />
               )}
 
               <p className="text-[11px] text-ink-faint">

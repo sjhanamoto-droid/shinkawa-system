@@ -159,6 +159,37 @@ function compressImage(file: File): Promise<CompressedImage> {
   });
 }
 
+// Blob ストア未設定の環境では、写真を小さめに圧縮して base64 のままフォームに載せる
+const INLINE_MAX_DIM = 1280;
+const INLINE_JPEG_QUALITY = 0.7;
+
+function compressImageInline(file: File): Promise<{ dataUrl: string; thumbUrl: string; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const main = scaleDims(img.width, img.height, INLINE_MAX_DIM);
+          const th = scaleDims(img.width, img.height, THUMB_DIM);
+          resolve({
+            dataUrl: drawJpeg(img, main.width, main.height, INLINE_JPEG_QUALITY),
+            thumbUrl: drawJpeg(img, th.width, th.height, THUMB_QUALITY),
+            width: main.width,
+            height: main.height,
+          });
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = reject;
+      img.src = reader.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 type VideoMeta = {
   duration: number;
   width: number;
@@ -293,10 +324,16 @@ export function PhotoUploader({
   name = "photos",
   defaultKind = "WORK",
   initial = [],
+  blobEnabled = true,
+  onBusyChange,
 }: {
   name?: string;
   defaultKind?: PhotoKind;
   initial?: UploaderPhoto[];
+  /** false = Blob ストア未設定。写真は base64 で送り、動画は受け付けない */
+  blobEnabled?: boolean;
+  /** 読み込み・アップロード中かどうか（フォーム側で送信ボタンを止めるため） */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const [photos, setPhotos] = useState<UploaderPhoto[]>(initial);
   const [busy, setBusy] = useState(false);
@@ -316,6 +353,10 @@ export function PhotoUploader({
       if (confirmTimer.current) clearTimeout(confirmTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    onBusyChange?.(busy || uploading.length > 0);
+  }, [busy, uploading.length, onBusyChange]);
 
   /** 動画1本を検証してBlobへ上げる。成功したら追加用の1件を返す */
   /** Blob のアップロード先を取り、本体を直接 PUT する（写真・動画で共通） */
@@ -351,6 +392,15 @@ export function PhotoUploader({
     file: File,
     onProgress: (ratio: number) => void,
   ): Promise<UploaderPhoto | { error: string }> {
+    if (!blobEnabled) {
+      try {
+        const inline = await compressImageInline(file);
+        onProgress(1);
+        return { ...inline, caption: "", kind: defaultKind, isVideo: false };
+      } catch {
+        return { error: `${file.name} を読み込めませんでした。別の写真でお試しください` };
+      }
+    }
     let image: CompressedImage;
     try {
       image = await compressImage(file);
@@ -379,6 +429,9 @@ export function PhotoUploader({
     file: File,
     onProgress: (ratio: number) => void,
   ): Promise<UploaderPhoto | { error: string } | { notice: string }> {
+    if (!blobEnabled) {
+      return { error: `${file.name}：動画の保存先が未設定のため、いまは動画を添付できません（写真は添付できます）` };
+    }
     // Android の一部ブラウザは File.type を空で返すので拡張子で補う
     const mime = (file.type || videoMimeFromName(file.name)).toLowerCase();
     if (!VIDEO_ALLOWED_MIMES.includes(mime)) {
@@ -535,7 +588,7 @@ export function PhotoUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,video/*"
+        accept={blobEnabled ? "image/*,video/*" : "image/*"}
         multiple
         className="hidden"
         onChange={onFiles}
@@ -648,7 +701,7 @@ export function PhotoUploader({
           ) : (
             <>
               <Camera className="h-6 w-6" />
-              <span className="text-[11px] font-semibold">写真/動画</span>
+              <span className="text-[11px] font-semibold">{blobEnabled ? "写真/動画" : "写真"}</span>
             </>
           )}
         </button>
@@ -676,10 +729,16 @@ export function PhotoUploader({
       )}
 
       <p className="mt-1.5 text-[11px] text-ink-faint">
-        写真は自動で軽量化（最大{MAX_DIM}px）します。写真・動画あわせて{MEDIA_MAX_COUNT}件まで。
-        動画は{VIDEO_MAX_DURATION_SEC}秒・{formatMb(VIDEO_MAX_BYTES)}まで、{VIDEO_MAX_COUNT}本まで
-        （{VIDEO_RECOMMENDED_DURATION_SEC}秒くらいが目安）。
-        タグをタップで「弊社分」等に切替。削除は×を2回タップ。
+        {blobEnabled ? (
+          <>
+            写真は自動で軽量化（最大{MAX_DIM}px）します。写真・動画あわせて{MEDIA_MAX_COUNT}件まで。
+            動画は{VIDEO_MAX_DURATION_SEC}秒・{formatMb(VIDEO_MAX_BYTES)}まで、{VIDEO_MAX_COUNT}本まで
+            （{VIDEO_RECOMMENDED_DURATION_SEC}秒くらいが目安）。
+          </>
+        ) : (
+          <>写真は自動で軽量化（最大{INLINE_MAX_DIM}px）します。一度にたくさん追加するときは、途中で「下書き保存」してから続けてください。</>
+        )}
+        削除は×を2回タップ。
       </p>
     </div>
   );

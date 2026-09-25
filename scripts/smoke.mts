@@ -82,6 +82,8 @@ async function main() {
   results.push(await check("/vehicles", o, ["車両", vehicle.name]));
   results.push(await check("/vehicles/new", o, ["車両を追加"]));
   results.push(await check(`/vehicles/${vehicle.id}/edit`, o, ["車両を編集", vehicle.name]));
+  results.push(await check("/reports", o, ["今日の日報", "代理入力が必要な日報"]));
+  results.push(await check("/reports/all", o, ["すべての日報"]));
   results.push(await check("/notifications", o, ["通知"]));
   results.push(await check("/settings", o, ["設定", "作業者管理", "車両管理"]));
   results.push(await check("/settings/app", o, ["会社情報"]));
@@ -92,6 +94,7 @@ async function main() {
   console.log("\n=== スタッフ ===");
   results.push(await check("/", s, ["今日のあなたの予定", staff.name]));
   results.push(await check("/schedule", s, ["カレンダー"]));
+  results.push(await check("/reports", s, ["今日の日報", "最近の日報"]));
   results.push(await check("/properties", s, ["現場（物件）"]));
   results.push(await check(`/properties/${property.id}`, s, [property.name]));
   results.push(await check("/settings", s, ["設定", "アカウント設定"]));
@@ -104,6 +107,7 @@ async function main() {
   let authzOk = true;
   authzOk = (await checkRedirect("/workers", s, "スタッフ")) && authzOk;
   authzOk = (await checkRedirect("/jobs", s, "スタッフ")) && authzOk;
+  authzOk = (await checkRedirect("/reports/all", s, "スタッフ")) && authzOk;
   authzOk = (await checkRedirect("/customers/import", sc, "手配担当")) && authzOk;
   authzOk = (await checkRedirect("/partners", sc, "手配担当")) && authzOk;
   authzOk = (await checkRedirect("/vehicles", sc, "手配担当")) && authzOk;
