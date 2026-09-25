@@ -69,10 +69,13 @@ export default async function CustomersPage({
         }
       >
         <form action="/customers" className="space-y-2">
-          <div className="relative md:max-w-md">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-            <Input name="q" type="search" defaultValue={query} placeholder="顧客名・短縮名・ふりがなで検索" className="h-11 pl-10" />
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+              <Input name="q" type="search" defaultValue={query} placeholder="顧客名・短縮名・ふりがなで検索" className="h-11 pl-10" />
+            </div>
             {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
+            <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">検索</button>
           </div>
           <ChipBar>
             <ChipLink href={buildHref({ q: query || undefined })} active={!statusFilter}>すべて</ChipLink>

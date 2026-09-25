@@ -63,18 +63,18 @@ export default async function PropertiesPage({
       <PageHeader title="現場（物件）" subtitle="ここを開けば全部載っている">
         <form action="/properties" className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1 md:max-w-md">
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
               <Input name="q" type="search" defaultValue={query} placeholder="物件名・住所・顧客名で検索" className="h-11 pl-10" />
             </div>
-            <Select name="customer" defaultValue={customer ?? ""} className="h-11 sm:max-w-xs">
+            <Select name="customer" defaultValue={customer ?? ""} className="h-11" wrapperClassName="sm:w-60 sm:shrink-0">
               <option value="">顧客：すべて</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>{c.shortName ?? c.name}</option>
               ))}
             </Select>
             {status && <input type="hidden" name="status" value={status} />}
-            <button type="submit" className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">検索</button>
+            <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">検索</button>
           </div>
           <ChipBar>
             <ChipLink href={buildHref({ q: query || undefined, customer })} active={statusFilter === "ACTIVE"}>稼働中</ChipLink>

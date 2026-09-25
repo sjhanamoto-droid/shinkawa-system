@@ -93,9 +93,9 @@ Textarea.displayName = "Textarea";
 
 export const Select = React.forwardRef<
   HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement>
->(({ className, children, ...props }, ref) => (
-  <div className="relative w-full min-w-0">
+  React.SelectHTMLAttributes<HTMLSelectElement> & { wrapperClassName?: string }
+>(({ className, wrapperClassName, children, ...props }, ref) => (
+  <div className={cn("relative w-full min-w-0", wrapperClassName)}>
     <select
       ref={ref}
       className={cn(

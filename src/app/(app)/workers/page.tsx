@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Pencil, UserPlus, Mail, Phone, Tag } from "lucide-react";
+import { Pencil, UserPlus, Mail, Phone, Tag, Search } from "lucide-react";
 import { requireCan } from "@/lib/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
@@ -7,6 +7,7 @@ import { PageContainer } from "@/components/app-shell/page-container";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/form";
 import { StaffRowActions } from "@/features/users/staff-actions";
 import { avatarUrlFor } from "@/lib/session";
 import {
@@ -51,15 +52,13 @@ export default async function WorkersPage({
         }
       />
       <PageContainer>
-        <form className="mb-4 flex flex-wrap items-center gap-2">
-          <input
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="氏名・ふりがな・メールで検索"
-            className="h-10 min-w-[220px] flex-1 rounded-xl border border-line bg-surface px-3 text-sm"
-          />
+        <form className="mb-4 flex gap-2">
+          <div className="relative min-w-0 flex-1 sm:max-w-md">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+            <Input name="q" type="search" defaultValue={q ?? ""} placeholder="氏名・ふりがな・メールで検索" className="h-11 pl-10" />
+          </div>
           {tag && <input type="hidden" name="tag" value={tag} />}
-          <button type="submit" className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white">検索</button>
+          <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">検索</button>
         </form>
         {allTags.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center gap-1.5">

@@ -90,11 +90,11 @@ export default async function JobsPage({
       <PageHeader title="案件" subtitle="定期契約・スポット・工事">
         <form action="/jobs" className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1 md:max-w-md">
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
               <Input name="q" type="search" defaultValue={query} placeholder="案件名・物件名・顧客名で検索" className="h-11 pl-10" />
             </div>
-            <Select name="customer" defaultValue={customer ?? ""} className="h-11 sm:max-w-xs">
+            <Select name="customer" defaultValue={customer ?? ""} className="h-11" wrapperClassName="sm:w-60 sm:shrink-0">
               <option value="">顧客：すべて</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>{c.shortName ?? c.name}</option>
@@ -103,7 +103,7 @@ export default async function JobsPage({
             {dept && <input type="hidden" name="dept" value={dept} />}
             {type && <input type="hidden" name="type" value={type} />}
             {sp.status && <input type="hidden" name="status" value={sp.status} />}
-            <button type="submit" className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">検索</button>
+            <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">検索</button>
           </div>
           <ChipBar>
             <ChipLink href={buildHref({ q: query || undefined, type, status: sp.status, customer })} active={!dept}>全体</ChipLink>
@@ -125,7 +125,7 @@ export default async function JobsPage({
       <PageContainer>
         <SearchParamToast />
         {canGenerate && (
-          <div className="card mb-4 flex flex-wrap items-center gap-3 p-3.5">
+          <div className="card mb-4 flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Repeat className="h-4 w-4 text-ink-muted" />定期契約から実施回を生成</p>
               <p className="text-xs text-ink-muted">未割当として作られ、週ビューの左レーンから日付へ置けます。生成済みの回は重複しません。{genDept && `（${DEPARTMENT_LABEL[genDept as "CLEANING" | "CONSTRUCTION"]}のみ）`}</p>
