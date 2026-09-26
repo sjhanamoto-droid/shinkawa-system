@@ -64,6 +64,7 @@ model User {
   comments           Comment[]
   notifications      Notification[]        @relation("UserNotifications")
   pushSubscriptions  PushSubscription[]    @relation("UserPushSubscriptions")
+  announcements      Announcement[]        @relation("AnnouncementAuthor")
 
   @@index([active, kind])
   @@index([partnerId])
@@ -509,6 +510,24 @@ model Notification {
 
   @@unique([userId, dedupeKey])
   @@index([userId, read])
+  @@index([dedupeKey])
+}
+
+// ──────────────────── Announcement（全体連絡） ────────────────────
+// 役割ごと・全員に一括で送る社内連絡。受け取る人には Notification（dedupeKey = announce:<id>）が届く。
+model Announcement {
+  id             String   @id @default(cuid())
+  title          String
+  body           String
+  category       String   @default("GENERAL") // GENERAL | EVENT | CLAIM
+  audience       String[] // ["ALL"] または役割（STAFF / SCHEDULER / OFFICE / OWNER）
+  recipientCount Int      @default(0)
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  createdBy User? @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }
 
 // ──────────────────── PushSubscription（Web Push 購読情報） ────────────────────

@@ -139,7 +139,7 @@ export function Sidebar({
           "/settings",
           "設定",
           Settings,
-          ["/settings", "/notifications", "/help"].some((p) => pathname.startsWith(p)),
+          ["/settings", "/notifications", "/help", "/announcements"].some((p) => pathname.startsWith(p)),
           unreadCount,
         )}
       </div>

@@ -315,6 +315,7 @@ export type NotificationType =
   | "OCC_CANCELLED"
   | "GENERATED"
   | "TOMORROW"
+  | "ANNOUNCEMENT"
   | "SYSTEM";
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   OCC_ASSIGNED: "担当に追加",
@@ -323,6 +324,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   OCC_CANCELLED: "予定の中止",
   GENERATED: "翌月分の生成",
   TOMORROW: "明日の予定",
+  ANNOUNCEMENT: "全体連絡",
   SYSTEM: "お知らせ",
 };
 

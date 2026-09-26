@@ -51,6 +51,7 @@ export async function sendPushToUser(
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
           body,
+          { timeout: 10_000 }, // 1つの送信先が遅くても全体を止めない
         );
       } catch (err) {
         const statusCode = err instanceof WebPushError ? err.statusCode : undefined;

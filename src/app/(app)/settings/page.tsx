@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users2, Building2, UserCog, ChevronRight, Info, Bell, Handshake, Car, Lightbulb } from "lucide-react";
+import { Users2, Building2, UserCog, ChevronRight, Info, Bell, Handshake, Car, Lightbulb, Megaphone } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
@@ -89,6 +89,12 @@ export default async function SettingsPage() {
               title="通知センター"
               desc={unreadCount > 0 ? `未読 ${unreadCount} 件・予定の移動・確定などのお知らせ` : "予定の移動・確定などのお知らせを確認"}
               badge={unreadCount}
+            />
+            <SettingRow
+              href="/announcements"
+              icon={<Megaphone className="h-5 w-5" />}
+              title="全体連絡"
+              desc={can(user, "announcement.send") ? "役割ごと・全員に一括で連絡を送る・送った連絡の既読" : "会社からのお知らせ・行事・クレームの共有"}
             />
           </section>
 
