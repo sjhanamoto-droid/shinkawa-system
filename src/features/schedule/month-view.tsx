@@ -103,7 +103,7 @@ function DayCell({
           </button>
         )}
       </div>
-      <div className="mt-1 flex max-h-[10.5rem] flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
+      <div className="mt-1 flex flex-1 flex-col gap-0.5">
         {items.map((o) => (
           <OccurrenceCard key={o.id} occurrence={o} variant="chip" draggable={dnd} onClick={onSelect} />
         ))}
