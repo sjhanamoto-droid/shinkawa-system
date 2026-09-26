@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users2, Building2, UserCog, ChevronRight, Info, Bell, Handshake, Car } from "lucide-react";
+import { Users2, Building2, UserCog, ChevronRight, Info, Bell, Handshake, Car, Lightbulb } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
@@ -8,7 +8,7 @@ import { PageContainer } from "@/components/app-shell/page-container";
 import { SectionTitle } from "@/components/ui/card";
 import { APP_NAME } from "@/lib/brand";
 
-function SettingRow({ href, icon, title, desc }: { href: string; icon: React.ReactNode; title: string; desc: string }) {
+function SettingRow({ href, icon, title, desc, badge = 0 }: { href: string; icon: React.ReactNode; title: string; desc: string; badge?: number }) {
   return (
     <Link href={href} className="card tap-row flex items-center gap-3.5 p-4 transition-all hover:border-line-strong hover:shadow-float">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">{icon}</span>
@@ -16,6 +16,11 @@ function SettingRow({ href, icon, title, desc }: { href: string; icon: React.Rea
         <p className="text-[15px] font-bold text-ink">{title}</p>
         <p className="truncate text-xs text-ink-muted">{desc}</p>
       </div>
+      {badge > 0 && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-danger px-1.5 text-[11px] font-bold text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
       <ChevronRight className="h-5 w-5 shrink-0 text-ink-faint" />
     </Link>
   );
@@ -24,6 +29,7 @@ function SettingRow({ href, icon, title, desc }: { href: string; icon: React.Rea
 export default async function SettingsPage() {
   const user = await requireUser();
   const manager = can(user, "worker.manage");
+  const unreadCount = await db.notification.count({ where: { userId: user.id, read: false } });
   const [workerCount, vehicleCount] = manager
     ? await Promise.all([db.user.count({ where: { active: true } }), db.vehicle.count({ where: { active: true } })])
     : [0, 0];
@@ -77,7 +83,18 @@ export default async function SettingsPage() {
 
           <section className="space-y-2.5">
             <SectionTitle>通知</SectionTitle>
-            <SettingRow href="/notifications" icon={<Bell className="h-5 w-5" />} title="通知センター" desc="予定の移動・確定などのお知らせを確認" />
+            <SettingRow
+              href="/notifications"
+              icon={<Bell className="h-5 w-5" />}
+              title="通知センター"
+              desc={unreadCount > 0 ? `未読 ${unreadCount} 件・予定の移動・確定などのお知らせ` : "予定の移動・確定などのお知らせを確認"}
+              badge={unreadCount}
+            />
+          </section>
+
+          <section className="space-y-2.5">
+            <SectionTitle>使い方</SectionTitle>
+            <SettingRow href="/help" icon={<Lightbulb className="h-5 w-5" />} title="使い方・ヒント" desc="画面ごとの操作のコツ" />
           </section>
 
           <section className="space-y-2.5">

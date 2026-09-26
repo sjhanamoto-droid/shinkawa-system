@@ -13,7 +13,7 @@ export default async function HelpPage() {
 
   return (
     <div>
-      <PageHeader title="使い方・ヒント" subtitle="予定管理をもっとスムーズに" backHref="/" />
+      <PageHeader title="使い方・ヒント" subtitle="予定管理をもっとスムーズに" backHref="/settings" />
       <PageContainer size="narrow">
         <div className="space-y-5">
           {/* 使い方のヒント */}

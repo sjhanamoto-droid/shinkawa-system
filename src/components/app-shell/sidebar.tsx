@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LogOut, ChevronRight, Settings, Bell, PanelLeftClose, PanelLeftOpen, Lightbulb,
+  LogOut, ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { sidebarNavForUser } from "./nav-items";
 import { Avatar } from "@/components/ui/avatar";
@@ -134,9 +134,14 @@ export function Sidebar({
       </nav>
 
       <div className={cn("space-y-1 pb-2", collapsed ? "px-2" : "px-3")}>
-        {railLink("/notifications", "通知", Bell, pathname.startsWith("/notifications"), unreadCount)}
-        {railLink("/help", "使い方", Lightbulb, pathname.startsWith("/help"))}
-        {railLink("/settings", "設定", Settings, pathname.startsWith("/settings"))}
+        {/* 通知・使い方は設定の中。未読があれば設定に件数を出す */}
+        {railLink(
+          "/settings",
+          "設定",
+          Settings,
+          ["/settings", "/notifications", "/help"].some((p) => pathname.startsWith(p)),
+          unreadCount,
+        )}
       </div>
 
       {/* ユーザー */}

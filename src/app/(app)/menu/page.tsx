@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  LogOut, Settings, ChevronRight, Bell, Building2, Briefcase, Users, Handshake, Car, Lightbulb, UserCog,
+  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Handshake, Car, UserCog,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -12,7 +12,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { ROLE_LABEL, DEPARTMENT_LABEL, isDepartment, type Role } from "@/lib/constants";
 import { logoutAction } from "@/features/auth/actions";
 
-// スマホ用のメニュー。役割別のショートカット・通知・ログアウトを整理して表示する。
+// スマホ用のメニュー。役割別のショートカット・設定・ログアウトを整理して表示する（通知・使い方は設定の中）。
 export default async function MenuPage() {
   const user = await requireUser();
   const unreadCount = await db.notification.count({ where: { userId: user.id, read: false } });
@@ -24,8 +24,7 @@ export default async function MenuPage() {
     ...(can(user, "partner.manage") ? [{ href: "/partners", label: "協力会社・下請", icon: Handshake }] : []),
     ...(can(user, "vehicle.manage") ? [{ href: "/vehicles", label: "車両", icon: Car }] : []),
     { href: "/settings/account", label: "アカウント設定", icon: UserCog },
-    { href: "/help", label: "使い方・ヒント", icon: Lightbulb },
-    { href: "/settings", label: "設定", icon: Settings },
+    { href: "/settings", label: "設定（通知・使い方）", icon: Settings },
   ];
 
   return (
@@ -46,24 +45,17 @@ export default async function MenuPage() {
           </div>
 
           <div className="card divide-y divide-line overflow-hidden">
-            <Link href="/notifications" className="tap-row flex items-center gap-3.5 p-4 active:bg-surface-sunken">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-                <Bell className="h-5 w-5" />
-              </span>
-              <span className="flex-1 text-[15px] font-bold text-ink">通知</span>
-              {unreadCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-danger px-1.5 text-[11px] font-bold text-white">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-              <ChevronRight className="h-5 w-5 shrink-0 text-ink-faint" />
-            </Link>
             {shortcuts.map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href} className="tap-row flex items-center gap-3.5 p-4 active:bg-surface-sunken">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="flex-1 text-[15px] font-bold text-ink">{label}</span>
+                {href === "/settings" && unreadCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-danger px-1.5 text-[11px] font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
                 <ChevronRight className="h-5 w-5 shrink-0 text-ink-faint" />
               </Link>
             ))}
