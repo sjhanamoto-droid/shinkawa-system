@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { db } from "@/lib/db";
 import { isBlobConfigured } from "@/lib/media";
+import { isAnthropicConfigured } from "@/lib/anthropic";
 import { isPhotoKind } from "@/lib/constants";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -55,6 +56,7 @@ export default async function EditClaimPage({ params }: { params: Promise<{ id: 
           }))}
           properties={properties}
           blobEnabled={isBlobConfigured()}
+          aiEnabled={isAnthropicConfigured()}
         />
         <p className="mt-3 text-center text-xs text-ink-muted">編集しても、もう一度通知はしません（共有した相手と確認状況はそのままです）。</p>
       </PageContainer>

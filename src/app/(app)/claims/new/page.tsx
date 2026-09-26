@@ -1,5 +1,6 @@
 import { requireCan } from "@/lib/session";
 import { isBlobConfigured } from "@/lib/media";
+import { isAnthropicConfigured } from "@/lib/anthropic";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { ClaimForm } from "@/features/claims/claim-form";
@@ -20,6 +21,7 @@ export default async function NewClaimPage({ searchParams }: { searchParams: Pro
           properties={properties}
           roleCounts={roleCounts}
           blobEnabled={isBlobConfigured()}
+          aiEnabled={isAnthropicConfigured()}
         />
       </PageContainer>
     </div>
