@@ -106,7 +106,7 @@ export default async function NewReportPage({
           }}
           initialPhotos={[]}
           blobEnabled={isBlobConfigured()}
-          ocrEnabled={isAnthropicConfigured()}
+          aiEnabled={isAnthropicConfigured()}
         />
       </PageContainer>
     </div>

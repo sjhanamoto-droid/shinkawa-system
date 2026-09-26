@@ -87,7 +87,7 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
             height: p.height ?? undefined,
           }))}
           blobEnabled={isBlobConfigured()}
-          ocrEnabled={isAnthropicConfigured()}
+          aiEnabled={isAnthropicConfigured()}
         />
       </PageContainer>
     </div>

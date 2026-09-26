@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, CalendarDays, Car, Send, Save, UserCheck, X } from "lucide-react";
+import { AlertCircle, CalendarDays, Car, Send, Save, Sparkles, UserCheck, X } from "lucide-react";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Field, Select, Textarea } from "@/components/ui/form";
 import { CategoryBadge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import { fmtKeyLong, fmtKeyShort } from "@/features/schedule/filters";
 import { fmtWorkHours, REPORT_TIME_STEP, workMinutes } from "@/lib/reports";
 import { saveReport, type ReportFormState } from "./actions";
 import { ExpenseEditor, serializeExpenses, type ExpenseRow } from "./expense-editor";
+import { AiSortPanel } from "./ai-sort-panel";
+import { useToast } from "@/components/ui/toast";
 
 type Choice = "" | "yes" | "no";
 
@@ -48,7 +50,8 @@ export type ReportFormProps = {
   initialPhotos: UploaderPhoto[];
   blobEnabled: boolean;
   /** 領収書の自動読み取り（Claude API のキーがあるとき） */
-  ocrEnabled: boolean;
+  /** Claude API が使える（領収書の読み取り・AIでまとめる） */
+  aiEnabled: boolean;
 };
 
 // ── 端末への自動保存（写真は保存しない）。24時間で破棄 ──
@@ -149,7 +152,9 @@ function ChoiceToggle({ name, value, onChange, labels = ["あり", "なし"] }: 
 }
 
 export function ReportForm(props: ReportFormProps) {
-  const { reportId, submitted, occurrence: o, worker, proxy, workDays, initialPhotos, blobEnabled, ocrEnabled } = props;
+  const { reportId, submitted, occurrence: o, worker, proxy, workDays, initialPhotos, blobEnabled, aiEnabled } = props;
+  const [aiOpen, setAiOpen] = useState(false);
+  const toast = useToast();
   const [state, formAction] = useActionState<ReportFormState, FormData>(saveReport, {});
   const [v, setV] = useState<ReportFormValues>(props.initial);
   const set = <K extends keyof ReportFormValues>(k: K, val: ReportFormValues[K]) => setV((prev) => ({ ...prev, [k]: val }));
@@ -349,7 +354,35 @@ export function ReportForm(props: ReportFormProps) {
 
       {/* 作業内容 */}
       <section className="space-y-3">
-        <SectionTitle>作業内容</SectionTitle>
+        <SectionTitle
+          action={
+            aiEnabled &&
+            !aiOpen && (
+              <button type="button" onClick={() => setAiOpen(true)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-brand-600 hover:bg-brand-50">
+                <Sparkles className="h-3.5 w-3.5" />
+                AIでまとめる
+              </button>
+            )
+          }
+        >
+          作業内容
+        </SectionTitle>
+        {aiOpen && (
+          <AiSortPanel
+            onClose={() => setAiOpen(false)}
+            onApply={(r) => {
+              dirty.current = true;
+              const join = (a: string, b: string) => (a.trim() ? `${a.trimEnd()}\n${b}` : b);
+              setV((prev) => ({
+                ...prev,
+                detail: r.detail ? join(prev.detail, r.detail) : prev.detail,
+                ...(r.handover ? { handoverChoice: "yes" as const, handover: join(prev.handover, r.handover) } : {}),
+              }));
+              setAiOpen(false);
+              toast(r.handover ? "作業内容と引き継ぎ事項に入れました。内容を確認してください" : "作業内容に入れました。引き継ぎ事項は見つかりませんでした");
+            }}
+          />
+        )}
         <Card className="p-4">
           <Field htmlFor="rf-detail" error={fe.detail} description="提出するときは必須です。下書きは空のままでも保存できます。">
             <Textarea
@@ -377,7 +410,7 @@ export function ReportForm(props: ReportFormProps) {
               setV((prev) => ({ ...prev, expenses: update(prev.expenses) }));
             }}
             blobEnabled={blobEnabled}
-            ocrEnabled={ocrEnabled}
+            ocrEnabled={aiEnabled}
             onBusyChange={setExpenseBusy}
             error={fe.expenses}
           />
