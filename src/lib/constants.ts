@@ -316,6 +316,7 @@ export type NotificationType =
   | "GENERATED"
   | "TOMORROW"
   | "ANNOUNCEMENT"
+  | "CLAIM"
   | "SYSTEM";
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   OCC_ASSIGNED: "担当に追加",
@@ -325,6 +326,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   GENERATED: "翌月分の生成",
   TOMORROW: "明日の予定",
   ANNOUNCEMENT: "全体連絡",
+  CLAIM: "クレーム再発防止",
   SYSTEM: "お知らせ",
 };
 

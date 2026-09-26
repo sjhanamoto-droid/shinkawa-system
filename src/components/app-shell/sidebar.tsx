@@ -21,6 +21,7 @@ export type ShellUser = {
   avatarColor: string;
   avatarUrl: string | null;
   department: string | null;
+  kind?: string;
 };
 
 // PC / タブレット用の固定サイドバー（md 以上で表示。スマホは BottomNav）
@@ -123,7 +124,14 @@ export function Sidebar({
                     active ? "bg-brand-50 text-brand-700" : "text-ink-soft hover:bg-surface-subtle",
                   )}
                 >
-                  <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.4 : 2} />
+                  <span className="relative shrink-0">
+                    <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+                    {item.href === "/notifications" && unreadCount > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-danger px-1 text-[10px] font-bold text-white">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </span>
                   {!collapsed && item.label}
                   {!collapsed && active && <ChevronRight className="ml-auto h-4 w-4 text-brand-400" />}
                 </Link>
@@ -134,14 +142,8 @@ export function Sidebar({
       </nav>
 
       <div className={cn("space-y-1 pb-2", collapsed ? "px-2" : "px-3")}>
-        {/* 通知・使い方は設定の中。未読があれば設定に件数を出す */}
-        {railLink(
-          "/settings",
-          "設定",
-          Settings,
-          ["/settings", "/notifications", "/help", "/announcements"].some((p) => pathname.startsWith(p)),
-          unreadCount,
-        )}
+        {/* 使い方は設定の中（通知はメニューの「通知」） */}
+        {railLink("/settings", "設定", Settings, ["/settings", "/help"].some((p) => pathname.startsWith(p)))}
       </div>
 
       {/* ユーザー */}

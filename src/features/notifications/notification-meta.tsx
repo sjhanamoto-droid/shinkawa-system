@@ -1,4 +1,4 @@
-import { UserPlus, CalendarClock, CheckCircle2, Ban, Sparkles, Sun, Bell, Megaphone, type LucideIcon } from "lucide-react";
+import { UserPlus, CalendarClock, CheckCircle2, Ban, Sparkles, Sun, Bell, Megaphone, ShieldAlert, type LucideIcon } from "lucide-react";
 import type { IconTone } from "@/components/ui/icon-badge";
 
 // 通知タイプごとのアイコン・色・ラベル。通知センターと起動ゲートで共有する。
@@ -12,7 +12,8 @@ const META: Record<string, NotificationMeta> = {
   OCC_CANCELLED: { icon: Ban, tone: "rose", label: "予定の中止" },
   GENERATED: { icon: Sparkles, tone: "violet", label: "翌月分の生成" },
   TOMORROW: { icon: Sun, tone: "sky", label: "明日の予定" },
-  ANNOUNCEMENT: { icon: Megaphone, tone: "rose", label: "全体連絡" },
+  ANNOUNCEMENT: { icon: Megaphone, tone: "brand", label: "全体連絡" },
+  CLAIM: { icon: ShieldAlert, tone: "rose", label: "クレーム再発防止" },
 };
 
 const DEFAULT_META: NotificationMeta = { icon: Bell, tone: "brand", label: "お知らせ" };

@@ -26,4 +26,11 @@ describe("全体連絡の宛先", () => {
     expect(can(u("SCHEDULER"), "announcement.send")).toBe(false);
     expect(can(u("STAFF"), "announcement.send")).toBe(false);
   });
+  it("クレームを登録できるのも最高管理者と事務・経理だけ", () => {
+    const u = (role: string) => ({ id: "u", role, department: null });
+    expect(can(u("OWNER"), "claim.manage")).toBe(true);
+    expect(can(u("OFFICE"), "claim.manage")).toBe(true);
+    expect(can(u("SCHEDULER"), "claim.manage")).toBe(false);
+    expect(can(u("STAFF"), "claim.manage")).toBe(false);
+  });
 });

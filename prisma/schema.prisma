@@ -65,6 +65,8 @@ model User {
   notifications      Notification[]        @relation("UserNotifications")
   pushSubscriptions  PushSubscription[]    @relation("UserPushSubscriptions")
   announcements      Announcement[]        @relation("AnnouncementAuthor")
+  claims             Claim[]               @relation("ClaimAuthor")
+  claimAcks          ClaimAck[]
 
   @@index([active, kind])
   @@index([partnerId])
@@ -174,6 +176,7 @@ model Property {
   jobs        Job[]
   occurrences Occurrence[]
   photos      Photo[]
+  claims      Claim[]
   memos       PropertyMemo[]
   handovers   Handover[]
   reports     DailyReport[]
@@ -384,6 +387,7 @@ model Photo {
   propertyId   String? // 物件直付け（図面・キーBOX・現調写真）
   occurrenceId String? // 実施回の作業写真
   reportId     String?
+  claimId      String? // クレーム再発防止の写真
   dataUrl      String? // 圧縮済み base64（画像・PDF）
   thumbUrl     String?
   blobPath     String? // Vercel Blob 上のパス（動画など）
@@ -402,8 +406,10 @@ model Photo {
   occurrence Occurrence?    @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
   report     DailyReport?   @relation(fields: [reportId], references: [id], onDelete: Cascade)
   receiptFor ReportExpense? @relation("ExpenseReceipt")
+  claim      Claim?         @relation(fields: [claimId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
+  @@index([claimId])
   @@index([occurrenceId])
   @@index([reportId])
 }
@@ -528,6 +534,45 @@ model Announcement {
   createdBy User? @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+}
+
+// ──────────────────── Claim（クレーム再発防止） ────────────────────
+// 起きたクレームと原因・再発防止策を残して共有する。受け取った人は「確認しました」を押すまで他の画面に進めない（ClaimAck）。
+model Claim {
+  id             String   @id @default(cuid())
+  propertyId     String?
+  occurredOn     String? // 発生日 YYYY-MM-DD
+  title          String
+  content        String // クレームの内容
+  cause          String? // 原因
+  prevention     String? // 対応・再発防止策
+  audience       String[] // ["ALL"] または役割
+  recipientCount Int      @default(0)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  property  Property?  @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  createdBy User?      @relation("ClaimAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  photos    Photo[]
+  acks      ClaimAck[]
+
+  @@index([createdAt])
+  @@index([propertyId])
+}
+
+model ClaimAck {
+  id        String    @id @default(cuid())
+  claimId   String
+  userId    String
+  ackAt     DateTime? // 確認した日時（null = まだ）
+  createdAt DateTime  @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([claimId, userId])
+  @@index([userId, ackAt])
 }
 
 // ──────────────────── PushSubscription（Web Push 購読情報） ────────────────────

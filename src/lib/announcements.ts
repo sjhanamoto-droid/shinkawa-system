@@ -7,13 +7,11 @@ export const ANNOUNCEMENT_CATEGORY_LABEL: Record<AnnouncementCategory, string> =
   EVENT: "行事・イベント",
   CLAIM: "クレーム・再発防止",
 };
-export const ANNOUNCEMENT_CATEGORY_OPTIONS: AnnouncementCategory[] = ["GENERAL", "EVENT", "CLAIM"];
+/** 送るときに選べる種類（クレームは「クレーム再発防止」から送る。CLAIM は過去データの表示用に残す） */
+export const ANNOUNCEMENT_CATEGORY_OPTIONS: AnnouncementCategory[] = ["GENERAL", "EVENT"];
 export function isAnnouncementCategory(v: unknown): v is AnnouncementCategory {
   return v === "GENERAL" || v === "EVENT" || v === "CLAIM";
 }
-
-/** クレームの共有で使うひな形 */
-export const CLAIM_TEMPLATE = "【発生日・現場】\n\n【クレームの内容】\n\n【原因】\n\n【対応・再発防止】\n";
 
 /** 宛先の役割の並び（全員の次に、現場に近い順） */
 export const AUDIENCE_ROLE_OPTIONS: Role[] = ROLE_OPTIONS;
@@ -44,4 +42,8 @@ export function isInternalWorker(kind: string): boolean {
 
 export function announcementDedupeKey(id: string): string {
   return `announce:${id}`;
+}
+
+export function claimDedupeKey(id: string): string {
+  return `claim:${id}`;
 }

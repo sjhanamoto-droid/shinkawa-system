@@ -9,6 +9,7 @@ import { can } from "@/lib/permissions";
 import { sendPushToUser } from "@/lib/push";
 import {
   ANNOUNCEMENT_CATEGORY_LABEL,
+  ANNOUNCEMENT_CATEGORY_OPTIONS,
   ANNOUNCEMENT_WORKER_KINDS,
   announcementDedupeKey,
   isAnnouncementCategory,
@@ -34,7 +35,7 @@ export async function sendAnnouncement(_prev: AnnouncementFormState, fd: FormDat
   if (title.length > TITLE_MAX) return { error: `件名は${TITLE_MAX}文字までです` };
   if (!body) return { error: "本文を入力してください" };
   if (body.length > BODY_MAX) return { error: `本文は${BODY_MAX}文字までです` };
-  if (!isAnnouncementCategory(category)) return { error: "種類を選んでください" };
+  if (!isAnnouncementCategory(category) || !ANNOUNCEMENT_CATEGORY_OPTIONS.includes(category)) return { error: "種類を選んでください" };
   if (audience.length === 0) return { error: "送る相手を選んでください" };
 
   // ログインできる在籍の社員・アルバイトに届ける。送った本人には通知しない

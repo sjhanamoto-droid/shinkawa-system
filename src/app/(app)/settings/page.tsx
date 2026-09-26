@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users2, Building2, UserCog, ChevronRight, Info, Bell, Handshake, Car, Lightbulb, Megaphone } from "lucide-react";
+import { Users2, Building2, UserCog, ChevronRight, Info, Handshake, Car, Lightbulb } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
@@ -29,7 +29,6 @@ function SettingRow({ href, icon, title, desc, badge = 0 }: { href: string; icon
 export default async function SettingsPage() {
   const user = await requireUser();
   const manager = can(user, "worker.manage");
-  const unreadCount = await db.notification.count({ where: { userId: user.id, read: false } });
   const [workerCount, vehicleCount] = manager
     ? await Promise.all([db.user.count({ where: { active: true } }), db.vehicle.count({ where: { active: true } })])
     : [0, 0];
@@ -78,23 +77,6 @@ export default async function SettingsPage() {
               icon={<UserCog className="h-5 w-5" />}
               title="アカウント設定"
               desc="氏名・アバター・パスワードの変更"
-            />
-          </section>
-
-          <section className="space-y-2.5">
-            <SectionTitle>通知</SectionTitle>
-            <SettingRow
-              href="/notifications"
-              icon={<Bell className="h-5 w-5" />}
-              title="通知センター"
-              desc={unreadCount > 0 ? `未読 ${unreadCount} 件・予定の移動・確定などのお知らせ` : "予定の移動・確定などのお知らせを確認"}
-              badge={unreadCount}
-            />
-            <SettingRow
-              href="/announcements"
-              icon={<Megaphone className="h-5 w-5" />}
-              title="全体連絡"
-              desc={can(user, "announcement.send") ? "役割ごと・全員に一括で連絡を送る・送った連絡の既読" : "会社からのお知らせ・行事・クレームの共有"}
             />
           </section>
 

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import {
-  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Handshake, Car, UserCog,
+  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Handshake, Car, UserCog, Bell, ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
+import { isInternalWorker } from "@/lib/announcements";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -12,7 +13,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { ROLE_LABEL, DEPARTMENT_LABEL, isDepartment, type Role } from "@/lib/constants";
 import { logoutAction } from "@/features/auth/actions";
 
-// スマホ用のメニュー。役割別のショートカット・設定・ログアウトを整理して表示する（通知・使い方は設定の中）。
+// スマホ用のメニュー。役割別のショートカット・通知・クレーム再発防止・設定・ログアウトを整理して表示する。
 export default async function MenuPage() {
   const user = await requireUser();
   const unreadCount = await db.notification.count({ where: { userId: user.id, read: false } });
@@ -23,8 +24,10 @@ export default async function MenuPage() {
     ...(can(user, "worker.manage") ? [{ href: "/workers", label: "作業者（スタッフ・アルバイト）", icon: Users }] : []),
     ...(can(user, "partner.manage") ? [{ href: "/partners", label: "協力会社・下請", icon: Handshake }] : []),
     ...(can(user, "vehicle.manage") ? [{ href: "/vehicles", label: "車両", icon: Car }] : []),
+    { href: "/notifications", label: "通知", icon: Bell },
+    ...(can(user, "claim.manage") || isInternalWorker(user.kind) ? [{ href: "/claims", label: "クレーム再発防止", icon: ShieldAlert }] : []),
     { href: "/settings/account", label: "アカウント設定", icon: UserCog },
-    { href: "/settings", label: "設定（通知・使い方）", icon: Settings },
+    { href: "/settings", label: "設定（使い方）", icon: Settings },
   ];
 
   return (
@@ -51,7 +54,7 @@ export default async function MenuPage() {
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="flex-1 text-[15px] font-bold text-ink">{label}</span>
-                {href === "/settings" && unreadCount > 0 && (
+                {href === "/notifications" && unreadCount > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-danger px-1.5 text-[11px] font-bold text-white">
                     {unreadCount > 99 ? "99+" : unreadCount}
                   </span>

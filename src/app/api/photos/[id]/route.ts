@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { signedReadUrl } from "@/lib/media";
 import { canSeeReportExpenses, canViewReport } from "@/lib/reports";
+import { canViewClaim } from "@/features/claims/queries";
 
 /** 'data:<mime>;base64,<data>' をパースする（不正なら null） */
 function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer } | null {
@@ -40,14 +41,16 @@ export async function GET(
 
   const photo = await db.photo.findUnique({
     where: { id },
-    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true, kind: true, report: { select: { userId: true, createdById: true } } },
+    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true, kind: true, report: { select: { userId: true, createdById: true } }, claim: { select: { audience: true } } },
   });
   // 日報の写真は、その日報を見られる人にだけ返す
   // 領収書は経費を見られる人（本人・入力者・最高管理者・事務）だけ
   const denied =
     !photo ||
     (photo.report && !canViewReport(user, photo.report)) ||
-    (photo.kind === "RECEIPT" && !(photo.report && canSeeReportExpenses(user, photo.report)));
+    (photo.kind === "RECEIPT" && !(photo.report && canSeeReportExpenses(user, photo.report))) ||
+    // クレームの写真は、そのクレームを見られる人だけ
+    (photo.claim && !canViewClaim(user, photo.claim.audience));
   if (!photo || denied) {
     return NextResponse.json({ error: "写真が見つかりません" }, { status: 404 });
   }
