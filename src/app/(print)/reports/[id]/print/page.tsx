@@ -101,7 +101,7 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
               <tbody>
                 {r.expenseLines.length === 0 && (
                   <tr>
-                    <td className={td} colSpan={3}>
+                    <td className={td} colSpan={4}>
                       経費なし
                     </td>
                   </tr>
@@ -109,13 +109,14 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
                 {r.expenseLines.map((e) => (
                   <tr key={e.key}>
                     <th className={th}>{e.categoryLabel}</th>
+                    <td className={`${td} w-16 text-center`}>{e.paidOn}</td>
                     <td className={td}>{e.label}</td>
                     <td className={`${td} w-28 text-right`}>{fmtYen(e.amount)}</td>
                   </tr>
                 ))}
                 <tr>
                   <th className={th}>合計</th>
-                  <td className={td} />
+                  <td className={td} colSpan={2} />
                   <td className={`${td} text-right font-bold`}>{fmtYen(r.expenseTotal)}</td>
                 </tr>
               </tbody>
@@ -139,7 +140,7 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={photoSrc(e.receiptPhotoId!)} alt="領収書" className="aspect-[3/4] w-full object-contain" />
                     <figcaption className="mt-0.5 text-[10px] text-slate-600">
-                      {e.categoryLabel} {fmtYen(e.amount)}
+                      {e.paidOn} {e.categoryLabel} {fmtYen(e.amount)}
                     </figcaption>
                   </figure>
                 ))}

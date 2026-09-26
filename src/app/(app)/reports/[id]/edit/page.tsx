@@ -17,8 +17,8 @@ export const dynamic = "force-dynamic";
 /** 以前の形式（駐車場代・電車賃の欄）で入っている金額は、経費の行として引き継ぐ */
 function legacyRows(parkingFee: number | null, trainFare: number | null): ExpenseRow[] {
   const rows: ExpenseRow[] = [];
-  if (parkingFee && parkingFee > 0) rows.push({ key: "legacy-parking", category: "PARKING", label: "", amount: String(parkingFee), ocr: false, receipt: null });
-  if (trainFare && trainFare > 0) rows.push({ key: "legacy-train", category: "TRAVEL", label: "", amount: String(trainFare), ocr: false, receipt: null });
+  if (parkingFee && parkingFee > 0) rows.push({ key: "legacy-parking", category: "PARKING", label: "", amount: String(parkingFee), paidOn: "", ocr: false, receipt: null });
+  if (trainFare && trainFare > 0) rows.push({ key: "legacy-train", category: "TRAVEL", label: "", amount: String(trainFare), paidOn: "", ocr: false, receipt: null });
   return rows;
 }
 
@@ -69,6 +69,7 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
                 category: isExpenseCategory(e.category) ? e.category : ("" as const),
                 label: e.label,
                 amount: e.amount > 0 ? String(e.amount) : "",
+                paidOn: e.paidOn ?? "",
                 ocr: e.ocr,
                 receipt: e.receiptPhotoId ? { id: e.receiptPhotoId } : null,
               })),

@@ -29,6 +29,20 @@ export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   OTHER: "その他",
 };
 export const EXPENSE_CATEGORY_OPTIONS = Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[];
+/** 経費の利用日（YYYY-MM-DD）として正しい日付か */
+export function isExpenseDate(v: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return false;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+}
+
+/** 利用日の表示（例：9/26） */
+export function fmtExpenseDate(v: string | null | undefined): string {
+  if (!v || !isExpenseDate(v)) return "";
+  return `${+v.slice(5, 7)}/${+v.slice(8, 10)}`;
+}
+
 export function isExpenseCategory(v: string | null | undefined): v is ExpenseCategory {
   return !!v && v in EXPENSE_CATEGORY_LABEL;
 }

@@ -10,6 +10,7 @@ import {
   canSeeReportExpenses,
   canViewReport,
   EXPENSE_CATEGORY_LABEL,
+  fmtExpenseDate,
   isExpenseCategory,
   isReportStatus,
   occurrenceWorkDays,
@@ -257,7 +258,7 @@ export async function loadReport(id: string, actor: Actor) {
           vehicles: { select: { vehicle: { select: { id: true, name: true, color: true } } }, orderBy: { createdAt: "asc" } },
         },
       },
-      expenses: { select: { id: true, category: true, label: true, amount: true, ocr: true, receiptPhotoId: true }, orderBy: { sortOrder: "asc" } },
+      expenses: { select: { id: true, category: true, label: true, amount: true, paidOn: true, ocr: true, receiptPhotoId: true }, orderBy: { sortOrder: "asc" } },
       photos: { where: { kind: { not: "RECEIPT" } }, select: { id: true, caption: true, kind: true, isVideo: true, duration: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
       comments: {
         select: { id: true, body: true, createdAt: true, user: { select: { id: true, name: true, avatarColor: true, avatarImage: true, updatedAt: true } } },
@@ -290,23 +291,24 @@ export async function loadReport(id: string, actor: Actor) {
   };
 }
 
-export type ExpenseLine = { key: string; categoryLabel: string; label: string; amount: number; receiptPhotoId: string | null; ocr: boolean };
+export type ExpenseLine = { key: string; categoryLabel: string; label: string; amount: number; paidOn: string; receiptPhotoId: string | null; ocr: boolean };
 
 /** 表示用の経費。以前の形式（駐車場代・電車賃の欄）も1行として並べる */
 function expenseLinesOf(r: {
   parkingFee: number | null;
   trainFare: number | null;
-  expenses: { id: string; category: string; label: string; amount: number; receiptPhotoId: string | null; ocr: boolean }[];
+  expenses: { id: string; category: string; label: string; amount: number; paidOn: string | null; receiptPhotoId: string | null; ocr: boolean }[];
 }): ExpenseLine[] {
   const lines: ExpenseLine[] = [];
-  if (r.parkingFee && r.parkingFee > 0) lines.push({ key: "legacy-parking", categoryLabel: EXPENSE_CATEGORY_LABEL.PARKING, label: "", amount: r.parkingFee, receiptPhotoId: null, ocr: false });
-  if (r.trainFare && r.trainFare > 0) lines.push({ key: "legacy-train", categoryLabel: EXPENSE_CATEGORY_LABEL.TRAVEL, label: "", amount: r.trainFare, receiptPhotoId: null, ocr: false });
+  if (r.parkingFee && r.parkingFee > 0) lines.push({ key: "legacy-parking", categoryLabel: EXPENSE_CATEGORY_LABEL.PARKING, label: "", amount: r.parkingFee, paidOn: "", receiptPhotoId: null, ocr: false });
+  if (r.trainFare && r.trainFare > 0) lines.push({ key: "legacy-train", categoryLabel: EXPENSE_CATEGORY_LABEL.TRAVEL, label: "", amount: r.trainFare, paidOn: "", receiptPhotoId: null, ocr: false });
   for (const e of r.expenses) {
     lines.push({
       key: e.id,
       categoryLabel: isExpenseCategory(e.category) ? EXPENSE_CATEGORY_LABEL[e.category] : "科目未選択",
       label: e.label,
       amount: e.amount,
+      paidOn: fmtExpenseDate(e.paidOn),
       receiptPhotoId: e.receiptPhotoId,
       ocr: e.ocr,
     });

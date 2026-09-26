@@ -5,7 +5,8 @@ import { z } from "zod/v4";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { requireUser } from "@/lib/session";
 import { getAnthropic } from "@/lib/anthropic";
-import { EXPENSE_CATEGORY_OPTIONS, type ExpenseCategory } from "@/lib/reports";
+import { EXPENSE_CATEGORY_OPTIONS, isExpenseDate, type ExpenseCategory } from "@/lib/reports";
+import { jstDateKey } from "@/lib/date";
 
 // 領収書・レシートの写真から「科目・金額・店名・日付」を読み取る。
 // 読み取り結果は下書きとしてフォームに入れ、本人が確認・修正してから提出する。
@@ -15,7 +16,7 @@ const receiptSchema = z.object({
   category: z.enum(EXPENSE_CATEGORY_OPTIONS).describe("科目"),
   amount: z.number().int().nullable().describe("支払った合計金額（税込・円）。読めなければ null"),
   vendor: z.string().nullable().describe("店名・発行者（駐車場名、駅名・区間、スタンド名など）。読めなければ null"),
-  date: z.string().nullable().describe("支払日 YYYY-MM-DD。読めなければ null"),
+  date: z.string().nullable().describe("支払日（西暦 YYYY-MM-DD）。読めなければ null"),
 });
 
 export type ReceiptReading = {
@@ -39,6 +40,7 @@ const SYSTEM = [
   "- SUPPLIES（材料・消耗品費）: ホームセンター、資材店、100円ショップ、ドラッグストア等での材料・洗剤・消耗品の購入",
   "- OTHER（その他）: 上のどれにも当たらないもの",
   "金額は支払った合計（税込）を円の整数で。お預かり・お釣りの金額と取り違えないでください。",
+  "日付は支払った日（駐車場なら出庫日時の日付）を西暦の YYYY-MM-DD で。和暦は西暦に直し（令和元年＝2019年、令和7年＝2025年）、「25/09/26」のような2桁の年は 2025年として扱ってください。年が書かれていなければ今日の日付に最も近い年にしてください。",
   "画像に書かれていない情報は推測せず null にしてください。領収書ではない画像なら isReceipt を false にしてください。",
 ].join("\n");
 
@@ -69,7 +71,7 @@ export async function readReceipt(dataUrl: string): Promise<ReadReceiptResult> {
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: m[1] as "image/jpeg" | "image/png" | "image/webp", data: m[2] } },
-            { type: "text", text: "この領収書を読み取ってください。" },
+            { type: "text", text: `この領収書を読み取ってください。今日は ${jstDateKey()} です。` },
           ],
         },
       ],
@@ -79,7 +81,7 @@ export async function readReceipt(dataUrl: string): Promise<ReadReceiptResult> {
       return { ok: false, reason: "unreadable", message: "領収書を読み取れませんでした。金額と科目を入力してください" };
     }
     const amount = out.amount != null && out.amount > 0 && out.amount <= 1_000_000 ? out.amount : null;
-    const date = out.date && /^\d{4}-\d{2}-\d{2}$/.test(out.date) ? out.date : null;
+    const date = out.date && isExpenseDate(out.date) ? out.date : null;
     return { ok: true, reading: { category: out.category, amount, vendor: out.vendor?.trim().slice(0, 50) || null, date } };
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) {

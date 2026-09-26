@@ -13,6 +13,7 @@ import {
   canViewReport,
   canWriteReportFor,
   isExpenseCategory,
+  isExpenseDate,
   isReportDue,
   type ExpenseCategory,
   isTimeOnStep,
@@ -50,6 +51,7 @@ type ParsedExpense = {
   category: ExpenseCategory | "";
   label: string;
   amount: number;
+  paidOn: string | null;
   ocr: boolean;
   /** 既存の領収書（写真ID）／新しい領収書／なし */
   receipt: { keepId: string } | { added: NewPhotoInput } | null;
@@ -73,7 +75,9 @@ function parseExpenses(raw: string, submit: boolean): ParsedExpense[] | { error:
     const amountRaw = typeof o.amount === "string" || typeof o.amount === "number" ? String(o.amount).trim() : "";
     const categoryRaw = typeof o.category === "string" ? o.category : "";
     const r = o.receipt && typeof o.receipt === "object" ? (o.receipt as Record<string, unknown>) : null;
-    if (!label && !amountRaw && !categoryRaw && !r) continue; // 空の行は無視
+    const paidOnRaw = typeof o.paidOn === "string" ? o.paidOn.trim() : "";
+    if (!label && !amountRaw && !categoryRaw && !paidOnRaw && !r) continue; // 空の行は無視
+    if (paidOnRaw && !isExpenseDate(paidOnRaw)) return { error: `${no}の利用日が正しくありません` };
 
     let receipt: ParsedExpense["receipt"] = null;
     if (r && typeof r.id === "string" && r.id) {
@@ -94,7 +98,7 @@ function parseExpenses(raw: string, submit: boolean): ParsedExpense[] | { error:
     } else if (submit) {
       return { error: `${no}の金額を入力してください（領収書を読み取れなかったときは手で入力してください）` };
     }
-    out.push({ category, label, amount, ocr: o.ocr === true, receipt });
+    out.push({ category, label, amount, paidOn: paidOnRaw || null, ocr: o.ocr === true, receipt });
   }
   if (out.length > MAX_EXPENSES) return { error: `経費は${MAX_EXPENSES}件までです` };
   return out;
@@ -264,7 +268,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         }
         if (receiptPhotoId) usedReceipts.push(receiptPhotoId);
         await tx.reportExpense.create({
-          data: { reportId: report.id, category: e.category, label: e.label, amount: e.amount, ocr: e.ocr, receiptPhotoId, sortOrder: i },
+          data: { reportId: report.id, category: e.category, label: e.label, amount: e.amount, paidOn: e.paidOn, ocr: e.ocr, receiptPhotoId, sortOrder: i },
         });
       }
       // どの経費にも付いていない領収書の写真は消す

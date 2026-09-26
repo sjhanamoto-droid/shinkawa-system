@@ -469,6 +469,7 @@ model ReportExpense {
   category       String      @default("OTHER")
   label          String // 内容（店名・区間など）
   amount         Int
+  paidOn         String? // 利用日 YYYY-MM-DD（領収書の日付）
   receiptPhotoId String?     @unique
   ocr            Boolean     @default(false) // 領収書から自動で読み取った
   sortOrder      Int         @default(0)

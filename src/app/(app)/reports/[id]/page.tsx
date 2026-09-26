@@ -160,8 +160,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                     )}
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-ink">{e.categoryLabel}</span>
-                      {(e.label || e.ocr) && (
+                      {(e.paidOn || e.label || e.ocr) && (
                         <span className="block truncate text-xs text-ink-muted">
+                          {e.paidOn && <span className="mr-1.5 tnum">{e.paidOn}</span>}
                           {e.label}
                           {e.ocr && <span className="ml-1 text-emerald-700">（領収書から読み取り）</span>}
                         </span>

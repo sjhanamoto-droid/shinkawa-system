@@ -23,6 +23,8 @@ export type ExpenseRow = {
   category: ExpenseCategory | "";
   label: string;
   amount: string;
+  /** 利用日 YYYY-MM-DD（空なら未入力） */
+  paidOn: string;
   ocr: boolean;
   receipt: ReceiptRef | null;
   /** 画面だけの状態 */
@@ -38,7 +40,7 @@ export function newExpenseKey(): string {
 
 /** hidden input に載せる形（画面だけの状態は外す） */
 export function serializeExpenses(rows: ExpenseRow[]): string {
-  return JSON.stringify(rows.map((r) => ({ category: r.category, label: r.label, amount: r.amount, ocr: r.ocr, receipt: r.receipt })));
+  return JSON.stringify(rows.map((r) => ({ category: r.category, label: r.label, amount: r.amount, paidOn: r.paidOn, ocr: r.ocr, receipt: r.receipt })));
 }
 
 function previewOf(r: ReceiptRef | null): string | null {
@@ -143,7 +145,7 @@ export function ExpenseEditor({
       const key = newExpenseKey();
       onChange((prev) => [
         ...prev,
-        { key, category: "", label: "", amount: "", ocr: false, receipt: null, status: "working", message: ocrEnabled ? "領収書を読み取っています..." : "写真を保存しています..." },
+        { key, category: "", label: "", amount: "", paidOn: "", ocr: false, receipt: null, status: "working", message: ocrEnabled ? "領収書を読み取っています..." : "写真を保存しています..." },
       ]);
       try {
         const { receipt, dataUrl } = await prepareReceipt(file, blobEnabled);
@@ -157,7 +159,8 @@ export function ExpenseEditor({
           patch(key, {
             category: r.reading.category,
             amount: r.reading.amount != null ? String(r.reading.amount) : "",
-            label: [r.reading.vendor, r.reading.date ? r.reading.date.slice(5).replace("-", "/") : null].filter(Boolean).join(" "),
+            label: r.reading.vendor ?? "",
+            paidOn: r.reading.date ?? "",
             ocr: true,
             status: "read",
             message: r.reading.amount != null ? "読み取りました。内容が合っているか確認してください" : "金額を読み取れませんでした。金額を入力してください",
@@ -246,13 +249,22 @@ export function ExpenseEditor({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    value={r.paidOn}
+                    onChange={(e) => patch(r.key, { paidOn: e.target.value })}
+                    type="date"
+                    aria-label="利用日"
+                    title="利用日"
+                    className="h-11 w-40"
+                    disabled={r.status === "working"}
+                  />
                   <Input
                     value={r.label}
                     onChange={(e) => patch(r.key, { label: e.target.value })}
                     placeholder="内容（店名・区間など）"
                     aria-label="内容"
-                    className="h-11 flex-1"
+                    className="h-11 min-w-40 flex-1"
                     maxLength={50}
                     disabled={r.status === "working"}
                   />
@@ -312,7 +324,7 @@ export function ExpenseEditor({
         </button>
         <button
           type="button"
-          onClick={() => onChange((prev) => [...prev, { key: newExpenseKey(), category: "", label: "", amount: "", ocr: false, receipt: null }])}
+          onClick={() => onChange((prev) => [...prev, { key: newExpenseKey(), category: "", label: "", amount: "", paidOn: "", ocr: false, receipt: null }])}
           disabled={busy}
           className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface px-4 text-sm font-bold text-ink-soft hover:bg-surface-subtle disabled:opacity-50"
         >

@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  isExpenseDate,
+  fmtExpenseDate,
   occurrenceWorkDays,
   lastWorkDay,
   isReportDue,
@@ -112,5 +114,21 @@ describe("reports: 10分刻み", () => {
     expect(roundTimeToStep("8:15", "09:00")).toBe("08:20");
     expect(roundTimeToStep("23:59", "09:00")).toBe("23:50");
     expect(roundTimeToStep(null, "09:00")).toBe("09:00");
+  });
+});
+
+describe("経費の利用日", () => {
+  it("正しい日付だけを受け付ける", () => {
+    expect(isExpenseDate("2026-09-26")).toBe(true);
+    expect(isExpenseDate("2028-02-29")).toBe(true);
+    expect(isExpenseDate("2026-02-29")).toBe(false);
+    expect(isExpenseDate("2026-13-01")).toBe(false);
+    expect(isExpenseDate("2026/09/26")).toBe(false);
+    expect(isExpenseDate("")).toBe(false);
+  });
+  it("月/日で表示する", () => {
+    expect(fmtExpenseDate("2026-09-06")).toBe("9/6");
+    expect(fmtExpenseDate(null)).toBe("");
+    expect(fmtExpenseDate("bad")).toBe("");
   });
 });
