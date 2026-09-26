@@ -32,6 +32,9 @@ export async function saveClaim(_prev: ClaimFormState, fd: FormData): Promise<Cl
   const prevention = text(fd, "prevention", 4000);
   const occurredOn = text(fd, "occurredOn", 10);
   const propertyId = text(fd, "propertyId", 50);
+  const siteContact = text(fd, "siteContact", 100);
+  const involvedOthers = text(fd, "involvedOthers", 200);
+  const pickedIds = [...new Set(fd.getAll("involvedUserIds").map(String).filter(Boolean))].slice(0, 50);
 
   if (!title) return { error: "件名を入力してください" };
   if (!content) return { error: "クレームの内容を入力してください" };
@@ -39,6 +42,10 @@ export async function saveClaim(_prev: ClaimFormState, fd: FormData): Promise<Cl
   if (propertyId && !(await db.property.findUnique({ where: { id: propertyId }, select: { id: true } }))) {
     return { error: "現場が見つかりません。選び直してください" };
   }
+  // 関わった人は、実在する作業者だけ残す
+  const involvedUserIds = pickedIds.length
+    ? (await db.user.findMany({ where: { id: { in: pickedIds } }, select: { id: true } })).map((u) => u.id)
+    : [];
   const photos = parseAndValidatePhotosField(String(fd.get("photos") ?? ""));
   if ("error" in photos) return { error: photos.error };
 
@@ -49,6 +56,9 @@ export async function saveClaim(_prev: ClaimFormState, fd: FormData): Promise<Cl
     prevention: prevention || null,
     occurredOn: occurredOn || null,
     propertyId: propertyId || null,
+    siteContact: siteContact || null,
+    involvedUserIds: pickedIds.filter((id) => involvedUserIds.includes(id)),
+    involvedOthers: involvedOthers || null,
   };
   const photoRows = (claimId: string) =>
     photos.added.map((p) => ({

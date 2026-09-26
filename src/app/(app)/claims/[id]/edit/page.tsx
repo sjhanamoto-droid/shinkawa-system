@@ -7,14 +7,14 @@ import { isPhotoKind } from "@/lib/constants";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { ClaimForm } from "@/features/claims/claim-form";
-import { claimPropertyOptions } from "@/features/claims/queries";
+import { claimPropertyOptions, claimWorkerOptions } from "@/features/claims/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditClaimPage({ params }: { params: Promise<{ id: string }> }) {
   await requireCan("claim.manage");
   const { id } = await params;
-  const [c, properties] = await Promise.all([
+  const [c, properties, workers] = await Promise.all([
     db.claim.findUnique({
       where: { id },
       select: {
@@ -25,10 +25,14 @@ export default async function EditClaimPage({ params }: { params: Promise<{ id: 
         content: true,
         cause: true,
         prevention: true,
+        siteContact: true,
+        involvedUserIds: true,
+        involvedOthers: true,
         photos: { select: { id: true, caption: true, kind: true, isVideo: true, duration: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
       },
     }),
     claimPropertyOptions(),
+    claimWorkerOptions(),
   ]);
   if (!c) notFound();
   return (
@@ -44,6 +48,9 @@ export default async function EditClaimPage({ params }: { params: Promise<{ id: 
             content: c.content,
             cause: c.cause ?? "",
             prevention: c.prevention ?? "",
+            siteContact: c.siteContact ?? "",
+            involvedUserIds: c.involvedUserIds,
+            involvedOthers: c.involvedOthers ?? "",
           }}
           initialPhotos={c.photos.map((p) => ({
             id: p.id,
@@ -55,6 +62,7 @@ export default async function EditClaimPage({ params }: { params: Promise<{ id: 
             height: p.height ?? undefined,
           }))}
           properties={properties}
+          workers={workers}
           blobEnabled={isBlobConfigured()}
           aiEnabled={isAnthropicConfigured()}
         />

@@ -546,6 +546,9 @@ model Claim {
   content        String // クレームの内容
   cause          String? // 原因
   prevention     String? // 対応・再発防止策
+  siteContact    String? // 現場の担当者名（自由記入）
+  involvedUserIds String[] @default([]) // このクレームに関わった作業者（User.id）
+  involvedOthers String? // 関わった人のうち一覧にいない人（自由記入）
   audience       String[] // ["ALL"] または役割
   recipientCount Int      @default(0)
   createdById    String?

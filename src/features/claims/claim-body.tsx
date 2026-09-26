@@ -1,4 +1,4 @@
-import { Building, CalendarDays } from "lucide-react";
+import { Building, CalendarDays, UserRound, Users } from "lucide-react";
 import { PhotoGrid, type PhotoData } from "@/components/photo-grid";
 import { fmtKeyLong } from "@/features/schedule/filters";
 
@@ -9,6 +9,9 @@ export type ClaimView = {
   cause: string | null;
   prevention: string | null;
   property: { id: string; name: string } | null;
+  siteContact: string | null;
+  /** 関わった人の名前（選んだ作業者＋自由記入） */
+  involved: string[];
   photos: PhotoData[];
 };
 
@@ -41,6 +44,18 @@ export function ClaimBody({ claim }: { claim: ClaimView }) {
               {fmtKeyLong(claim.occurredOn)}
             </span>
           )}
+          {claim.siteContact && (
+            <span className="flex items-center gap-1.5">
+              <UserRound className="h-4 w-4 text-ink-faint" />
+              現場担当：{claim.siteContact}
+            </span>
+          )}
+          {claim.involved.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Users className="h-4 w-4 text-ink-faint" />
+              関わった人：{claim.involved.join("、")}
+            </span>
+          )}
         </div>
       </div>
       <Block label="クレームの内容" text={claim.content} />
@@ -57,6 +72,9 @@ export const CLAIM_VIEW_SELECT = {
   content: true,
   cause: true,
   prevention: true,
+  siteContact: true,
+  involvedUserIds: true,
+  involvedOthers: true,
   property: { select: { id: true, name: true } },
   photos: { select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true }, orderBy: { createdAt: "asc" as const } },
 } as const;

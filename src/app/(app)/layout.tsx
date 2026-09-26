@@ -6,7 +6,7 @@ import { AppFrame, SIDEBAR_COOKIE } from "@/components/app-shell/app-frame";
 import { StartupGate } from "@/features/notifications/startup-gate";
 import { ClaimGate, type PendingClaim } from "@/features/claims/claim-gate";
 import { CLAIM_VIEW_SELECT } from "@/features/claims/claim-body";
-import { claimVisibleWhere } from "@/features/claims/queries";
+import { claimVisibleWhere, involvedNames } from "@/features/claims/queries";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -30,7 +30,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       select: { claim: { select: { id: true, createdBy: { select: { name: true } }, ...CLAIM_VIEW_SELECT } } },
     }),
   ]);
-  const pendingClaims: PendingClaim[] = pendingAcks.map(({ claim: { createdBy, ...c } }) => ({ ...c, createdByName: createdBy?.name ?? null }));
+  const pendingClaims: PendingClaim[] = await Promise.all(
+    pendingAcks.map(async ({ claim: { createdBy, ...c } }) => ({
+      ...c,
+      involved: await involvedNames(c.involvedUserIds, c.involvedOthers),
+      createdByName: createdBy?.name ?? null,
+    })),
+  );
 
   const actor = { id: user.id, role: user.role, department: user.department, kind: user.kind };
 

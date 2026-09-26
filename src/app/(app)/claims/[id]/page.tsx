@@ -13,7 +13,7 @@ import { LinkButton } from "@/components/ui/button";
 import { SearchParamToast } from "@/components/ui/toast";
 import { ClaimBody, CLAIM_VIEW_SELECT } from "@/features/claims/claim-body";
 import { DeleteClaimButton } from "@/features/claims/delete-button";
-import { claimVisibleWhere } from "@/features/claims/queries";
+import { claimVisibleWhere, involvedNames } from "@/features/claims/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +35,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
     },
   });
   if (!c) notFound();
+  const involved = await involvedNames(c.involvedUserIds, c.involvedOthers);
   const done = c.acks.filter((a) => a.ackAt);
   const notYet = c.acks.filter((a) => !a.ackAt);
 
@@ -59,7 +60,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
         <SearchParamToast />
         <div className="space-y-5">
           <Card className="space-y-4 p-4">
-            <ClaimBody claim={c} />
+            <ClaimBody claim={{ ...c, involved }} />
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-xs text-ink-muted">
               <span>
                 登録：{c.createdBy?.name ?? "—"}・{jstDateTimeLabel(c.createdAt)}
