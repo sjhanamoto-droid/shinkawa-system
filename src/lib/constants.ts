@@ -292,7 +292,7 @@ export const KEYBOX_STATUS_LABEL: Record<KeyboxStatus, string> = {
 };
 
 // ── 写真の種別 ──
-export type PhotoKind = "WORK" | "SURVEY" | "DRAWING" | "KEYBOX" | "BEFORE" | "AFTER" | "OTHER";
+export type PhotoKind = "WORK" | "SURVEY" | "DRAWING" | "KEYBOX" | "BEFORE" | "AFTER" | "OTHER" | "RECEIPT";
 export const PHOTO_KIND_LABEL: Record<PhotoKind, string> = {
   WORK: "作業",
   SURVEY: "現調",
@@ -301,6 +301,7 @@ export const PHOTO_KIND_LABEL: Record<PhotoKind, string> = {
   BEFORE: "作業前",
   AFTER: "作業後",
   OTHER: "その他",
+  RECEIPT: "領収書",
 };
 export function isPhotoKind(v: string | null | undefined): v is PhotoKind {
   return !!v && v in PHOTO_KIND_LABEL;

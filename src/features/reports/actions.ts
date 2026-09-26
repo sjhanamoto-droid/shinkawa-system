@@ -7,12 +7,14 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { dateFromKey, jstDateKey, storedDateKey } from "@/lib/date";
 import { deleteBlobPaths } from "@/lib/media";
-import { parseAndValidatePhotosField } from "@/lib/photos";
+import { parseAndValidatePhotosField, type NewPhotoInput } from "@/lib/photos";
 import {
   canEditReport,
   canViewReport,
   canWriteReportFor,
+  isExpenseCategory,
   isReportDue,
+  type ExpenseCategory,
   isTimeOnStep,
   lastWorkDay,
   occurrenceWorkDays,
@@ -33,7 +35,7 @@ export type ReportFormState = {
 // 日報に付ける写真の種別（それ以外は「作業」にそろえる。物件の図面・キーBOX等と混ざらないように）
 const REPORT_PHOTO_KINDS = new Set(["WORK", "BEFORE", "AFTER", "OTHER"]);
 
-type ReportField = "workDate" | "startTime" | "endTime" | "detail" | "parking" | "train" | "expenses" | "handover" | "photos";
+type ReportField = "workDate" | "startTime" | "endTime" | "detail" | "expenses" | "handover" | "photos";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -44,21 +46,17 @@ function str(fd: FormData, key: string): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-/** 「あり／なし」＋金額の欄。null=未選択、0=なし */
-function parseFee(choice: string, amountRaw: string, submit: boolean, label: string): { value: number | null } | { error: string } {
-  if (choice === "no") return { value: 0 };
-  if (choice === "yes") {
-    const n = Number(amountRaw);
-    if (!Number.isInteger(n) || n < (submit ? 1 : 0) || n > 1_000_000) {
-      return { error: `${label}は1円以上の整数で入力してください（0円の場合は「なし」を選択）` };
-    }
-    return { value: n };
-  }
-  if (submit) return { error: `${label}のあり／なしを選択してください` };
-  return { value: null };
-}
+type ParsedExpense = {
+  category: ExpenseCategory | "";
+  label: string;
+  amount: number;
+  ocr: boolean;
+  /** 既存の領収書（写真ID）／新しい領収書／なし */
+  receipt: { keepId: string } | { added: NewPhotoInput } | null;
+};
 
-function parseExpenses(raw: string): { label: string; amount: number }[] | { error: string } {
+/** 経費の行。1行＝領収書1枚が目安。提出時は科目と金額が必須 */
+function parseExpenses(raw: string, submit: boolean): ParsedExpense[] | { error: string } {
   if (!raw) return [];
   let arr: unknown;
   try {
@@ -67,16 +65,36 @@ function parseExpenses(raw: string): { label: string; amount: number }[] | { err
     return { error: "経費の入力内容が不正です" };
   }
   if (!Array.isArray(arr)) return { error: "経費の入力内容が不正です" };
-  const out: { label: string; amount: number }[] = [];
-  for (const item of arr) {
+  const out: ParsedExpense[] = [];
+  for (const [i, item] of arr.entries()) {
     const o = (item ?? {}) as Record<string, unknown>;
+    const no = `${i + 1}件目の経費`;
     const label = typeof o.label === "string" ? o.label.trim().slice(0, 50) : "";
     const amountRaw = typeof o.amount === "string" || typeof o.amount === "number" ? String(o.amount).trim() : "";
-    if (!label && !amountRaw) continue; // 空行は無視
-    const amount = Number(amountRaw);
-    if (!label) return { error: "経費の名目を入力してください" };
-    if (!Number.isInteger(amount) || amount < 0 || amount > 1_000_000) return { error: `「${label}」の金額は0以上の整数で入力してください` };
-    out.push({ label, amount });
+    const categoryRaw = typeof o.category === "string" ? o.category : "";
+    const r = o.receipt && typeof o.receipt === "object" ? (o.receipt as Record<string, unknown>) : null;
+    if (!label && !amountRaw && !categoryRaw && !r) continue; // 空の行は無視
+
+    let receipt: ParsedExpense["receipt"] = null;
+    if (r && typeof r.id === "string" && r.id) {
+      receipt = { keepId: r.id };
+    } else if (r) {
+      const parsed = parseAndValidatePhotosField(JSON.stringify([{ ...r, caption: "", kind: "RECEIPT" }]));
+      if ("error" in parsed) return { error: `${no}の領収書：${parsed.error}` };
+      if (parsed.added[0]) receipt = { added: { ...parsed.added[0], kind: "RECEIPT", isVideo: false } };
+    }
+
+    if (submit && !isExpenseCategory(categoryRaw)) return { error: `${no}の科目を選んでください` };
+    // 下書きでは科目未選択（""）・金額0のまま保存でき、開き直したときも未入力に戻る
+    const category: ExpenseCategory | "" = isExpenseCategory(categoryRaw) ? categoryRaw : "";
+    let amount = 0;
+    if (amountRaw && !(amountRaw === "0" && !submit)) {
+      amount = Number(amountRaw);
+      if (!Number.isInteger(amount) || amount < 1 || amount > 1_000_000) return { error: `${no}の金額は1円以上の整数で入力してください` };
+    } else if (submit) {
+      return { error: `${no}の金額を入力してください（領収書を読み取れなかったときは手で入力してください）` };
+    }
+    out.push({ category, label, amount, ocr: o.ocr === true, receipt });
   }
   if (out.length > MAX_EXPENSES) return { error: `経費は${MAX_EXPENSES}件までです` };
   return out;
@@ -163,12 +181,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
   const detail = str(fd, "detail").slice(0, 4000);
   if (submit && !detail) fieldErrors.detail = "提出には作業内容の入力が必要です";
 
-  const parking = parseFee(str(fd, "parkingChoice"), str(fd, "parkingFee"), submit, "駐車場代");
-  if ("error" in parking) fieldErrors.parking = parking.error;
-  const train = parseFee(str(fd, "trainChoice"), str(fd, "trainFare"), submit, "電車賃");
-  if ("error" in train) fieldErrors.train = train.error;
-
-  const expenses = parseExpenses(str(fd, "expenses"));
+  const expenses = parseExpenses(str(fd, "expenses"), submit);
   if ("error" in expenses) fieldErrors.expenses = expenses.error;
 
   const handoverChoice = str(fd, "handoverChoice");
@@ -182,7 +195,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
   if ("error" in photos) fieldErrors.photos = photos.error;
 
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
-  if ("error" in parking || "error" in train || "error" in expenses || "error" in photos) return { error: "入力内容を確認してください" };
+  if ("error" in expenses || "error" in photos) return { error: "入力内容を確認してください" };
 
   const handover = handoverChoice === "yes" ? handoverText : null;
   const handoverNone = handoverChoice === "no" ? true : handoverChoice === "yes" ? false : null;
@@ -201,8 +214,8 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         startTime,
         endTime,
         detail: detail || null,
-        parkingFee: parking.value,
-        trainFare: train.value,
+        parkingFee: null,
+        trainFare: null,
         handover,
         handoverNone,
         status,
@@ -216,20 +229,58 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
             select: { id: true },
           });
 
-      // 経費：作り直す
+      // 経費：作り直す。領収書は、この日報の領収書だけを引き継ぎ、新しいものは写真として登録する
       await tx.reportExpense.deleteMany({ where: { reportId: report.id } });
-      if (expenses.length) {
-        await tx.reportExpense.createMany({
-          data: expenses.map((e, i) => ({ reportId: report.id, label: e.label, amount: e.amount, sortOrder: i })),
+      const keepIds = expenses.flatMap((e) => (e.receipt && "keepId" in e.receipt ? [e.receipt.keepId] : []));
+      const ownReceipts = new Set(
+        keepIds.length
+          ? (await tx.photo.findMany({ where: { id: { in: keepIds }, reportId: report.id, kind: "RECEIPT" }, select: { id: true } })).map((p) => p.id)
+          : [],
+      );
+      const usedReceipts: string[] = [];
+      for (const [i, e] of expenses.entries()) {
+        let receiptPhotoId: string | null = null;
+        if (e.receipt && "keepId" in e.receipt && ownReceipts.has(e.receipt.keepId) && !usedReceipts.includes(e.receipt.keepId)) {
+          receiptPhotoId = e.receipt.keepId;
+        } else if (e.receipt && "added" in e.receipt) {
+          const p = e.receipt.added;
+          const created = await tx.photo.create({
+            data: {
+              reportId: report.id,
+              kind: "RECEIPT",
+              dataUrl: p.dataUrl ?? null,
+              thumbUrl: p.thumbUrl ?? null,
+              blobPath: p.blobPath ?? null,
+              mimeType: p.mimeType ?? null,
+              sizeBytes: p.sizeBytes ?? null,
+              isVideo: false,
+              width: p.width ?? null,
+              height: p.height ?? null,
+              createdById: me.id,
+            },
+            select: { id: true },
+          });
+          receiptPhotoId = created.id;
+        }
+        if (receiptPhotoId) usedReceipts.push(receiptPhotoId);
+        await tx.reportExpense.create({
+          data: { reportId: report.id, category: e.category, label: e.label, amount: e.amount, ocr: e.ocr, receiptPhotoId, sortOrder: i },
         });
       }
-
-      // 写真：残すもの以外を消し、新しいものを足す
-      const gone = await tx.photo.findMany({
-        where: { reportId: report.id, id: { notIn: photos.kept } },
+      // どの経費にも付いていない領収書の写真は消す
+      const goneReceipts = await tx.photo.findMany({
+        where: { reportId: report.id, kind: "RECEIPT", id: { notIn: usedReceipts } },
         select: { id: true, blobPath: true },
       });
-      if (gone.length) await tx.photo.deleteMany({ where: { id: { in: gone.map((p) => p.id) } } });
+      if (goneReceipts.length) await tx.photo.deleteMany({ where: { id: { in: goneReceipts.map((p) => p.id) } } });
+
+      // 写真（領収書以外）：残すもの以外を消し、新しいものを足す
+      const gonePhotos = await tx.photo.findMany({
+        where: { reportId: report.id, kind: { not: "RECEIPT" }, id: { notIn: photos.kept } },
+        select: { id: true, blobPath: true },
+      });
+      const gone = [...goneReceipts, ...gonePhotos];
+      if (gonePhotos.length) await tx.photo.deleteMany({ where: { id: { in: gonePhotos.map((p) => p.id) } } });
       if (photos.added.length) {
         await tx.photo.createMany({
           // 日報の写真は reportId だけで紐づける（予定や現場の削除に巻き込まれないように）
@@ -317,7 +368,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
       }
 
       return { id: report.id, gone: gone.map((p) => p.blobPath).filter((p): p is string => !!p), done };
-    });
+   }, { timeout: 15000 });
     savedId = result.id;
     removedBlobs = result.gone;
     completed = result.done;

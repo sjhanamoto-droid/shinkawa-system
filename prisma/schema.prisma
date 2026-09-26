@@ -390,16 +390,17 @@ model Photo {
   sizeBytes    Int?
   duration     Int?
   caption      String?
-  kind         String   @default("WORK") // WORK | SURVEY | DRAWING | KEYBOX | BEFORE | AFTER | OTHER
+  kind         String   @default("WORK") // WORK | SURVEY | DRAWING | KEYBOX | BEFORE | AFTER | OTHER | RECEIPT
   isVideo      Boolean  @default(false)
   width        Int?
   height       Int?
   createdById  String?
   createdAt    DateTime @default(now())
 
-  property   Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  occurrence Occurrence?  @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
-  report     DailyReport? @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  property   Property?      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  occurrence Occurrence?    @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  report     DailyReport?   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  receiptFor ReportExpense? @relation("ExpenseReceipt")
 
   @@index([propertyId])
   @@index([occurrenceId])
@@ -460,13 +461,19 @@ model DailyReport {
   @@index([propertyId, workDate])
 }
 
+// 日報の経費。1件＝領収書1枚が目安。科目は src/lib/reports.ts の EXPENSE_CATEGORY。
+// 領収書の写真は Photo（kind=RECEIPT、reportId 付き）を receiptPhotoId で指す。
 model ReportExpense {
-  id        String      @id @default(cuid())
-  reportId  String
-  label     String
-  amount    Int
-  sortOrder Int         @default(0)
-  report    DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  id             String      @id @default(cuid())
+  reportId       String
+  category       String      @default("OTHER")
+  label          String // 内容（店名・区間など）
+  amount         Int
+  receiptPhotoId String?     @unique
+  ocr            Boolean     @default(false) // 領収書から自動で読み取った
+  sortOrder      Int         @default(0)
+  report         DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  receiptPhoto   Photo?      @relation("ExpenseReceipt", fields: [receiptPhotoId], references: [id], onDelete: SetNull)
 
   @@index([reportId])
 }

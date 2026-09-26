@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/session";
 import { jstDateKey, storedDateKey } from "@/lib/date";
 import { getAppSettings } from "@/lib/settings";
 import { isBlobConfigured } from "@/lib/media";
+import { isAnthropicConfigured } from "@/lib/anthropic";
 import { canWriteReportFor, isProxyWrite, isReportDue, occurrenceWorkDays, roundTimeToStep } from "@/lib/reports";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -99,16 +100,13 @@ export default async function NewReportPage({
             startTime: roundTimeToStep(o.startTime ?? settings.defaultStartTime, "09:00"),
             endTime: roundTimeToStep(o.endTime ?? settings.defaultEndTime, "17:00"),
             detail: "",
-            parkingChoice: "",
-            parkingFee: "",
-            trainChoice: "",
-            trainFare: "",
             expenses: [],
             handoverChoice: "",
             handover: "",
           }}
           initialPhotos={[]}
           blobEnabled={isBlobConfigured()}
+          ocrEnabled={isAnthropicConfigured()}
         />
       </PageContainer>
     </div>

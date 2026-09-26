@@ -18,6 +18,21 @@ export function isReportStatus(v: string | null | undefined): v is ReportStatus 
   return v === "DRAFT" || v === "SUBMITTED";
 }
 
+// ── 経費の科目（領収書OCRの判別先にもなる） ──
+export type ExpenseCategory = "TRAVEL" | "PARKING" | "HIGHWAY" | "FUEL" | "SUPPLIES" | "OTHER";
+export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  TRAVEL: "旅費交通費",
+  PARKING: "駐車場代",
+  HIGHWAY: "高速代",
+  FUEL: "ガソリン代",
+  SUPPLIES: "材料・消耗品費",
+  OTHER: "その他",
+};
+export const EXPENSE_CATEGORY_OPTIONS = Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[];
+export function isExpenseCategory(v: string | null | undefined): v is ExpenseCategory {
+  return !!v && v in EXPENSE_CATEGORY_LABEL;
+}
+
 /** 未提出を探しにいく日数（今日を含まない過去分） */
 export const MISSING_LOOKBACK_DAYS = 14;
 

@@ -23,7 +23,6 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
   const minutes = workMinutes(r.startTime, r.endTime);
   const proxyBy = r.createdBy && r.createdBy.id !== r.userId ? r.createdBy.name : null;
   const photos = r.photos.filter((p) => !p.isVideo);
-  const expenseTotal = (r.parkingFee ?? 0) + (r.trainFare ?? 0) + r.expenses.reduce((s, e) => s + e.amount, 0);
   const cat = r.occurrence && isCategory(r.occurrence.category) ? CATEGORY[r.occurrence.category].label : null;
 
   const th = "w-28 border border-slate-300 bg-slate-50 px-2 py-1.5 text-left font-semibold";
@@ -100,23 +99,24 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
             <h2 className="mb-1 border-l-4 border-slate-800 pl-2 font-bold">経費</h2>
             <table className="w-full border-collapse">
               <tbody>
-                <tr>
-                  <th className={th}>駐車場代</th>
-                  <td className={`${td} text-right`}>{r.parkingFee == null ? "未入力" : r.parkingFee === 0 ? "なし" : fmtYen(r.parkingFee)}</td>
-                </tr>
-                <tr>
-                  <th className={th}>電車賃</th>
-                  <td className={`${td} text-right`}>{r.trainFare == null ? "未入力" : r.trainFare === 0 ? "なし" : fmtYen(r.trainFare)}</td>
-                </tr>
-                {r.expenses.map((e) => (
-                  <tr key={e.id}>
-                    <th className={th}>{e.label}</th>
-                    <td className={`${td} text-right`}>{fmtYen(e.amount)}</td>
+                {r.expenseLines.length === 0 && (
+                  <tr>
+                    <td className={td} colSpan={3}>
+                      経費なし
+                    </td>
+                  </tr>
+                )}
+                {r.expenseLines.map((e) => (
+                  <tr key={e.key}>
+                    <th className={th}>{e.categoryLabel}</th>
+                    <td className={td}>{e.label}</td>
+                    <td className={`${td} w-28 text-right`}>{fmtYen(e.amount)}</td>
                   </tr>
                 ))}
                 <tr>
                   <th className={th}>合計</th>
-                  <td className={`${td} text-right font-bold`}>{fmtYen(expenseTotal)}</td>
+                  <td className={td} />
+                  <td className={`${td} text-right font-bold`}>{fmtYen(r.expenseTotal)}</td>
                 </tr>
               </tbody>
             </table>
@@ -127,6 +127,25 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
           <h2 className="mb-1 border-l-4 border-slate-800 pl-2 font-bold">引き継ぎ事項</h2>
           <p className="whitespace-pre-wrap border border-slate-300 p-2">{r.handover || (r.handoverNone ? "なし" : "（未入力）")}</p>
         </section>
+
+        {r.showExpenses && r.expenseLines.some((e) => e.receiptPhotoId) && (
+          <section className="mb-4">
+            <h2 className="mb-1 border-l-4 border-slate-800 pl-2 font-bold">領収書</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {r.expenseLines
+                .filter((e) => e.receiptPhotoId)
+                .map((e) => (
+                  <figure key={e.key} className="break-inside-avoid border border-slate-300 p-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoSrc(e.receiptPhotoId!)} alt="領収書" className="aspect-[3/4] w-full object-contain" />
+                    <figcaption className="mt-0.5 text-[10px] text-slate-600">
+                      {e.categoryLabel} {fmtYen(e.amount)}
+                    </figcaption>
+                  </figure>
+                ))}
+            </div>
+          </section>
+        )}
 
         {photos.length > 0 && (
           <section className="mb-4">

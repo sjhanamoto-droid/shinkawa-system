@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarDays, Car, Clock, ExternalLink, MessageSquare, P
 import { requireUser } from "@/lib/session";
 import { canEditReport, fmtWorkHours, REPORT_STATUS_LABEL, workMinutes } from "@/lib/reports";
 import { fmtYen } from "@/lib/utils";
+import { photoSrc } from "@/lib/photos";
 import { jstDateTimeLabel } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -27,7 +28,6 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   const canEdit = canEditReport(me, r);
   const minutes = workMinutes(r.startTime, r.endTime);
   const proxyBy = r.createdBy && r.createdBy.id !== r.userId ? r.createdBy.name : null;
-  const expenseTotal = (r.parkingFee ?? 0) + (r.trainFare ?? 0) + r.expenses.reduce((s, e) => s + e.amount, 0);
 
   return (
     <div>
@@ -147,23 +147,32 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                 </span>
               </SectionTitle>
               <Card className="divide-y divide-line text-sm">
-                <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-ink-soft">駐車場代</span>
-                  <span className="font-semibold tnum text-ink">{r.parkingFee == null ? "未入力" : r.parkingFee === 0 ? "なし" : fmtYen(r.parkingFee)}</span>
-                </div>
-                <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-ink-soft">電車賃</span>
-                  <span className="font-semibold tnum text-ink">{r.trainFare == null ? "未入力" : r.trainFare === 0 ? "なし" : fmtYen(r.trainFare)}</span>
-                </div>
-                {r.expenses.map((e) => (
-                  <div key={e.id} className="flex justify-between px-4 py-2.5">
-                    <span className="text-ink-soft">{e.label}</span>
+                {r.expenseLines.length === 0 && <p className="px-4 py-3 text-ink-muted">経費はありません</p>}
+                {r.expenseLines.map((e) => (
+                  <div key={e.key} className="flex items-center gap-3 px-4 py-2.5">
+                    {e.receiptPhotoId ? (
+                      <a href={photoSrc(e.receiptPhotoId)} target="_blank" rel="noreferrer" className="shrink-0" aria-label="領収書を開く">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photoSrc(e.receiptPhotoId, true)} alt="領収書" className="h-12 w-10 rounded border border-line object-cover" />
+                      </a>
+                    ) : (
+                      <span className="flex h-12 w-10 shrink-0 items-center justify-center rounded border border-dashed border-line text-[10px] text-ink-faint">なし</span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-ink">{e.categoryLabel}</span>
+                      {(e.label || e.ocr) && (
+                        <span className="block truncate text-xs text-ink-muted">
+                          {e.label}
+                          {e.ocr && <span className="ml-1 text-emerald-700">（領収書から読み取り）</span>}
+                        </span>
+                      )}
+                    </span>
                     <span className="font-semibold tnum text-ink">{fmtYen(e.amount)}</span>
                   </div>
                 ))}
                 <div className="flex justify-between bg-surface-subtle px-4 py-2.5 font-bold">
                   <span>合計</span>
-                  <span className="tnum">{fmtYen(expenseTotal)}</span>
+                  <span className="tnum">{fmtYen(r.expenseTotal)}</span>
                 </div>
               </Card>
             </section>

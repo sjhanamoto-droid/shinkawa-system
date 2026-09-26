@@ -3,9 +3,9 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, CalendarDays, Car, Plus, Send, Save, Trash2, UserCheck, X } from "lucide-react";
+import { AlertCircle, CalendarDays, Car, Send, Save, UserCheck, X } from "lucide-react";
 import { Card, SectionTitle } from "@/components/ui/card";
-import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { Field, Select, Textarea } from "@/components/ui/form";
 import { CategoryBadge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { PhotoUploader, type UploaderPhoto } from "@/components/photo-uploader";
@@ -13,19 +13,15 @@ import { cn } from "@/lib/utils";
 import { fmtKeyLong, fmtKeyShort } from "@/features/schedule/filters";
 import { fmtWorkHours, REPORT_TIME_STEP, workMinutes } from "@/lib/reports";
 import { saveReport, type ReportFormState } from "./actions";
+import { ExpenseEditor, serializeExpenses, type ExpenseRow } from "./expense-editor";
 
 type Choice = "" | "yes" | "no";
-type ExpenseRow = { label: string; amount: string };
 
 export type ReportFormValues = {
   workDate: string;
   startTime: string;
   endTime: string;
   detail: string;
-  parkingChoice: Choice;
-  parkingFee: string;
-  trainChoice: Choice;
-  trainFare: string;
   expenses: ExpenseRow[];
   handoverChoice: Choice;
   handover: string;
@@ -51,6 +47,8 @@ export type ReportFormProps = {
   initial: ReportFormValues;
   initialPhotos: UploaderPhoto[];
   blobEnabled: boolean;
+  /** 領収書の自動読み取り（Claude API のキーがあるとき） */
+  ocrEnabled: boolean;
 };
 
 // ── 端末への自動保存（写真は保存しない）。24時間で破棄 ──
@@ -70,6 +68,18 @@ function readLocal<T>(key: string): { savedAt: number; values: T } | null {
   } catch {
     return null;
   }
+}
+
+/** 端末に保存する形。領収書の画像データは容量が大きいので外す（保存済みの写真＝id は残す） */
+function forLocal(v: ReportFormValues): ReportFormValues {
+  return {
+    ...v,
+    expenses: v.expenses.map((e) => {
+      const keep = !e.receipt || "id" in e.receipt;
+      // 外した写真から読み取った値は、復元時に「読み取り」扱いにしない
+      return { ...e, receipt: keep ? e.receipt : null, ocr: keep && e.ocr, status: undefined, message: undefined };
+    }),
+  };
 }
 
 function SubmitButtons({ submitted, uploading }: { submitted: boolean; uploading: boolean }) {
@@ -139,15 +149,17 @@ function ChoiceToggle({ name, value, onChange, labels = ["あり", "なし"] }: 
 }
 
 export function ReportForm(props: ReportFormProps) {
-  const { reportId, submitted, occurrence: o, worker, proxy, workDays, initialPhotos, blobEnabled } = props;
+  const { reportId, submitted, occurrence: o, worker, proxy, workDays, initialPhotos, blobEnabled, ocrEnabled } = props;
   const [state, formAction] = useActionState<ReportFormState, FormData>(saveReport, {});
   const [v, setV] = useState<ReportFormValues>(props.initial);
   const set = <K extends keyof ReportFormValues>(k: K, val: ReportFormValues[K]) => setV((prev) => ({ ...prev, [k]: val }));
 
-  const storageKey = reportId ? `shinkawa:report:edit:${reportId}` : `shinkawa:report:new:${o.id}:${worker.id}:${v.workDate}`;
+  const storageKey = reportId ? `shinkawa:report:v2:edit:${reportId}` : `shinkawa:report:v2:new:${o.id}:${worker.id}:${v.workDate}`;
   const pendingKey = `${storageKey}:pending`;
   const [restore, setRestore] = useState<ReportFormValues | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [expenseBusy, setExpenseBusy] = useState(false);
+  const uploading = photoBusy || expenseBusy;
   const dirty = useRef(false);
 
   // 開いたとき：直前に送信した直後なら端末の下書きを捨てる。そうでなければ復元を提案
@@ -164,7 +176,7 @@ export function ReportForm(props: ReportFormProps) {
       /* 端末に保存できない環境では何もしない */
     }
     const saved = readLocal<ReportFormValues>(storageKey);
-    if (saved && JSON.stringify(saved.values) !== JSON.stringify(props.initial)) setRestore(saved.values);
+    if (saved && JSON.stringify(saved.values) !== JSON.stringify(forLocal(props.initial))) setRestore(saved.values);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -173,7 +185,7 @@ export function ReportForm(props: ReportFormProps) {
     if (!dirty.current) return;
     const t = setTimeout(() => {
       try {
-        localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), values: v }));
+        localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), values: forLocal(v) }));
       } catch {
         /* 容量不足などは無視 */
       }
@@ -196,7 +208,7 @@ export function ReportForm(props: ReportFormProps) {
     dirty.current = true;
     try {
       localStorage.removeItem(pendingKey);
-      localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), values: v }));
+      localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), values: forLocal(v) }));
     } catch {
       /* noop */
     }
@@ -209,7 +221,7 @@ export function ReportForm(props: ReportFormProps) {
 
   const fe = state.fieldErrors ?? {};
   const minutes = workMinutes(v.startTime, v.endTime);
-  const expensesJson = useMemo(() => JSON.stringify(v.expenses), [v.expenses]);
+  const expensesJson = useMemo(() => serializeExpenses(v.expenses), [v.expenses]);
 
   return (
     <form
@@ -358,76 +370,17 @@ export function ReportForm(props: ReportFormProps) {
         <SectionTitle>経費</SectionTitle>
         <Card className="space-y-4 p-4">
           <p className="text-xs text-ink-muted">経費は本人と最高管理者・事務だけが見られます。</p>
-          <Field label="駐車場代" required error={fe.parking} description="「なし」を選ぶと0円で記録します。">
-            <div className="flex flex-wrap items-center gap-2">
-              <ChoiceToggle name="parkingChoice" value={v.parkingChoice} onChange={(c) => set("parkingChoice", c)} />
-              {v.parkingChoice === "yes" && (
-                <div className="flex items-center gap-1.5">
-                  <Input name="parkingFee" type="number" inputMode="numeric" min={1} value={v.parkingFee} onChange={(e) => set("parkingFee", e.target.value)} placeholder="例）800" className="h-11 w-32" />
-                  <span className="text-sm text-ink-soft">円</span>
-                </div>
-              )}
-            </div>
-          </Field>
-          <Field label="電車賃" required error={fe.train} description="「なし」を選ぶと0円で記録します。">
-            <div className="flex flex-wrap items-center gap-2">
-              <ChoiceToggle name="trainChoice" value={v.trainChoice} onChange={(c) => set("trainChoice", c)} />
-              {v.trainChoice === "yes" && (
-                <div className="flex items-center gap-1.5">
-                  <Input name="trainFare" type="number" inputMode="numeric" min={1} value={v.trainFare} onChange={(e) => set("trainFare", e.target.value)} placeholder="例）480" className="h-11 w-32" />
-                  <span className="text-sm text-ink-soft">円</span>
-                </div>
-              )}
-            </div>
-          </Field>
-          <Field label="その他の経費" hint="高速代・材料の立替など" error={fe.expenses}>
-            <div className="space-y-2">
-              {v.expenses.map((row, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    value={row.label}
-                    onChange={(e) => set("expenses", v.expenses.map((r, idx) => (idx === i ? { ...r, label: e.target.value } : r)))}
-                    placeholder="名目（例：高速代）"
-                    aria-label="名目"
-                    className="h-11 flex-1"
-                    maxLength={50}
-                  />
-                  <Input
-                    value={row.amount}
-                    onChange={(e) => set("expenses", v.expenses.map((r, idx) => (idx === i ? { ...r, amount: e.target.value } : r)))}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    placeholder="金額"
-                    aria-label="金額"
-                    className="h-11 w-28"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      dirty.current = true;
-                      set("expenses", v.expenses.filter((_, idx) => idx !== i));
-                    }}
-                    aria-label="この経費を削除"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-muted hover:bg-surface-sunken"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  dirty.current = true;
-                  set("expenses", [...v.expenses, { label: "", amount: "" }]);
-                }}
-                className="flex h-10 items-center gap-1 rounded-xl border border-dashed border-line-strong px-3 text-sm font-semibold text-ink-soft hover:bg-surface-subtle"
-              >
-                <Plus className="h-4 w-4" />
-                経費を追加
-              </button>
-            </div>
-          </Field>
+          <ExpenseEditor
+            rows={v.expenses}
+            onChange={(update) => {
+              dirty.current = true;
+              setV((prev) => ({ ...prev, expenses: update(prev.expenses) }));
+            }}
+            blobEnabled={blobEnabled}
+            ocrEnabled={ocrEnabled}
+            onBusyChange={setExpenseBusy}
+            error={fe.expenses}
+          />
         </Card>
       </section>
 
@@ -458,7 +411,7 @@ export function ReportForm(props: ReportFormProps) {
         <SectionTitle>写真{blobEnabled ? "・動画" : ""}</SectionTitle>
         <Card className="p-4">
           <Field error={fe.photos} description="任意。タイル左上の種別をタップすると「作業／作業前／作業後／その他」を切り替えられます。">
-            <PhotoUploader name="photos" defaultKind="WORK" initial={initialPhotos} blobEnabled={blobEnabled} onBusyChange={setUploading} />
+            <PhotoUploader name="photos" defaultKind="WORK" initial={initialPhotos} blobEnabled={blobEnabled} onBusyChange={setPhotoBusy} />
           </Field>
         </Card>
       </section>

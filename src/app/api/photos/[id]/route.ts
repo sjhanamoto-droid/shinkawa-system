@@ -8,7 +8,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { signedReadUrl } from "@/lib/media";
-import { canViewReport } from "@/lib/reports";
+import { canSeeReportExpenses, canViewReport } from "@/lib/reports";
 
 /** 'data:<mime>;base64,<data>' をパースする（不正なら null） */
 function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer } | null {
@@ -40,10 +40,15 @@ export async function GET(
 
   const photo = await db.photo.findUnique({
     where: { id },
-    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true, report: { select: { userId: true, createdById: true } } },
+    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true, kind: true, report: { select: { userId: true, createdById: true } } },
   });
   // 日報の写真は、その日報を見られる人にだけ返す
-  if (!photo || (photo.report && !canViewReport(user, photo.report))) {
+  // 領収書は経費を見られる人（本人・入力者・最高管理者・事務）だけ
+  const denied =
+    !photo ||
+    (photo.report && !canViewReport(user, photo.report)) ||
+    (photo.kind === "RECEIPT" && !(photo.report && canSeeReportExpenses(user, photo.report)));
+  if (!photo || denied) {
     return NextResponse.json({ error: "写真が見つかりません" }, { status: 404 });
   }
 

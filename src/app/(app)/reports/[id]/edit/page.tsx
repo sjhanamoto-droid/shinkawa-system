@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { isBlobConfigured } from "@/lib/media";
-import { canEditReport, isProxyWrite, roundTimeToStep } from "@/lib/reports";
+import { isAnthropicConfigured } from "@/lib/anthropic";
+import { canEditReport, isExpenseCategory, isProxyWrite, roundTimeToStep } from "@/lib/reports";
+import type { ExpenseRow } from "@/features/reports/expense-editor";
 import { isPhotoKind } from "@/lib/constants";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -12,8 +14,12 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-function choiceOf(fee: number | null): "" | "yes" | "no" {
-  return fee == null ? "" : fee > 0 ? "yes" : "no";
+/** 以前の形式（駐車場代・電車賃の欄）で入っている金額は、経費の行として引き継ぐ */
+function legacyRows(parkingFee: number | null, trainFare: number | null): ExpenseRow[] {
+  const rows: ExpenseRow[] = [];
+  if (parkingFee && parkingFee > 0) rows.push({ key: "legacy-parking", category: "PARKING", label: "", amount: String(parkingFee), ocr: false, receipt: null });
+  if (trainFare && trainFare > 0) rows.push({ key: "legacy-train", category: "TRAVEL", label: "", amount: String(trainFare), ocr: false, receipt: null });
+  return rows;
 }
 
 export default async function EditReportPage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,11 +62,17 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
             startTime: roundTimeToStep(r.startTime, "09:00"),
             endTime: roundTimeToStep(r.endTime, "17:00"),
             detail: r.detail ?? "",
-            parkingChoice: choiceOf(r.parkingFee),
-            parkingFee: r.parkingFee ? String(r.parkingFee) : "",
-            trainChoice: choiceOf(r.trainFare),
-            trainFare: r.trainFare ? String(r.trainFare) : "",
-            expenses: r.expenses.map((e) => ({ label: e.label, amount: String(e.amount) })),
+            expenses: [
+              ...legacyRows(r.parkingFee, r.trainFare),
+              ...r.expenses.map((e) => ({
+                key: e.id,
+                category: isExpenseCategory(e.category) ? e.category : ("" as const),
+                label: e.label,
+                amount: e.amount > 0 ? String(e.amount) : "",
+                ocr: e.ocr,
+                receipt: e.receiptPhotoId ? { id: e.receiptPhotoId } : null,
+              })),
+            ],
             handoverChoice: r.handover ? "yes" : r.handoverNone ? "no" : "",
             handover: r.handover ?? "",
           }}
@@ -74,6 +86,7 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
             height: p.height ?? undefined,
           }))}
           blobEnabled={isBlobConfigured()}
+          ocrEnabled={isAnthropicConfigured()}
         />
       </PageContainer>
     </div>

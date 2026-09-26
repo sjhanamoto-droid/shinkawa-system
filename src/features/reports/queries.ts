@@ -9,6 +9,8 @@ import {
   MISSING_LOOKBACK_DAYS,
   canSeeReportExpenses,
   canViewReport,
+  EXPENSE_CATEGORY_LABEL,
+  isExpenseCategory,
   isReportStatus,
   occurrenceWorkDays,
   type ReportStatus,
@@ -255,8 +257,8 @@ export async function loadReport(id: string, actor: Actor) {
           vehicles: { select: { vehicle: { select: { id: true, name: true, color: true } } }, orderBy: { createdAt: "asc" } },
         },
       },
-      expenses: { select: { id: true, label: true, amount: true }, orderBy: { sortOrder: "asc" } },
-      photos: { select: { id: true, caption: true, kind: true, isVideo: true, duration: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
+      expenses: { select: { id: true, category: true, label: true, amount: true, ocr: true, receiptPhotoId: true }, orderBy: { sortOrder: "asc" } },
+      photos: { where: { kind: { not: "RECEIPT" } }, select: { id: true, caption: true, kind: true, isVideo: true, duration: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
       comments: {
         select: { id: true, body: true, createdAt: true, user: { select: { id: true, name: true, avatarColor: true, avatarImage: true, updatedAt: true } } },
         orderBy: { createdAt: "asc" },
@@ -283,7 +285,33 @@ export async function loadReport(id: string, actor: Actor) {
     parkingFee: showExpenses ? r.parkingFee : null,
     trainFare: showExpenses ? r.trainFare : null,
     expenses: showExpenses ? r.expenses : [],
+    expenseLines: showExpenses ? expenseLinesOf(r) : [],
+    expenseTotal: showExpenses ? expenseLinesOf(r).reduce((s, e) => s + e.amount, 0) : 0,
   };
+}
+
+export type ExpenseLine = { key: string; categoryLabel: string; label: string; amount: number; receiptPhotoId: string | null; ocr: boolean };
+
+/** 表示用の経費。以前の形式（駐車場代・電車賃の欄）も1行として並べる */
+function expenseLinesOf(r: {
+  parkingFee: number | null;
+  trainFare: number | null;
+  expenses: { id: string; category: string; label: string; amount: number; receiptPhotoId: string | null; ocr: boolean }[];
+}): ExpenseLine[] {
+  const lines: ExpenseLine[] = [];
+  if (r.parkingFee && r.parkingFee > 0) lines.push({ key: "legacy-parking", categoryLabel: EXPENSE_CATEGORY_LABEL.PARKING, label: "", amount: r.parkingFee, receiptPhotoId: null, ocr: false });
+  if (r.trainFare && r.trainFare > 0) lines.push({ key: "legacy-train", categoryLabel: EXPENSE_CATEGORY_LABEL.TRAVEL, label: "", amount: r.trainFare, receiptPhotoId: null, ocr: false });
+  for (const e of r.expenses) {
+    lines.push({
+      key: e.id,
+      categoryLabel: isExpenseCategory(e.category) ? EXPENSE_CATEGORY_LABEL[e.category] : "科目未選択",
+      label: e.label,
+      amount: e.amount,
+      receiptPhotoId: e.receiptPhotoId,
+      ocr: e.ocr,
+    });
+  }
+  return lines;
 }
 
 // ─────────────────────────── 一覧用 ───────────────────────────
@@ -303,7 +331,7 @@ const listSelect = {
   occurrence: {
     select: { id: true, title: true, category: true, customerNameRaw: true, customer: { select: { name: true, shortName: true } }, property: { select: { name: true } } },
   },
-  _count: { select: { photos: true, comments: true } },
+  _count: { select: { photos: { where: { kind: { not: "RECEIPT" } } }, comments: true } },
 } satisfies Prisma.DailyReportSelect;
 
 type ListRow = Prisma.DailyReportGetPayload<{ select: typeof listSelect }>;
