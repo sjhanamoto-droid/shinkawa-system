@@ -578,6 +578,21 @@ model ClaimAck {
   @@index([userId, ackAt])
 }
 
+// ──────────────────── CatalogLink（カタログ・リンク集） ────────────────────
+// 自社HP・メーカーのデジタルカタログなどのリンク。最高管理者・事務が画面から追加・編集する。
+model CatalogLink {
+  id        String   @id @default(cuid())
+  groupName String   @default("その他") // 見出し（自社・サンゲツ・3M など）
+  title     String
+  url       String
+  note      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupName, sortOrder])
+}
+
 // ──────────────────── PushSubscription（Web Push 購読情報） ────────────────────
 model PushSubscription {
   id        String   @id @default(cuid())

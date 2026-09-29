@@ -1,5 +1,5 @@
 import {
-  Home, CalendarDays, ClipboardList, Building2, Building, Briefcase, Users, Handshake, Car, Bell, ShieldAlert,
+  Home, CalendarDays, ClipboardList, Building2, Building, Briefcase, Users, Handshake, Car, Bell, ShieldAlert, BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action, type Actor } from "@/lib/permissions";
@@ -31,6 +31,7 @@ const NOTIFICATIONS: NavItem = {
   icon: Bell,
   match: (p) => p.startsWith("/notifications") || p.startsWith("/announcements"),
 };
+const CATALOG: NavItem = { href: "/catalog", label: "カタログ", icon: BookOpen, match: (p) => p.startsWith("/catalog") };
 const CLAIMS: NavItem = { href: "/claims", label: "クレーム再発防止", icon: ShieldAlert, match: (p) => p.startsWith("/claims") };
 
 // 役割ではなく権限（can）で項目を絞る。bottom=true はスマホのボトムナビにも出す（4件以内＋メニュー）。
@@ -46,6 +47,7 @@ const ENTRIES: NavEntry[] = [
   { item: VEHICLES, action: "vehicle.manage", bottom: false },
   { item: NOTIFICATIONS, bottom: false },
   { item: CLAIMS, bottom: false, internal: true },
+  { item: CATALOG, bottom: false },
 ];
 
 function visible(actor: NavActor, e: NavEntry): boolean {

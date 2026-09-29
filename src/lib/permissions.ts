@@ -31,6 +31,7 @@ export type Action =
   | "settings.manage"
   | "announcement.send"
   | "claim.manage"
+  | "catalog.manage"
   | "amount.view"
   | "amount.edit";
 
@@ -60,6 +61,7 @@ export const ALL_ACTIONS: Action[] = [
   "settings.manage",
   "announcement.send",
   "claim.manage",
+  "catalog.manage",
   "amount.view",
   "amount.edit",
 ];
@@ -142,6 +144,7 @@ export function can(a: Actor | null | undefined, action: Action, resource?: Reso
     case "settings.manage":
     case "announcement.send":
     case "claim.manage":
+    case "catalog.manage":
       return isManager(a);
 
     case "amount.view":

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Handshake, Car, UserCog, Bell, ShieldAlert,
+  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Handshake, Car, UserCog, Bell, ShieldAlert, BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -26,6 +26,7 @@ export default async function MenuPage() {
     ...(can(user, "vehicle.manage") ? [{ href: "/vehicles", label: "車両", icon: Car }] : []),
     { href: "/notifications", label: "通知", icon: Bell },
     ...(can(user, "claim.manage") || isInternalWorker(user.kind) ? [{ href: "/claims", label: "クレーム再発防止", icon: ShieldAlert }] : []),
+    { href: "/catalog", label: "カタログ", icon: BookOpen },
     { href: "/settings/account", label: "アカウント設定", icon: UserCog },
     { href: "/settings", label: "設定（使い方）", icon: Settings },
   ];
