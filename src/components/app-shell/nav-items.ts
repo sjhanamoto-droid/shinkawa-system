@@ -1,5 +1,5 @@
 import {
-  Home, CalendarDays, ClipboardList, Building2, Building, Briefcase, Users, Car, Bell, BookOpen,
+  Home, CalendarDays, ClipboardList, Building2, Building, Briefcase, Users, Car, Bell, BookOpen, Clock,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action, type Actor } from "@/lib/permissions";
@@ -21,6 +21,7 @@ const SCHEDULE: NavItem = { href: "/schedule", label: "カレンダー", icon: C
 const REPORTS: NavItem = { href: "/reports", label: "日報", icon: ClipboardList, match: (p) => p.startsWith("/reports") };
 const PROPERTIES: NavItem = { href: "/properties", label: "現場", icon: Building, match: (p) => p.startsWith("/properties") };
 const CUSTOMERS: NavItem = { href: "/customers", label: "顧客", icon: Building2, match: (p) => p.startsWith("/customers") };
+const ATTENDANCE: NavItem = { href: "/attendance", label: "稼働時間", icon: Clock, match: (p) => p.startsWith("/attendance") };
 const JOBS: NavItem = { href: "/jobs", label: "案件", icon: Briefcase, match: (p) => p.startsWith("/jobs") };
 const PEOPLE: NavItem = {
   href: "/workers",
@@ -42,6 +43,7 @@ const ENTRIES: NavEntry[] = [
   { item: HOME, bottom: true },
   { item: SCHEDULE, bottom: true },
   { item: REPORTS, bottom: true },
+  { item: ATTENDANCE, bottom: false },
   { item: JOBS, action: "job.manage", bottom: false },
   { item: PROPERTIES, bottom: true },
   { item: CUSTOMERS, action: "customer.manage", bottom: true },

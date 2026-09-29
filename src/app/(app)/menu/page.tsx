@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Car, UserCog, Bell, BookOpen,
+  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Car, UserCog, Bell, BookOpen, Clock,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -19,6 +19,7 @@ export default async function MenuPage() {
   const unreadCount = await db.notification.count({ where: { userId: user.id, read: false } });
 
   const shortcuts: { href: string; label: string; icon: LucideIcon }[] = [
+    { href: "/attendance", label: can(user, "attendance.view") ? "稼働時間" : "自分の稼働時間", icon: Clock },
     ...(can(user, "job.manage") ? [{ href: "/jobs", label: "案件（定期契約）", icon: Briefcase }] : []),
     ...(can(user, "customer.manage") ? [{ href: "/customers", label: "顧客", icon: Building2 }] : []),
     ...(can(user, "worker.manage") ? [{ href: "/workers", label: "作業者・協力会社", icon: Users }] : []),
