@@ -3,6 +3,7 @@ import { Plus, Pencil, Phone, Users, Handshake } from "lucide-react";
 import { requireCan } from "@/lib/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { PeopleTabs } from "@/components/app-shell/section-tab-sets";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
@@ -25,7 +26,9 @@ export default async function PartnersPage() {
         title="協力会社・下請"
         subtitle="クリーニングの外注先と工事の下職"
         right={<LinkButton href="/partners/new" size="sm"><Plus className="h-4 w-4" />追加</LinkButton>}
-      />
+      >
+        <PeopleTabs />
+      </PageHeader>
       <PageContainer>
         <SearchParamToast />
         {partners.length === 0 ? (

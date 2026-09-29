@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { InboxTabs } from "@/components/app-shell/section-tab-sets";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
@@ -48,7 +49,9 @@ export default async function ClaimsPage() {
             </LinkButton>
           )
         }
-      />
+      >
+        <InboxTabs />
+      </PageHeader>
       <PageContainer size="narrow">
         <SearchParamToast />
         {claims.length === 0 ? (

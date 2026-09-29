@@ -3,6 +3,7 @@ import { Pencil, UserPlus, Mail, Phone, Tag, Search } from "lucide-react";
 import { requireCan } from "@/lib/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { PeopleTabs } from "@/components/app-shell/section-tab-sets";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +51,9 @@ export default async function WorkersPage({
             <UserPlus className="h-4 w-4" />追加
           </LinkButton>
         }
-      />
+      >
+        <PeopleTabs />
+      </PageHeader>
       <PageContainer>
         <form className="mb-4 flex gap-2">
           <div className="relative min-w-0 flex-1 sm:max-w-md">

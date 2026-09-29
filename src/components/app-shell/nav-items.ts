@@ -1,5 +1,5 @@
 import {
-  Home, CalendarDays, ClipboardList, Building2, Building, Briefcase, Users, Handshake, Car, Bell, ShieldAlert, BookOpen,
+  Home, CalendarDays, ClipboardList, Building2, Building, Briefcase, Users, Car, Bell, BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action, type Actor } from "@/lib/permissions";
@@ -22,17 +22,20 @@ const REPORTS: NavItem = { href: "/reports", label: "日報", icon: ClipboardLis
 const PROPERTIES: NavItem = { href: "/properties", label: "現場", icon: Building, match: (p) => p.startsWith("/properties") };
 const CUSTOMERS: NavItem = { href: "/customers", label: "顧客", icon: Building2, match: (p) => p.startsWith("/customers") };
 const JOBS: NavItem = { href: "/jobs", label: "案件", icon: Briefcase, match: (p) => p.startsWith("/jobs") };
-const WORKERS: NavItem = { href: "/workers", label: "作業者", icon: Users, match: (p) => p.startsWith("/workers") };
-const PARTNERS: NavItem = { href: "/partners", label: "協力会社", icon: Handshake, match: (p) => p.startsWith("/partners") };
+const PEOPLE: NavItem = {
+  href: "/workers",
+  label: "作業者・協力会社",
+  icon: Users,
+  match: (p) => p.startsWith("/workers") || p.startsWith("/partners"),
+};
 const VEHICLES: NavItem = { href: "/vehicles", label: "車両", icon: Car, match: (p) => p.startsWith("/vehicles") };
 const NOTIFICATIONS: NavItem = {
   href: "/notifications",
   label: "通知",
   icon: Bell,
-  match: (p) => p.startsWith("/notifications") || p.startsWith("/announcements"),
+  match: (p) => p.startsWith("/notifications") || p.startsWith("/announcements") || p.startsWith("/claims"),
 };
 const CATALOG: NavItem = { href: "/catalog", label: "カタログ", icon: BookOpen, match: (p) => p.startsWith("/catalog") };
-const CLAIMS: NavItem = { href: "/claims", label: "クレーム再発防止", icon: ShieldAlert, match: (p) => p.startsWith("/claims") };
 
 // 役割ではなく権限（can）で項目を絞る。bottom=true はスマホのボトムナビにも出す（4件以内＋メニュー）。
 const ENTRIES: NavEntry[] = [
@@ -42,11 +45,9 @@ const ENTRIES: NavEntry[] = [
   { item: JOBS, action: "job.manage", bottom: false },
   { item: PROPERTIES, bottom: true },
   { item: CUSTOMERS, action: "customer.manage", bottom: true },
-  { item: WORKERS, action: "worker.manage", bottom: false },
-  { item: PARTNERS, action: "partner.manage", bottom: false },
+  { item: PEOPLE, action: "worker.manage", bottom: false },
   { item: VEHICLES, action: "vehicle.manage", bottom: false },
   { item: NOTIFICATIONS, bottom: false },
-  { item: CLAIMS, bottom: false, internal: true },
   { item: CATALOG, bottom: false },
 ];
 

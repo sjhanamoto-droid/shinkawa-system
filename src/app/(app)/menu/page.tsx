@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Handshake, Car, UserCog, Bell, ShieldAlert, BookOpen,
+  LogOut, Settings, ChevronRight, Building2, Briefcase, Users, Car, UserCog, Bell, BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -21,11 +21,13 @@ export default async function MenuPage() {
   const shortcuts: { href: string; label: string; icon: LucideIcon }[] = [
     ...(can(user, "job.manage") ? [{ href: "/jobs", label: "案件（定期契約）", icon: Briefcase }] : []),
     ...(can(user, "customer.manage") ? [{ href: "/customers", label: "顧客", icon: Building2 }] : []),
-    ...(can(user, "worker.manage") ? [{ href: "/workers", label: "作業者（スタッフ・アルバイト）", icon: Users }] : []),
-    ...(can(user, "partner.manage") ? [{ href: "/partners", label: "協力会社・下請", icon: Handshake }] : []),
+    ...(can(user, "worker.manage") ? [{ href: "/workers", label: "作業者・協力会社", icon: Users }] : []),
     ...(can(user, "vehicle.manage") ? [{ href: "/vehicles", label: "車両", icon: Car }] : []),
-    { href: "/notifications", label: "通知", icon: Bell },
-    ...(can(user, "claim.manage") || isInternalWorker(user.kind) ? [{ href: "/claims", label: "クレーム再発防止", icon: ShieldAlert }] : []),
+    {
+      href: "/notifications",
+      label: can(user, "claim.manage") || isInternalWorker(user.kind) ? "通知（全体連絡・クレーム再発防止）" : "通知（全体連絡）",
+      icon: Bell,
+    },
     { href: "/catalog", label: "カタログ", icon: BookOpen },
     { href: "/settings/account", label: "アカウント設定", icon: UserCog },
     { href: "/settings", label: "設定（使い方）", icon: Settings },

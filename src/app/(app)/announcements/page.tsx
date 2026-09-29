@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { jstDateTimeLabel } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { InboxTabs } from "@/components/app-shell/section-tab-sets";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
@@ -32,7 +33,6 @@ export default async function AnnouncementsPage() {
       <PageHeader
         title="全体連絡"
         subtitle="会社からのお知らせ・行事・クレームの共有"
-        backHref="/notifications"
         right={
           canSend && (
             <LinkButton href="/announcements/new" size="sm">
@@ -41,7 +41,9 @@ export default async function AnnouncementsPage() {
             </LinkButton>
           )
         }
-      />
+      >
+        <InboxTabs />
+      </PageHeader>
       <PageContainer size="narrow">
         <SearchParamToast />
         {items.length === 0 ? (

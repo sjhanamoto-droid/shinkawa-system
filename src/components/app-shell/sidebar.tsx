@@ -4,13 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LogOut, ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
+  ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { sidebarNavForUser } from "./nav-items";
-import { Avatar } from "@/components/ui/avatar";
-import { ROLE_LABEL, DEPARTMENT_LABEL, isDepartment, type Role } from "@/lib/constants";
 import { APP_NAME } from "@/lib/brand";
-import { logoutAction } from "@/features/auth/actions";
 import { cn } from "@/lib/utils";
 
 export type ShellUser = {
@@ -106,9 +103,6 @@ export function Sidebar({
 
       {/* ナビ */}
       <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-3")}>
-        {!collapsed && (
-          <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-ink-faint">メニュー</p>
-        )}
         <ul className="space-y-1">
           {items.map((item) => {
             const active = item.match(pathname);
@@ -141,51 +135,11 @@ export function Sidebar({
         </ul>
       </nav>
 
-      <div className={cn("space-y-1 pb-2", collapsed ? "px-2" : "px-3")}>
+      <div className={cn("space-y-1 border-t border-line py-2", collapsed ? "px-2" : "px-3")}>
         {/* 使い方は設定の中（通知はメニューの「通知」） */}
         {railLink("/settings", "設定", Settings, ["/settings", "/help"].some((p) => pathname.startsWith(p)))}
       </div>
 
-      {/* ユーザー */}
-      {collapsed ? (
-        <div className="flex flex-col items-center gap-2 border-t border-line p-2">
-          <Link href="/settings/account" title={user.name}>
-            <Avatar name={user.name} color={user.avatarColor} image={user.avatarUrl} size="md" />
-          </Link>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              aria-label="ログアウト"
-              title="ログアウト"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-red-50 hover:text-status-danger"
-            >
-              <LogOut className="h-[18px] w-[18px]" />
-            </button>
-          </form>
-        </div>
-      ) : (
-        <div className="border-t border-line p-3">
-          <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
-            <Avatar name={user.name} color={user.avatarColor} image={user.avatarUrl} size="md" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-ink">{user.name}</p>
-              <p className="truncate text-[11px] text-ink-muted">
-                {ROLE_LABEL[user.role as Role] ?? user.role}
-                {isDepartment(user.department) && ` ・ ${DEPARTMENT_LABEL[user.department]}`}
-              </p>
-            </div>
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                aria-label="ログアウト"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-red-50 hover:text-status-danger"
-              >
-                <LogOut className="h-[18px] w-[18px]" />
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

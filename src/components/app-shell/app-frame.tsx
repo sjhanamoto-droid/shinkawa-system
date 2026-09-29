@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Sidebar, type ShellUser } from "./sidebar";
+import { ShellUserProvider } from "./shell-user";
 import { cn } from "@/lib/utils";
 
 export const SIDEBAR_COOKIE = "shinkawa_sidebar";
@@ -30,11 +31,11 @@ export function AppFrame({
   }
 
   return (
-    <>
+    <ShellUserProvider user={user} unreadCount={unreadCount}>
       <Sidebar user={user} collapsed={collapsed} onToggle={toggle} unreadCount={unreadCount} />
       <div className={cn("transition-[padding] duration-200", collapsed ? "md:pl-[72px]" : "md:pl-60 lg:pl-64")}>
         <div className="app-container min-h-dvh pb-nav md:mx-0 md:max-w-none md:pb-0">{children}</div>
       </div>
-    </>
+    </ShellUserProvider>
   );
 }
