@@ -61,14 +61,9 @@ export function CustomerForm({ customer }: { customer?: CustomerFormValues }) {
           <Field label="顧客名" required htmlFor="name">
             <Input id="name" name="name" defaultValue={customer?.name ?? ""} placeholder="株式会社○○不動産" required />
           </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="短縮名" htmlFor="shortName" hint="カレンダーのチップに表示（例：グリーンランド）">
-              <Input id="shortName" name="shortName" defaultValue={customer?.shortName ?? ""} placeholder="グリーンランド" maxLength={20} />
-            </Field>
-            <Field label="ふりがな" htmlFor="kana" hint="検索用">
-              <Input id="kana" name="kana" defaultValue={customer?.kana ?? ""} placeholder="ぐりーんらんど" />
-            </Field>
-          </div>
+          <Field label="短縮名" htmlFor="shortName" hint="カレンダーのチップに表示（例：グリーンランド）">
+            <Input id="shortName" name="shortName" defaultValue={customer?.shortName ?? ""} placeholder="グリーンランド" maxLength={20} />
+          </Field>
           <Field label="メモ" htmlFor="memo">
             <Textarea id="memo" name="memo" defaultValue={customer?.memo ?? ""} placeholder="担当者の連絡先・特記事項など" />
           </Field>
