@@ -10,7 +10,7 @@ import { PageContainer } from "@/components/app-shell/page-container";
 import { SectionTitle } from "@/components/ui/card";
 import { IconBadge } from "@/components/ui/icon-badge";
 import { occurrenceSelect, loadPersonMap, toOccurrenceView } from "@/features/schedule/query";
-import { OccurrenceCard } from "@/features/schedule/occurrence-card";
+import { SiteVisitCard } from "@/features/schedule/site-visit-card";
 import { fmtKeyLong } from "@/features/schedule/filters";
 import { notificationMeta } from "@/features/notifications/notification-meta";
 import { loadMyReportTodo, loadProxyTodo } from "@/features/reports/queries";
@@ -148,9 +148,7 @@ export default async function HomePage() {
               ) : (
                 <div className="space-y-2">
                   {(planner ? todayItems.slice(0, 10) : todayItems).map((o) => (
-                    <Link key={o.id} href={`/schedule?view=day&d=${today}${planner ? "" : "&mine=1"}`} className="block">
-                      <OccurrenceCard occurrence={o} variant="card" />
-                    </Link>
+                    <SiteVisitCard key={o.id} o={o} calendarHref={`/schedule?view=day&d=${today}${planner ? "" : "&mine=1"}`} />
                   ))}
                   {planner && todayItems.length > 10 && (
                     <Link href={`/schedule?view=day&d=${today}`} className="block py-2 text-center text-sm font-bold text-brand-600">
@@ -163,16 +161,14 @@ export default async function HomePage() {
 
             <section className="space-y-2.5">
               <SectionTitle>
-                明日の予定 <span className="text-ink-faint">{tomorrowItems.length}件</span>
+                明日の予定 <span className="text-ink-faint">{tomorrowItems.length}件（タップで現場情報）</span>
               </SectionTitle>
               {tomorrowItems.length === 0 ? (
                 <p className="card p-4 text-center text-sm text-ink-muted">明日の予定はありません</p>
               ) : (
-                <div className="card divide-y divide-line">
+                <div className="space-y-2">
                   {tomorrowItems.map((o) => (
-                    <Link key={o.id} href={`/schedule?view=day&d=${tomorrow}${planner ? "" : "&mine=1"}`} className="block px-3 py-2 hover:bg-surface-subtle">
-                      <OccurrenceCard occurrence={o} variant="chip" />
-                    </Link>
+                    <SiteVisitCard key={o.id} o={o} collapsed calendarHref={`/schedule?view=day&d=${tomorrow}${planner ? "" : "&mine=1"}`} />
                   ))}
                 </div>
               )}

@@ -45,3 +45,6 @@ yarn-error.log*
 /docs/hearing/
 # vitest
 /.vitest/
+
+# oh-my-claudecode の作業ファイル
+**/.omc/

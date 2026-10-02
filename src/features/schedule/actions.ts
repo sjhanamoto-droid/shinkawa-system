@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireUser, type CurrentUser } from "@/lib/session";
-import { assertCan, canViewAmounts, PermissionError } from "@/lib/permissions";
+import { assertCan, can, canViewAmounts, PermissionError } from "@/lib/permissions";
 import { dateFromKey, storedDateKey, jstDateKey } from "@/lib/date";
 import {
   CATEGORY_OPTIONS,
@@ -588,6 +588,51 @@ export async function assignVehicles(
     if (!view) throw new NotFoundError();
     revalidateAll(view.property?.id);
     return { occurrence: view };
+  });
+}
+
+/**
+ * 予定を現場に紐づける（サイボウズから取り込んだ予定は顧客しか分からないため、あとから現場を選ぶ）。
+ * sameCustomer=true のときは、同じ顧客・同じ種別で現場が未設定の今日以降の予定（未定を含む）にもまとめて設定する。
+ */
+export async function linkOccurrenceProperty(
+  id: string,
+  propertyId: string,
+  expectedVersion: number,
+  sameCustomer: boolean,
+): Promise<ActionResult<{ occurrence: OccurrenceView; alsoLinked: number }>> {
+  return run(async (me) => {
+    const property = await db.property.findUnique({ where: { id: propertyId }, select: { id: true, name: true, customerId: true } });
+    if (!property) throw new ValidationError("現場が見つかりません");
+    const alsoLinked = await db.$transaction(async (tx) => {
+      const occ = await loadForMutation(tx, id);
+      assertCan(me, "occurrence.edit", { department: occ.department });
+      if (occ.customerId && occ.customerId !== property.customerId) throw new ValidationError("この予定の顧客の現場ではありません");
+      await bump(tx, occ, expectedVersion, { propertyId: property.id, customerId: property.customerId });
+      await log(tx, id, me.id, { action: "EDIT", field: "property", toValue: property.name });
+      if (!sameCustomer || !occ.customerId) return 0;
+      const today = dateFromKey(jstDateKey());
+      const others = await tx.occurrence.findMany({
+        where: {
+          id: { not: id },
+          customerId: occ.customerId,
+          category: occ.category,
+          propertyId: null,
+          status: { notIn: ["DONE", "CANCELLED"] },
+          OR: [{ date: null }, { date: { gte: today } }],
+        },
+        select: { id: true, department: true },
+      });
+      const editable = others.filter((o) => can(me, "occurrence.edit", { department: o.department })).map((o) => o.id);
+      if (editable.length === 0) return 0;
+      await tx.occurrence.updateMany({ where: { id: { in: editable } }, data: { propertyId: property.id, version: { increment: 1 } } });
+      await tx.occurrenceChangeLog.createMany({ data: editable.map((occurrenceId) => ({ occurrenceId, actorId: me.id, action: "EDIT", field: "property", toValue: property.name })) });
+      return editable.length;
+    });
+    const view = await fetchOccurrenceView(id, me);
+    if (!view) throw new NotFoundError();
+    revalidateAll(property.id);
+    return { occurrence: view, alsoLinked };
   });
 }
 

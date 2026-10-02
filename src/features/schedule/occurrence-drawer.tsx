@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import {
-  X, MapPin, KeyRound, Clock, Users, Car, Repeat, Pencil, ArrowRightLeft, CheckCircle2, Ban, Trash2, History, Loader2, Inbox, DoorOpen, StickyNote, ExternalLink,
+  X, Building, MapPin, KeyRound, Clock, Users, Car, Repeat, Pencil, ArrowRightLeft, CheckCircle2, Ban, Trash2, History, Loader2, Inbox, DoorOpen, StickyNote, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -18,8 +18,62 @@ import { getChangeLog, getVehicleUsage } from "./actions";
 import { OccurrenceReportPanel } from "@/features/reports/occurrence-report-panel";
 import { isReportDue } from "@/lib/reports";
 import { fmtKeyLong, fmtKeyShort } from "./filters";
-import { timeLabel } from "./occurrence-card";
-import type { ChangeLogView, OccurrenceView, VehicleOption, VehicleUsage, WorkerOption } from "./types";
+import { occurrenceLabels, timeLabel } from "./labels";
+import { SearchSelect } from "@/components/ui/search-select";
+import type { ChangeLogView, OccurrenceView, PropertyOption, VehicleOption, VehicleUsage, WorkerOption } from "./types";
+
+/** 現場が未設定の予定に、その場で現場を紐づける */
+function PropertyLinker({
+  o,
+  properties,
+  onLink,
+  busy,
+}: {
+  o: OccurrenceView;
+  properties: PropertyOption[];
+  onLink: (o: OccurrenceView, propertyId: string, sameCustomer: boolean) => Promise<void>;
+  busy: boolean;
+}) {
+  const candidates = o.customer ? properties.filter((p) => p.customerId === o.customer!.id) : properties;
+  // 顧客の現場が1件だけなら最初から選んでおく
+  const [propertyId, setPropertyId] = useState<string>(o.customer && candidates.length === 1 ? candidates[0].id : "");
+  const [sameCustomer, setSameCustomer] = useState(false);
+  const newHref = o.customer ? `/properties/new?customerId=${o.customer.id}` : "/properties/new";
+  return (
+    <div className="space-y-2 rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-3">
+      <p className="flex items-center gap-1.5 text-sm font-bold text-amber-800">
+        <Building className="h-4 w-4" />
+        現場が未設定です
+      </p>
+      {candidates.length === 0 ? (
+        <p className="text-xs text-ink-soft">{o.customer ? "この顧客の現場はまだ登録されていません。" : "現場を選べません。"}</p>
+      ) : (
+        <>
+          <SearchSelect
+            id={`link-property-${o.id}`}
+            value={propertyId}
+            onChange={setPropertyId}
+            options={candidates.map((p) => ({ value: p.id, label: p.name, sub: p.address ?? null }))}
+            placeholder={o.customer ? `${o.customer.shortName ?? o.customer.name} の現場から選ぶ` : "現場名で検索"}
+            emptyLabel="選択を解除"
+          />
+          {o.customer && (
+            <label className="flex cursor-pointer items-start gap-2 text-xs text-ink-soft">
+              <input type="checkbox" checked={sameCustomer} onChange={(e) => setSameCustomer(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand-600" />
+              <span>同じ顧客・同じ種別で現場が未設定の、今日以降の予定にもまとめて設定する</span>
+            </label>
+          )}
+          <Button type="button" size="sm" className="w-full" disabled={!propertyId || busy} onClick={() => onLink(o, propertyId, sameCustomer)}>
+            この現場に設定する
+          </Button>
+        </>
+      )}
+      <Link href={newHref} target="_blank" className="inline-flex items-center gap-1 text-xs font-bold text-brand-600">
+        現場を新しく登録する <ExternalLink className="h-3 w-3" />
+      </Link>
+    </div>
+  );
+}
 
 function fmtLogValue(field: string | null, v: string | null, people: Map<string, string>): string {
   if (v == null) return "—";
@@ -40,9 +94,13 @@ export function OccurrenceDrawer({
   onAssign,
   onAssignVehicles,
   onDelete,
+  properties,
+  onLinkProperty,
   busy = false,
 }: {
   occurrence: OccurrenceView | null;
+  properties: PropertyOption[];
+  onLinkProperty: (o: OccurrenceView, propertyId: string, sameCustomer: boolean) => Promise<void>;
   workers: WorkerOption[];
   vehicles: VehicleOption[];
   me: Actor;
@@ -123,6 +181,7 @@ export function OccurrenceDrawer({
   const canCancel = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "CANCELLED" }) && o.status !== "CANCELLED" && o.status !== "DONE";
   const canReopen = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "TENTATIVE" }) && (o.status === "DONE" || o.status === "CANCELLED");
   const t = timeLabel(o);
+  const label = occurrenceLabels(o);
   // 日付が決まっていて、まだ終わっていない作業なのに車両が未選択 → 当日までに決める対象として目立たせる
   const vehicleMissing =
     o.vehicles.length === 0 && !!o.date && o.status !== "DONE" && o.status !== "CANCELLED" && !(NON_WORK_CATEGORIES as string[]).includes(o.category);
@@ -143,8 +202,16 @@ export function OccurrenceDrawer({
               <OccurrenceStatusBadge status={o.status} />
               {isDepartment(o.department) && <span className="text-[11px] font-semibold text-ink-faint">{DEPARTMENT_LABEL[o.department]}</span>}
             </div>
-            <h2 className="mt-1.5 text-lg font-bold leading-tight text-ink">{o.title}</h2>
-            {o.property && o.property.name !== o.title && <p className="text-sm font-semibold text-ink-soft">{o.property.name}</p>}
+            <h2 className="mt-1.5 text-lg font-bold leading-tight text-ink">
+              {label.primary}
+              {label.extra && <span className="ml-1.5 text-base font-semibold text-ink-soft">{label.extra}</span>}
+            </h2>
+            {(label.site || label.siteMissing) && (
+              <p className={cn("flex items-center gap-1 text-sm font-semibold", label.site ? "text-ink-soft" : "text-ink-faint")}>
+                <Building className="h-3.5 w-3.5 shrink-0" />
+                {label.site ?? "現場未設定"}
+              </p>
+            )}
             {o.customerNameRaw && !o.customer && (
               <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">顧客「{o.customerNameRaw}」は台帳に見つかりませんでした。編集で顧客を選んでください。</p>
             )}
@@ -200,7 +267,8 @@ export function OccurrenceDrawer({
                 )}
               </div>
 
-              {/* 物件 */}
+              {/* 現場 */}
+              {!o.property && label.siteMissing && canEdit && <PropertyLinker key={o.id} o={o} properties={properties} onLink={onLinkProperty} busy={busy} />}
               {o.property && (
                 <div className="space-y-1.5 text-sm">
                   {o.property.address && (
@@ -226,7 +294,7 @@ export function OccurrenceDrawer({
                     </p>
                   )}
                   <Link href={`/properties/${o.property.id}`} className="inline-flex items-center gap-1 text-xs font-bold text-brand-600">
-                    物件の詳細を見る <ExternalLink className="h-3 w-3" />
+                    現場の詳細を見る <ExternalLink className="h-3 w-3" />
                   </Link>
                 </div>
               )}

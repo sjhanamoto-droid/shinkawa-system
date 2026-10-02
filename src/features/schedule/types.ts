@@ -50,6 +50,9 @@ export type OccurrenceView = {
     keyboxNumber: string | null;
     keyboxPlace: string | null;
     accessNote: string | null;
+    contactName: string | null;
+    contactPhone: string | null;
+    openHandovers: number; // 未解決の引き継ぎ件数
   } | null;
   headcount: number | null;
   unitCount: number | null;

@@ -47,7 +47,10 @@ export function occurrenceSelect(showAmount: boolean) {
     amount: showAmount,
     customer: { select: { id: true, name: true, shortName: true } },
     property: {
-      select: { id: true, name: true, address: true, keyboxNumber: true, keyboxPlace: true, accessNote: true },
+      select: {
+        id: true, name: true, address: true, keyboxNumber: true, keyboxPlace: true, accessNote: true, contactName: true, contactPhone: true,
+        _count: { select: { handovers: { where: { resolvedAt: null } } } },
+      },
     },
     assignments: { select: { userId: true }, orderBy: { createdAt: "asc" as const } },
     vehicles: { select: { vehicle: { select: { id: true, name: true, color: true } } }, orderBy: { createdAt: "asc" as const } },
@@ -123,7 +126,19 @@ export function toOccurrenceView(row: OccurrenceRow, people: Map<string, PersonR
     startTime: row.startTime,
     endTime: row.endTime,
     customer: row.customer,
-    property: row.property,
+    property: row.property
+      ? {
+          id: row.property.id,
+          name: row.property.name,
+          address: row.property.address,
+          keyboxNumber: row.property.keyboxNumber,
+          keyboxPlace: row.property.keyboxPlace,
+          accessNote: row.property.accessNote,
+          contactName: row.property.contactName,
+          contactPhone: row.property.contactPhone,
+          openHandovers: row.property._count.handovers,
+        }
+      : null,
     headcount: row.headcount,
     unitCount: row.unitCount,
     vehicles: row.vehicles.map((v) => v.vehicle),

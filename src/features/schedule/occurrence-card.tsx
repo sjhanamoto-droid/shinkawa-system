@@ -2,13 +2,16 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Clock, MapPin, KeyRound, Users, Repeat, Car } from "lucide-react";
+import { Building, Clock, MapPin, KeyRound, Users, Repeat, Car } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CategoryBadge, OccurrenceStatusBadge } from "@/components/ui/badge";
 import { categoryColor } from "@/lib/constants";
 import { cn, mapSearchUrl } from "@/lib/utils";
 import { dragId, type DragData } from "./dnd";
 import type { OccurrenceView } from "./types";
+import { occurrenceLabels, timeLabel } from "./labels";
+
+export { occurrenceLabels, timeLabel };
 
 // 状態ごとの枠線：仮＝点線、未割当＝黄、担当未定（日付あり・担当なし）＝赤、完了＝薄く、中止＝打ち消し
 export function statusClass(o: OccurrenceView): string {
@@ -19,10 +22,6 @@ export function statusClass(o: OccurrenceView): string {
   return "border-line bg-surface";
 }
 
-export function timeLabel(o: OccurrenceView): string | null {
-  if (!o.startTime) return null;
-  return o.endTime ? `${o.startTime}–${o.endTime}` : o.startTime;
-}
 
 function AvatarStack({ people, max = 3, size = "sm" }: { people: OccurrenceView["assignees"]; max?: number; size?: "sm" | "md" }) {
   if (people.length === 0) return null;
@@ -64,6 +63,7 @@ export function OccurrenceCard({
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   const color = categoryColor(o.category);
   const t = timeLabel(o);
+  const label = occurrenceLabels(o);
 
   if (variant === "chip") {
     const noWorker = o.assignees.length === 0 && !!o.date && o.status !== "DONE" && o.status !== "CANCELLED" && o.category !== "OFF";
@@ -76,7 +76,7 @@ export function OccurrenceCard({
         onClick={() => onClick?.(o)}
         {...listeners}
         {...attributes}
-        title={`${o.title}${t ? ` ${t}` : ""}${o.assignees.length ? ` / ${o.assignees.map((a) => a.name).join("・")}` : ""}`}
+        title={`${label.primary}${label.site ? ` / ${label.site}` : ""}${t ? ` ${t}` : ""}${o.assignees.length ? ` / ${o.assignees.map((a) => a.name).join("・")}` : ""}`}
         className={cn(
           "flex w-full flex-col gap-0.5 rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight transition-shadow",
           statusClass(o),
@@ -86,12 +86,22 @@ export function OccurrenceCard({
           "hover:shadow-card",
         )}
       >
-        {/* 1段目：種別・時刻・現場名（隠さない。長ければ折り返す） */}
+        {/* 1段目：種別・時刻・顧客名（隠さない。長ければ折り返す） */}
         <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
           <CategoryBadge category={o.category} short className="px-1 py-px text-[9px]" />
           {o.startTime && <span className="shrink-0 tnum font-semibold text-ink-muted">{o.startTime}</span>}
-          <span className="min-w-[4rem] flex-1 break-words font-semibold text-ink">{o.title}</span>
+          <span className="min-w-[4rem] flex-1 break-words font-semibold text-ink">
+            {label.primary}
+            {label.extra && <span className="font-normal text-ink-soft">・{label.extra}</span>}
+          </span>
         </span>
+        {/* 現場名（未設定なら薄く表示して、紐づけを促す） */}
+        {(label.site || label.siteMissing) && (
+          <span className={cn("flex min-w-0 items-center gap-0.5 text-[10px]", label.site ? "text-ink-soft" : "text-ink-faint")}>
+            <Building className="h-2.5 w-2.5 shrink-0" />
+            <span className="break-words">{label.site ?? "現場未設定"}</span>
+          </span>
+        )}
         {/* 2段目：件数・定期・担当 */}
         {hasMeta && (
           <span className="flex items-center gap-1">
@@ -138,8 +148,9 @@ export function OccurrenceCard({
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
           {t && <span className="tnum text-[10px] text-ink-muted">{o.startTime}</span>}
-          <span className="min-w-0 flex-1 truncate font-semibold text-ink">{o.title}</span>
+          <span className="min-w-0 flex-1 truncate font-semibold text-ink">{label.primary}</span>
         </span>
+        {label.site && <span className="truncate text-[10px] text-ink-soft">{label.site}</span>}
         {o.assignees.length > 1 && (
           <span className="truncate text-[10px] text-ink-muted">{o.assignees.map((a) => a.name).join("・")}</span>
         )}
@@ -168,9 +179,15 @@ export function OccurrenceCard({
             )}
           </span>
           <span className="mt-1 block text-[15px] font-bold text-ink">
-            {o.title}
-            {o.property && o.property.name !== o.title && <span className="ml-1.5 text-sm font-semibold text-ink-soft">{o.property.name}</span>}
+            {label.primary}
+            {label.extra && <span className="ml-1.5 text-sm font-semibold text-ink-soft">{label.extra}</span>}
           </span>
+          {(label.site || label.siteMissing) && (
+            <span className={cn("mt-0.5 flex items-center gap-1 text-sm font-semibold", label.site ? "text-ink-soft" : "text-ink-faint")}>
+              <Building className="h-3.5 w-3.5 shrink-0" />
+              {label.site ?? "現場未設定"}
+            </span>
+          )}
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-muted">
             {t && (
               <span className="flex items-center gap-1 tnum">

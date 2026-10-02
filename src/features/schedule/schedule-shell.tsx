@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useOccurrenceStore } from "./use-occurrence-store";
 import { useIsCoarsePointer, useScheduleSensors, parseDropId, type DragData } from "./dnd";
 import { scheduleHref, stepDate, rangeFor, shiftKey, fmtYm, fmtKeyLong, fmtKeyShort, weekStartOf, ymOf } from "./filters";
-import { moveOccurrence, setOccurrenceStatus, assignWorkers, assignVehicles, deleteOccurrence } from "./actions";
+import { moveOccurrence, setOccurrenceStatus, assignWorkers, assignVehicles, deleteOccurrence, linkOccurrenceProperty } from "./actions";
 import { MonthView } from "./month-view";
 import { WeekView } from "./week-view";
 import { DayView } from "./day-view";
@@ -126,6 +126,11 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
 
   // ── UI 状態 ──
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // ?open=<予定ID> で開いたら、その予定の詳細を最初から開く（ホームの「カレンダーで開く」から）
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("open");
+    if (id) setSelectedId(id);
+  }, []);
   const selected = selectedId ? (store.items.find((o) => o.id === selectedId) ?? null) : null;
   const [form, setForm] = useState<{ open: boolean; occurrence: OccurrenceView | null; date: string | null }>({ open: false, occurrence: null, date: null });
   const [moveFor, setMoveFor] = useState<OccurrenceView | null>(null);
@@ -264,6 +269,20 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     }
   }
 
+  async function onLinkProperty(o: OccurrenceView, propertyId: string, sameCustomer: boolean) {
+    setBusy(true);
+    const r = await linkOccurrenceProperty(o.id, propertyId, o.version, sameCustomer);
+    setBusy(false);
+    if (r.ok) {
+      store.commit(o.id, r.data.occurrence);
+      toast(`現場を「${r.data.occurrence.property?.name ?? ""}」に設定しました${r.data.alsoLinked ? `（ほかに ${r.data.alsoLinked} 件もまとめて設定）` : ""}`);
+      if (r.data.alsoLinked) router.refresh();
+    } else {
+      toast(r.error, { type: "error" });
+      if (r.code === "CONFLICT") router.refresh();
+    }
+  }
+
   async function onDelete(o: OccurrenceView, scope: "ONE" | "FOLLOWING") {
     setBusy(true);
     const r = await deleteOccurrence(o.id, scope);
@@ -301,7 +320,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   const openDay = (date: string) => navigate({ view: "day", date });
 
   return (
-    <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => { draggingRef.current = false; setDragging(null); }}>
+    <DndContext id="schedule-dnd" sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => { draggingRef.current = false; setDragging(null); }}>
       <div className="space-y-3">
         {/* ヘッダ：期間ナビ・ビュー切替・追加 */}
         <div className="flex flex-wrap items-center gap-2">
@@ -402,6 +421,8 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
           onAssign={onAssign}
           onAssignVehicles={onAssignVehicles}
           onDelete={onDelete}
+          properties={properties}
+          onLinkProperty={onLinkProperty}
           busy={busy}
         />
       )}
