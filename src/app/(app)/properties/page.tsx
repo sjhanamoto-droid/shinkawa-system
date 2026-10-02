@@ -7,7 +7,11 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { CardLink } from "@/components/ui/card";
 import { Badge, CategoryBadge } from "@/components/ui/badge";
-import { CONTRACT_TYPE_LABEL, CONTRACT_TYPE_OPTIONS, DEPARTMENT_LABEL, DEPARTMENT_OPTIONS, PROPERTY_STATUS_LABEL, isContractType, isDepartment, isRuleKind, type PropertyStatus } from "@/lib/constants";
+import { cookies } from "next/headers";
+import { cn } from "@/lib/utils";
+import { RememberDeptTab } from "@/features/properties/remember-dept-tab";
+import { PROPERTY_DEPT_COOKIE } from "@/features/properties/list-prefs";
+import { CONTRACT_TYPE_LABEL, CONTRACT_TYPE_OPTIONS, DEPARTMENT_COLOR, DEPARTMENT_LABEL, PROPERTY_STATUS_LABEL, isContractType, isDepartment, isRuleKind, type PropertyStatus } from "@/lib/constants";
 import { describeRule, type RuleParams } from "@/lib/recurrence";
 import { PRIMARY_JOB_ORDER } from "@/features/properties/work";
 import { Fab, EmptyState } from "@/components/ui/misc";
@@ -18,7 +22,8 @@ import { SearchParamToast } from "@/components/ui/toast";
 
 const PAGE_SIZE = 30;
 
-type ListParams = { q?: string; customer?: string; status?: string; dept?: string; freq?: string; page?: number };
+type ListParams = { q?: string; customer?: string; status?: string; dept?: string; freq?: string; unset?: boolean; page?: number };
+type DeptTab = "CLEANING" | "CONSTRUCTION" | "ALL";
 
 function buildHref(p: ListParams): string {
   const sp = new URLSearchParams();
@@ -27,6 +32,7 @@ function buildHref(p: ListParams): string {
   if (p.status) sp.set("status", p.status);
   if (p.dept) sp.set("dept", p.dept);
   if (p.freq) sp.set("freq", p.freq);
+  if (p.unset) sp.set("unset", "1");
   if (p.page && p.page > 1) sp.set("page", String(p.page));
   const qs = sp.toString();
   return qs ? `/properties?${qs}` : "/properties";
@@ -35,29 +41,41 @@ function buildHref(p: ListParams): string {
 export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; customer?: string; status?: string; dept?: string; freq?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; customer?: string; status?: string; dept?: string; freq?: string; unset?: string }>;
 }) {
   const user = await requireUser();
   const canManage = can(user, "property.manage");
   const sp = await searchParams;
   const { q, page, customer, status } = sp;
-  const dept = isDepartment(sp.dept) ? sp.dept : undefined;
-  const freq = isContractType(sp.freq) ? sp.freq : undefined;
+  // 部門タブ：URL → 前回選んだタブ（cookie） → ログイン中の人の部門 → すべて
+  const remembered = (await cookies()).get(PROPERTY_DEPT_COOKIE)?.value;
+  const pick = (v: string | undefined): DeptTab | null => (v === "ALL" || isDepartment(v) ? (v as DeptTab) : null);
+  const tab: DeptTab = pick(sp.dept) ?? pick(remembered) ?? (isDepartment(user.department) ? user.department : "ALL");
+  const dept = tab === "ALL" ? undefined : tab;
+  const unset = tab === "ALL" && sp.unset === "1";
+  const freq = unset ? undefined : isContractType(sp.freq) ? sp.freq : undefined;
   const query = (q ?? "").trim();
   const statusFilter = status === "INACTIVE" || status === "PAUSED" ? status : status === "ALL" ? undefined : "ACTIVE";
   // 絞り込みを保ったままリンクを作る
-  const base: ListParams = { q: query || undefined, customer, status, dept, freq };
+  const base: ListParams = { q: query || undefined, customer, status, dept: tab, freq, unset };
   const href = (patch: Partial<ListParams>) => buildHref({ ...base, ...patch });
   const pageNum = Math.max(1, Math.min(500, Number.parseInt(page ?? "1", 10) || 1));
   const shown = pageNum * PAGE_SIZE;
 
-  const [raw, customers] = await Promise.all([
+  // タブの件数（検索語・顧客・状態の絞り込みは反映、頻度は反映しない）
+  const countBase = {
+    ...(query ? { OR: [{ name: { contains: query } }, { kana: { contains: query } }, { address: { contains: query } }, { customer: { name: { contains: query } } }] } : {}),
+    ...(customer ? { customerId: customer } : {}),
+    ...(statusFilter ? { status: statusFilter } : {}),
+  };
+  const [raw, customers, cleaningCount, constructionCount, allCount, unsetCount] = await Promise.all([
     db.property.findMany({
       where: {
         ...(query ? { OR: [{ name: { contains: query } }, { kana: { contains: query } }, { address: { contains: query } }, { customer: { name: { contains: query } } }] } : {}),
         ...(customer ? { customerId: customer } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(dept || freq ? { jobs: { some: { ...(dept ? { department: dept } : {}), ...(freq ? { contractType: freq } : {}) } } } : {}),
+        ...(unset ? { jobs: { none: {} } } : {}),
       },
       orderBy: [{ kana: "asc" }, { name: "asc" }],
       select: {
@@ -69,13 +87,36 @@ export default async function PropertiesPage({
       take: shown + 1,
     }),
     db.customer.findMany({ select: { id: true, name: true, shortName: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    db.property.count({ where: { ...countBase, jobs: { some: { department: "CLEANING" } } } }),
+    db.property.count({ where: { ...countBase, jobs: { some: { department: "CONSTRUCTION" } } } }),
+    db.property.count({ where: countBase }),
+    db.property.count({ where: { ...countBase, jobs: { none: {} } } }),
   ]);
+  const tabCount: Record<DeptTab, number> = { CLEANING: cleaningCount, CONSTRUCTION: constructionCount, ALL: allCount };
   const hasMore = raw.length > shown;
   const properties = hasMore ? raw.slice(0, shown) : raw;
 
   return (
     <div>
       <PageHeader title="現場" subtitle="ここを開けば全部載っている（作業内容・周期もここで登録）">
+        <RememberDeptTab value={tab} />
+        {/* 部門タブ（クリーニング／工事を分けて見る） */}
+        <div className="mb-3 flex gap-1 rounded-xl bg-surface-sunken p-1">
+          {(["CLEANING", "CONSTRUCTION", "ALL"] as const).map((t) => (
+            <Link
+              key={t}
+              href={href({ dept: t, freq: undefined, unset: undefined, page: undefined })}
+              className={cn(
+                "flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-bold transition-colors",
+                tab === t ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink",
+              )}
+            >
+              {t !== "ALL" && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: DEPARTMENT_COLOR[t] }} />}
+              {t === "ALL" ? "すべて" : DEPARTMENT_LABEL[t]}
+              <span className="text-xs font-semibold tnum text-ink-faint">{tabCount[t]}</span>
+            </Link>
+          ))}
+        </div>
         <form action="/properties" className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative min-w-0 flex-1 sm:max-w-md">
@@ -89,7 +130,8 @@ export default async function PropertiesPage({
               ))}
             </Select>
             {status && <input type="hidden" name="status" value={status} />}
-            {dept && <input type="hidden" name="dept" value={dept} />}
+            <input type="hidden" name="dept" value={tab} />
+            {unset && <input type="hidden" name="unset" value="1" />}
             {freq && <input type="hidden" name="freq" value={freq} />}
             <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">検索</button>
           </div>
@@ -100,15 +142,13 @@ export default async function PropertiesPage({
             <ChipLink href={href({ status: "ALL" })} active={!statusFilter}>すべて</ChipLink>
           </ChipBar>
           <ChipBar>
-            <ChipLink href={href({ dept: undefined })} active={!dept}>部門：すべて</ChipLink>
-            {DEPARTMENT_OPTIONS.map((d) => (
-              <ChipLink key={d} href={href({ dept: d })} active={dept === d}>{DEPARTMENT_LABEL[d]}</ChipLink>
-            ))}
-            <span className="mx-1 h-5 w-px shrink-0 self-center bg-line" />
-            <ChipLink href={href({ freq: undefined })} active={!freq}>頻度：すべて</ChipLink>
+            <ChipLink href={href({ freq: undefined, unset: undefined })} active={!freq && !unset}>頻度：すべて</ChipLink>
             {CONTRACT_TYPE_OPTIONS.map((c) => (
-              <ChipLink key={c} href={href({ freq: c })} active={freq === c}>{CONTRACT_TYPE_LABEL[c]}</ChipLink>
+              <ChipLink key={c} href={href({ freq: c, unset: undefined })} active={freq === c}>{CONTRACT_TYPE_LABEL[c]}</ChipLink>
             ))}
+            {tab === "ALL" && unsetCount > 0 && (
+              <ChipLink href={href({ freq: undefined, unset: true })} active={unset}>作業内容 未設定 {unsetCount}</ChipLink>
+            )}
           </ChipBar>
         </form>
       </PageHeader>
@@ -116,7 +156,7 @@ export default async function PropertiesPage({
       <PageContainer>
         <SearchParamToast />
         {properties.length === 0 ? (
-          <EmptyState icon={<Building className="h-6 w-6" />} title={query || dept || freq ? "該当する現場がありません" : "現場が登録されていません"} description={canManage ? "右下のボタンから登録できます" : "事務員が登録すると表示されます"} />
+          <EmptyState icon={<Building className="h-6 w-6" />} title={query || dept || freq || unset ? "該当する現場がありません" : "現場が登録されていません"} description={canManage ? "右下のボタンから登録できます" : "事務員が登録すると表示されます"} />
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
