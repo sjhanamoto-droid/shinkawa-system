@@ -1,18 +1,41 @@
 import { requireCan } from "@/lib/session";
+import { canViewAmounts } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { jstMonthKey } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
-import { PropertyForm } from "@/features/properties/property-form";
+import { PropertyForm, type PropertyFormValues } from "@/features/properties/property-form";
 
-export default async function NewPropertyPage({ searchParams }: { searchParams: Promise<{ customerId?: string }> }) {
-  await requireCan("property.manage");
-  const { customerId } = await searchParams;
-  const customers = await db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] });
+export default async function NewPropertyPage({ searchParams }: { searchParams: Promise<{ customerId?: string; copyFrom?: string }> }) {
+  const user = await requireCan("property.manage");
+  const { customerId, copyFrom } = await searchParams;
+  const [customers, vehicles, source] = await Promise.all([
+    db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    db.vehicle.findMany({ select: { id: true, name: true, vehicleType: true, active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    copyFrom ? db.property.findUnique({ where: { id: copyFrom } }) : null,
+  ]);
+
+  // 「この現場をコピーして別の作業を登録」：住所・キーBOX・入館メモなどを引き継ぐ（写真は引き継がない）
+  let initial: PropertyFormValues | undefined = customerId ? { customerId } : undefined;
+  if (source) {
+    const { id: _id, status: _status, createdById: _c, createdAt: _ca, updatedAt: _u, ...rest } = source;
+    void _id; void _status; void _c; void _ca; void _u;
+    initial = rest;
+  }
+
   return (
     <div>
-      <PageHeader title="物件を登録" backHref="/properties" />
+      <PageHeader title="現場を登録" backHref={source ? `/properties/${source.id}` : "/properties"} />
       <PageContainer size="narrow">
-        <PropertyForm customers={customers} property={customerId ? { customerId } : undefined} />
+        <PropertyForm
+          customers={customers}
+          vehicles={vehicles}
+          property={initial}
+          work={user.department ? { department: user.department } : null}
+          showAmount={canViewAmounts(user)}
+          currentMonth={jstMonthKey()}
+          copiedFrom={source?.name}
+        />
       </PageContainer>
     </div>
   );

@@ -224,8 +224,7 @@ export default async function HomePage() {
                   {[
                     { href: `/schedule?view=week&d=${today}`, label: "週ビュー（未割当レーンから配置）" },
                     { href: `/schedule?view=board&d=${today}`, label: "担当者ボード（空き枠を見る）" },
-                    { href: "/jobs", label: "案件（定期契約・翌月分の生成）" },
-                    { href: "/properties", label: "現場（物件）一覧" },
+                                        { href: "/properties", label: "現場（作業内容・定期の周期）" },
                   ].map((l) => (
                     <Link key={l.href} href={l.href} className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-ink hover:bg-surface-subtle">
                       <span className="flex-1">{l.label}</span>

@@ -66,7 +66,6 @@ export async function generateOccurrences(input: {
   }
 
   revalidatePath("/schedule");
-  revalidatePath("/jobs");
-  if (input.jobId) revalidatePath(`/jobs/${input.jobId}`);
+  revalidatePath("/properties", "layout");
   return { ok: true, data: result };
 }

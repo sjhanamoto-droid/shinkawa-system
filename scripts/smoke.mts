@@ -43,7 +43,7 @@ async function main() {
   const staff = await db.user.findFirst({ where: { role: "STAFF", kind: "EMPLOYEE", canLogin: true } });
   const customer = await db.customer.findFirst({ where: { properties: { some: {} } } });
   const property = await db.property.findFirst({ where: { status: "ACTIVE" } });
-  const job = await db.job.findFirst({ where: { ruleKind: { not: null } } });
+  const job = await db.job.findFirst({ where: { ruleKind: { not: null } }, include: { property: { select: { id: true, name: true } } } });
   const partner = await db.partner.findFirst();
   const vehicle = await db.vehicle.findFirst({ where: { active: true } });
   const someUser = await db.user.findFirst({ where: { role: "STAFF" } });
@@ -62,18 +62,18 @@ async function main() {
   results.push(await check(`/schedule?view=day&d=${today}`, o, ["カレンダー"]));
   results.push(await check(`/schedule?view=board&d=${today}`, o, ["担当未定"]));
   results.push(await check("/customers", o, ["顧客", customer.name]));
-  results.push(await check(`/customers/${customer.id}`, o, [customer.name, "物件（現場）"]));
+  results.push(await check(`/customers/${customer.id}`, o, [customer.name, "現場"]));
   results.push(await check(`/customers/${customer.id}/edit`, o, ["顧客名"]));
   results.push(await check("/customers/new", o, ["顧客名"]));
   results.push(await check("/customers/import", o, ["CSV"]));
-  results.push(await check("/properties", o, ["現場（物件）"]));
-  results.push(await check(`/properties/${property.id}`, o, [property.name, "基本情報", "メモ・引き継ぎ"]));
-  results.push(await check(`/properties/${property.id}/edit`, o, ["物件名", "キーBOX"]));
-  results.push(await check("/properties/new", o, ["物件名"]));
-  results.push(await check("/jobs", o, ["案件"]));
-  results.push(await check(`/jobs/${job.id}`, o, [job.name, "実施回"]));
-  results.push(await check(`/jobs/${job.id}/edit`, o, ["案件名", "周期"]));
-  results.push(await check("/jobs/new", o, ["案件名"]));
+  results.push(await check("/properties", o, ["現場", "部門：すべて"]));
+  results.push(await check(`/properties/${property.id}`, o, [property.name, "基本情報", "作業内容", "メモ・引き継ぎ"]));
+  results.push(await check(`/properties/${property.id}/edit`, o, ["現場名", "作業内容", "キーBOX"]));
+  results.push(await check("/properties/new", o, ["現場名", "部門", "頻度"]));
+  results.push(await check(`/properties/new?copyFrom=${property.id}`, o, ["をコピーしています"]));
+  results.push(await check(`/properties/${job.property.id}`, o, [job.property.name, "周期", "予定を作る"]));
+  results.push({ ok: await checkRedirect("/jobs", o, "旧案件一覧 → 現場"), path: "/jobs", status: 307 });
+  results.push({ ok: await checkRedirect(`/jobs/${job.id}`, o, "旧案件詳細 → 現場"), path: `/jobs/${job.id}`, status: 307 });
   results.push(await check("/workers", o, ["作業者", owner.name]));
   results.push(await check("/workers/new", o, ["作業者を追加"]));
   results.push(await check(`/workers/${someUser.id}/edit`, o, ["作業者を編集", someUser.name]));
@@ -95,27 +95,27 @@ async function main() {
   results.push(await check("/", s, ["今日のあなたの予定", staff.name]));
   results.push(await check("/schedule", s, ["カレンダー"]));
   results.push(await check("/reports", s, ["今日の日報", "最近の日報"]));
-  results.push(await check("/properties", s, ["現場（物件）"]));
+  results.push(await check("/properties", s, ["現場"]));
   results.push(await check(`/properties/${property.id}`, s, [property.name]));
   results.push(await check("/settings", s, ["設定", "アカウント設定"]));
 
   console.log("\n=== 手配担当 ===");
-  results.push(await check("/jobs", sc, ["案件"]));
+  results.push(await check("/properties/new", sc, ["現場名", "作業内容"]));
   results.push(await check("/customers", sc, ["顧客"]));
 
   console.log("\n=== 認可 ===");
   let authzOk = true;
   authzOk = (await checkRedirect("/workers", s, "スタッフ")) && authzOk;
-  authzOk = (await checkRedirect("/jobs", s, "スタッフ")) && authzOk;
+  authzOk = (await checkRedirect("/properties/new", s, "スタッフ")) && authzOk;
   authzOk = (await checkRedirect("/reports/all", s, "スタッフ")) && authzOk;
   authzOk = (await checkRedirect("/customers/import", sc, "手配担当")) && authzOk;
   authzOk = (await checkRedirect("/partners", sc, "手配担当")) && authzOk;
   authzOk = (await checkRedirect("/vehicles", sc, "手配担当")) && authzOk;
   // スタッフの HTML に金額が含まれないこと
   {
-    const r = await fetch(BASE + `/jobs/${job.id}`, { headers: { Cookie: `${COOKIE}=${s}` }, redirect: "manual" });
+    const r = await fetch(BASE + `/properties/${job.property.id}`, { headers: { Cookie: `${COOKIE}=${s}` }, redirect: "manual" });
     const ok = r.status !== 200 || !(await r.text()).includes("金額");
-    console.log(`${ok ? "✅" : "❌"}  ${r.status} /jobs/${job.id}（スタッフに金額が出ない）`);
+    console.log(`${ok ? "✅" : "❌"}  ${r.status} /properties/${job.property.id}（スタッフに金額が出ない）`);
     authzOk = ok && authzOk;
   }
 

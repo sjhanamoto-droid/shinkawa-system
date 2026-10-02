@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Plus, Building2, Building, Briefcase, Phone, ChevronRight, ChevronDown, Upload } from "lucide-react";
+import { Search, Plus, Building2, Building, Phone, ChevronRight, ChevronDown, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
@@ -47,7 +47,7 @@ export default async function CustomersPage({
     orderBy: [{ kana: "asc" }, { name: "asc" }],
     select: {
       id: true, name: true, shortName: true, kana: true, tradeStatus: true, phone: true, headOfficeAddress: true, memo: true,
-      _count: { select: { properties: true, jobs: true } },
+      _count: { select: { properties: true } },
     },
     take: shown + 1,
   });
@@ -121,11 +121,7 @@ export default async function CustomersPage({
                   <div className="mt-3 flex items-center gap-4 border-t border-line pt-2.5 text-xs font-medium text-ink-muted">
                     <span className="flex items-center gap-1">
                       <Building className="h-3.5 w-3.5" />
-                      物件 {c._count.properties}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Briefcase className="h-3.5 w-3.5" />
-                      案件 {c._count.jobs}
+                      現場 {c._count.properties}
                     </span>
                   </div>
                 </CardLink>

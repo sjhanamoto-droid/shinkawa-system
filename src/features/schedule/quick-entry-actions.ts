@@ -138,7 +138,7 @@ export async function quickEntry(text: string): Promise<
   let propertyId: string | null = null;
   if (customer) {
     const props = await db.property.findMany({
-      where: { customerId: customer.id, status: "ACTIVE" },
+      where: { customerId: customer.id, status: { not: "INACTIVE" } },
       select: { id: true, name: true },
       take: 20,
     });

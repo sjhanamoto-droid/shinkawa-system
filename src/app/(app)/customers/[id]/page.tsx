@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, Building, Briefcase, ChevronDown, Plus, CalendarDays, UserRound, MapPin, KeyRound } from "lucide-react";
+import { Pencil, Building, ChevronDown, Plus, CalendarDays, UserRound, MapPin, KeyRound } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { can, canViewAmounts } from "@/lib/permissions";
@@ -14,21 +14,18 @@ import { LinkButton, buttonClass } from "@/components/ui/button";
 import { SearchParamToast } from "@/components/ui/toast";
 import { Field, Input, Select } from "@/components/ui/form";
 import { addContact, setContactInactive } from "@/features/customers/actions";
-import { describeRule, type RuleParams } from "@/lib/recurrence";
 import { fmtKeyShort } from "@/features/schedule/filters";
 import {
   REGISTRATION_TYPE_LABEL,
   TRADE_STATUS_LABEL,
   PAYMENT_METHOD_LABEL,
   CONTACT_TYPE_LABEL,
-  CONTRACT_TYPE_LABEL,
-  JOB_STATUS_LABEL,
+  PROPERTY_STATUS_LABEL,
   labelOf,
-  isRuleKind,
   type ContactType,
-  type ContractType,
-  type JobStatus,
+  type PropertyStatus,
 } from "@/lib/constants";
+import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
 import { fmtDate, fmtYen } from "@/lib/utils";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,11 +40,10 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     include: {
       properties: {
         orderBy: { name: "asc" },
-        select: { id: true, name: true, address: true, keyboxStatus: true, status: true, _count: { select: { jobs: true } } },
-      },
-      jobs: {
-        orderBy: [{ status: "asc" }, { name: "asc" }],
-        select: { id: true, name: true, category: true, contractType: true, ruleKind: true, ruleParams: true, status: true, amount: showAmount, property: { select: { name: true } } },
+        select: {
+          id: true, name: true, address: true, keyboxStatus: true, status: true,
+          jobs: { orderBy: PRIMARY_JOB_ORDER, take: 1, select: { department: true, category: true, contractType: true, ruleKind: true, ruleParams: true, amount: showAmount } },
+        },
       },
       contacts: { orderBy: [{ isActive: "desc" }, { createdAt: "desc" }] },
       occurrences: {
@@ -101,17 +97,17 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   can(user, "property.manage") ? (
                     <Link href={`/properties/new?customerId=${id}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
                       <Plus className="h-3.5 w-3.5" />
-                      物件を追加
+                      現場を追加
                     </Link>
                   ) : (
                     <span className="text-xs font-semibold text-ink-muted">{customer.properties.length} 件</span>
                   )
                 }
               >
-                物件（現場）
+                現場
               </SectionTitle>
               {customer.properties.length === 0 ? (
-                <EmptyState icon={<Building className="h-6 w-6" />} title="物件がありません" description="この顧客の物件（現場）はまだ登録されていません" />
+                <EmptyState icon={<Building className="h-6 w-6" />} title="現場がありません" description="この顧客の現場はまだ登録されていません" />
               ) : (
                 <div className="space-y-2">
                   {customer.properties.map((p) => (
@@ -119,7 +115,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                       <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-1.5 truncate text-sm font-bold text-ink">
                           {p.name}
-                          {p.status === "INACTIVE" && <Badge tone="past">終了</Badge>}
+                          {p.status !== "ACTIVE" && <Badge tone="past">{PROPERTY_STATUS_LABEL[p.status as PropertyStatus] ?? p.status}</Badge>}
                         </p>
                         <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
                           {p.address && (
@@ -134,48 +130,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                               キーBOXあり
                             </span>
                           )}
-                          <span>案件 {p._count.jobs}</span>
+                          {p.jobs[0] ? <span>{describeWork(p.jobs[0])}</span> : <span className="text-ink-faint">作業内容：未設定</span>}
+                          {showAmount && p.jobs[0] && "amount" in p.jobs[0] && p.jobs[0].amount != null && <span className="font-bold tnum text-emerald-700">{fmtYen(p.jobs[0].amount)}</span>}
                         </p>
                       </div>
                     </CardLink>
                   ))}
                 </div>
-              )}
-            </section>
-
-            {/* 案件 */}
-            <section className="space-y-2.5">
-              <SectionTitle
-                action={
-                  can(user, "job.manage") ? (
-                    <Link href={`/jobs/new?customerId=${id}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
-                      <Plus className="h-3.5 w-3.5" />
-                      案件を追加
-                    </Link>
-                  ) : undefined
-                }
-              >
-                案件 <span className="text-ink-faint">{customer.jobs.length}件</span>
-              </SectionTitle>
-              {customer.jobs.length === 0 ? (
-                <EmptyState icon={<Briefcase className="h-6 w-6" />} title="案件がありません" description="定期契約・スポット・工事を登録すると表示されます" />
-              ) : (
-                <Card className="divide-y divide-line">
-                  {customer.jobs.map((j) => (
-                    <Link key={j.id} href={`/jobs/${j.id}`} className="flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-surface-subtle">
-                      <CategoryBadge category={j.category} short />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-ink">{j.name}</p>
-                        <p className="truncate text-xs text-ink-muted">
-                          {j.property.name} ・ {CONTRACT_TYPE_LABEL[j.contractType as ContractType] ?? j.contractType}
-                          {isRuleKind(j.ruleKind) && ` ・ ${describeRule(j.ruleKind, (j.ruleParams ?? {}) as RuleParams)}`}
-                        </p>
-                      </div>
-                      {showAmount && "amount" in j && j.amount != null && <span className="text-xs font-bold tnum text-emerald-700">{fmtYen(j.amount)}</span>}
-                      {j.status !== "ACTIVE" && <Badge tone="past">{JOB_STATUS_LABEL[j.status as JobStatus] ?? j.status}</Badge>}
-                    </Link>
-                  ))}
-                </Card>
               )}
             </section>
 

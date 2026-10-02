@@ -23,7 +23,7 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
         <div className="space-y-4">
           <VehicleForm vehicle={vehicle} />
           <p className="px-1 text-xs text-ink-muted">
-            この車両を使う予定 {vehicle._count.occurrences} 件 ・ 既定にしている案件 {vehicle._count.jobs} 件
+            この車両を使う予定 {vehicle._count.occurrences} 件 ・ 既定にしている現場 {vehicle._count.jobs} 件
           </p>
         </div>
       </PageContainer>

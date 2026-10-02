@@ -213,7 +213,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
     loadVehicleOptions(),
     db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
     db.property.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: { not: "INACTIVE" } }, // 休止中の現場も候補に出す（終了だけ外す）
       select: { id: true, name: true, customerId: true, address: true },
       orderBy: [{ name: "asc" }],
     }),

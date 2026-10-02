@@ -3,11 +3,26 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { assertCan, PermissionError } from "@/lib/permissions";
+import { assertCan, canEditDepartment, canViewAmounts, PermissionError } from "@/lib/permissions";
 import { parseAndValidatePhotosField, type NewPhotoInput } from "@/lib/photos";
+import { dateFromKey, jstDateKey, jstMonthKey, addMonthsKey } from "@/lib/date";
+import {
+  CATEGORY,
+  CONTRACT_TYPE_OPTIONS,
+  DEPARTMENT_OPTIONS,
+  JOB_STATUS_FOR_PROPERTY,
+  PROPERTY_STATUS_OPTIONS,
+  RULE_KIND_OPTIONS,
+  WORK_CATEGORY_OPTIONS,
+  isRuleKind,
+  type PropertyStatus,
+} from "@/lib/constants";
+import { validateRule, type RuleParams } from "@/lib/recurrence";
+import { generateOccurrencesForMonth } from "@/lib/generate-occurrences";
+import { PRIMARY_JOB_ORDER } from "./work";
 
 export type PropertyFormState = { error?: string };
 
@@ -19,9 +34,13 @@ function forbidden(e: unknown): PropertyFormState | null {
   return e instanceof PermissionError ? { error: e.message } : null;
 }
 
+const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+const monthRe = /^\d{4}-\d{2}$/;
+
 const propertySchema = z.object({
   customerId: z.string().min(1, "顧客を選択してください"),
-  name: z.string().trim().min(1, "物件名を入力してください").max(100),
+  name: z.string().trim().min(1, "現場名を入力してください").max(100),
   kana: z.string().trim().max(100).nullable(),
   address: z.string().trim().max(300).nullable(),
   building: z.string().trim().max(100).nullable(),
@@ -34,7 +53,7 @@ const propertySchema = z.object({
   contactName: z.string().trim().max(100).nullable(),
   contactPhone: z.string().trim().max(30).nullable(),
   handoverNote: z.string().trim().max(2000).nullable(),
-  status: z.enum(["ACTIVE", "INACTIVE"]),
+  status: z.enum(PROPERTY_STATUS_OPTIONS),
 });
 
 function parseProperty(formData: FormData) {
@@ -58,7 +77,147 @@ function parseProperty(formData: FormData) {
   });
 }
 
-// ── 物件直付け写真（キーBOX / 図面PDF / 現調写真）──
+// ── 作業内容（現場1件＝作業1つ。保存先は現場にぶら下がる Job） ──
+const workSchema = z.object({
+  department: z.enum(DEPARTMENT_OPTIONS),
+  category: z.enum(WORK_CATEGORY_OPTIONS),
+  contractType: z.enum(CONTRACT_TYPE_OPTIONS),
+  ruleKind: z.enum(RULE_KIND_OPTIONS).nullable(),
+  ruleParams: z.string().nullable(),
+  startMonth: z.string().regex(monthRe, "開始月の形式が正しくありません").nullable(),
+  spotDate: z.string().regex(dateRe, "実施日の形式が正しくありません").nullable(),
+  workStart: z.string().regex(dateRe, "工事の開始日の形式が正しくありません").nullable(),
+  workEnd: z.string().regex(dateRe, "工事の終了日の形式が正しくありません").nullable(),
+  headcount: z.coerce.number().int().min(0).max(99).nullable(),
+  defaultStartTime: z.string().regex(timeRe, "開始時刻の形式が正しくありません").nullable(),
+  defaultEndTime: z.string().regex(timeRe, "終了時刻の形式が正しくありません").nullable(),
+  vehicleId: z.string().trim().max(50).nullable(),
+  amount: z.coerce.number().int().min(0).max(100_000_000).nullable(),
+  addToCalendar: z.boolean(),
+});
+type Work = z.infer<typeof workSchema>;
+
+/** 部門が未選択なら null（＝作業内容は未設定のまま保存） */
+function parseWork(formData: FormData): { work: Work | null } | { error: string } {
+  const department = nz(formData.get("workDepartment"));
+  if (!department) return { work: null };
+  const rk = nz(formData.get("ruleKind"));
+  const parsed = workSchema.safeParse({
+    department,
+    category: formData.get("category") ?? "",
+    contractType: formData.get("contractType") ?? "",
+    ruleKind: rk && isRuleKind(rk) ? rk : null,
+    ruleParams: nz(formData.get("ruleParams")),
+    startMonth: nz(formData.get("startMonth")),
+    spotDate: nz(formData.get("spotDate")),
+    workStart: nz(formData.get("workStart")),
+    workEnd: nz(formData.get("workEnd")),
+    headcount: nz(formData.get("headcount")),
+    defaultStartTime: nz(formData.get("defaultStartTime")),
+    defaultEndTime: nz(formData.get("defaultEndTime")),
+    vehicleId: nz(formData.get("vehicleId")),
+    amount: nz(formData.get("amount")),
+    addToCalendar: formData.get("addToCalendar") === "1",
+  });
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === "category") return { error: "種別を選択してください" };
+    if (issue?.path[0] === "contractType") return { error: "定期・スポット・工事のどれかを選択してください" };
+    return { error: issue?.message ?? "作業内容の入力エラー" };
+  }
+  return { work: parsed.data };
+}
+
+type JobData = Omit<Prisma.JobUncheckedCreateInput, "customerId" | "propertyId" | "amount" | "status" | "unitCount" | "vehicleId">;
+
+/** 作業内容の整合性チェックと Job 保存用データ */
+function normalizeWork(w: Work): { data: JobData } | { error: string } {
+  const catDept = CATEGORY[w.category].department;
+  if (catDept && catDept !== w.department) return { error: `種別「${CATEGORY[w.category].label}」は${catDept === "CLEANING" ? "クリーニング" : "工事"}部門の種別です` };
+  let ruleKind: string | null = null;
+  let ruleParams: RuleParams | null = null;
+  // 期間は頻度ごとに必要なものだけ書く（スポットは触らない＝旧データの契約期間を消さない）
+  let period: { startsOn?: Date | null; endsOn?: Date | null } = {};
+  if (w.contractType === "REGULAR") {
+    if (!w.ruleKind) return { error: "定期は周期を選択してください" };
+    ruleKind = w.ruleKind;
+    try {
+      ruleParams = w.ruleParams ? (JSON.parse(w.ruleParams) as RuleParams) : {};
+    } catch {
+      return { error: "周期の設定が読み取れません" };
+    }
+    const err = validateRule(w.ruleKind, ruleParams);
+    if (err) return { error: err };
+    period = { startsOn: w.startMonth ? dateFromKey(`${w.startMonth}-01`) : null };
+  }
+  if (w.contractType === "CONSTRUCTION") {
+    if (w.workStart && w.workEnd && w.workEnd < w.workStart) return { error: "工事の終了日は開始日以降にしてください" };
+    if (!w.workStart && w.workEnd) return { error: "工事の開始日を入力してください" };
+    period = { startsOn: w.workStart ? dateFromKey(w.workStart) : null, endsOn: w.workEnd ? dateFromKey(w.workEnd) : null };
+  }
+  return {
+    data: {
+      name: CATEGORY[w.category].label,
+      department: w.department,
+      category: w.category,
+      contractType: w.contractType,
+      ruleKind,
+      ruleParams: ruleParams === null ? Prisma.JsonNull : (ruleParams as Prisma.InputJsonValue),
+      headcount: w.headcount,
+      defaultStartTime: w.defaultStartTime,
+      defaultEndTime: w.defaultEndTime,
+      ...period,
+    },
+  };
+}
+
+/** スポット・工事の予定を1件カレンダーに入れる（日付が無ければ未割当） */
+async function createSingleOccurrence(
+  tx: Prisma.TransactionClient,
+  job: { id: string; propertyId: string; customerId: string; department: string; category: string; headcount: number | null; unitCount: number | null; defaultStartTime: string | null; defaultEndTime: string | null; vehicleId: string | null; amount: number | null },
+  w: Work,
+  actorId: string,
+) {
+  const date = w.contractType === "CONSTRUCTION" ? w.workStart : w.spotDate;
+  const endDate = w.contractType === "CONSTRUCTION" ? w.workEnd : null;
+  const occ = await tx.occurrence.create({
+    data: {
+      jobId: job.id,
+      propertyId: job.propertyId,
+      customerId: job.customerId,
+      department: job.department,
+      category: job.category,
+      targetMonth: (date ?? jstDateKey()).slice(0, 7),
+      date: date ? dateFromKey(date) : null,
+      endDate: endDate && endDate !== date ? dateFromKey(endDate) : null,
+      startTime: job.defaultStartTime,
+      endTime: job.defaultEndTime,
+      headcount: job.headcount,
+      unitCount: job.unitCount,
+      amount: job.amount,
+      status: "UNASSIGNED",
+      source: "MANUAL",
+      createdById: actorId,
+    },
+    select: { id: true },
+  });
+  await tx.occurrenceChangeLog.create({ data: { occurrenceId: occ.id, actorId, action: "CREATE", toValue: date ?? "日付未定" } });
+  if (job.vehicleId) await tx.occurrenceVehicle.create({ data: { occurrenceId: occ.id, vehicleId: job.vehicleId, createdById: actorId } });
+}
+
+/** 定期：開始月（または今月）から2か月分を生成。今日より前の日付は作らない */
+async function generateFirstMonths(jobId: string, startMonth: string | null, actorId: string): Promise<number> {
+  const thisMonth = jstMonthKey();
+  const first = startMonth && startMonth > thisMonth ? startMonth : thisMonth;
+  let created = 0;
+  for (const month of [first, addMonthsKey(first, 1)]) {
+    const r = await generateOccurrencesForMonth({ month, jobId, actorId, notBefore: jstDateKey() });
+    created += r.created;
+  }
+  return created;
+}
+
+// ── 現場直付け写真（キーBOX / 図面PDF / 現調写真）──
 const PHOTO_FIELDS = [
   { field: "keyboxPhotos", kind: "KEYBOX" },
   { field: "drawingPhotos", kind: "DRAWING" },
@@ -109,8 +268,57 @@ function validateKeybox(d: z.infer<typeof propertySchema>): string | null {
   return null;
 }
 
+/** 現場の主な作業（現場1件＝作業1つ。統合前のデータで複数ある場合は最初に登録したもの） */
+async function primaryJobOf(tx: Prisma.TransactionClient | typeof db, propertyId: string) {
+  return tx.job.findFirst({
+    where: { propertyId },
+    orderBy: PRIMARY_JOB_ORDER,
+    select: { id: true, department: true, category: true, amount: true, _count: { select: { occurrences: true } } },
+  });
+}
+
+/**
+ * 現場のステータスを作業（すべて）に反映する。
+ * 止まっていた現場を「稼働中」に戻したときは、定期の終了日を外す
+ * （カレンダーの「以降を削除」で入った終了日が、再開後も生成を止め続けないように）。
+ */
+async function syncJobStatus(tx: Prisma.TransactionClient, propertyId: string, prev: string, next: PropertyStatus) {
+  await tx.job.updateMany({ where: { propertyId }, data: { status: JOB_STATUS_FOR_PROPERTY[next] } });
+  if (next === "ACTIVE" && prev !== "ACTIVE") {
+    await tx.job.updateMany({ where: { propertyId, contractType: "REGULAR" }, data: { endsOn: null } });
+  }
+}
+
+/** 現場に付いている作業の部門をすべて編集できるか（他部門の作業を止めたり消したりさせない） */
+async function canEditAllWork(me: Parameters<typeof canEditDepartment>[0], propertyId: string): Promise<boolean> {
+  const depts = await db.job.findMany({ where: { propertyId }, select: { department: true }, distinct: ["department"] });
+  return depts.every((j) => canEditDepartment(me, j.department));
+}
+
+async function checkVehicle(vehicleId: string | null): Promise<string | null> {
+  if (vehicleId && !(await db.vehicle.findUnique({ where: { id: vehicleId }, select: { id: true } }))) return "車両が見つかりません";
+  return null;
+}
+
+function revalidateProperty(id: string, customerId?: string) {
+  revalidatePath("/properties");
+  revalidatePath(`/properties/${id}`);
+  revalidatePath("/schedule");
+  if (customerId) revalidatePath(`/customers/${customerId}`);
+}
+
+const JOB_RESULT_SELECT = { id: true, propertyId: true, customerId: true, department: true, category: true, headcount: true, unitCount: true, defaultStartTime: true, defaultEndTime: true, vehicleId: true, amount: true } as const;
+
+/** 定期で「予定を作る」にチェックしたときの結果メッセージ */
+async function generateAfterSave(jobId: string, w: Work, status: PropertyStatus, actorId: string, done: string): Promise<string> {
+  if (status !== "ACTIVE") return `${done}（休止・終了中のため予定は作っていません）`;
+  const n = await generateFirstMonths(jobId, w.startMonth, actorId).catch(() => -1);
+  return n < 0 ? `${done}（予定の作成に失敗しました。「予定を作る」から作り直せます）` : `${done}。予定を${n}件作りました`;
+}
+
 export async function createProperty(_prev: PropertyFormState, formData: FormData): Promise<PropertyFormState> {
   const me = await requireUser();
+  const allowAmount = canViewAmounts(me);
   try {
     assertCan(me, "property.manage");
   } catch (e) {
@@ -121,35 +329,67 @@ export async function createProperty(_prev: PropertyFormState, formData: FormDat
   const d = parsed.data;
   const kbErr = validateKeybox(d);
   if (kbErr) return { error: kbErr };
+  const pw = parseWork(formData);
+  if ("error" in pw) return { error: pw.error };
+  const w = pw.work;
+  if (!w) return { error: "部門（クリーニング／工事）を選択してください" };
+  try {
+    assertCan(me, "job.manage", { department: w.department });
+  } catch (e) {
+    return forbidden(e) ?? { error: "エラーが発生しました" };
+  }
+  const nw = normalizeWork(w);
+  if ("error" in nw) return { error: nw.error };
   const sets = parsePhotoFields(formData);
   if ("error" in sets) return { error: sets.error };
   const customer = await db.customer.findUnique({ where: { id: d.customerId }, select: { id: true } });
   if (!customer) return { error: "顧客が見つかりません" };
+  const vErr = await checkVehicle(w.vehicleId);
+  if (vErr) return { error: vErr };
 
-  let id: string;
+  let ids: { propertyId: string; jobId: string };
   try {
-    id = await db.$transaction(async (tx) => {
+    ids = await db.$transaction(async (tx) => {
       const p = await tx.property.create({ data: { ...d, createdById: me.id }, select: { id: true } });
       await applyPhotoSets(tx, p.id, sets, me.id);
-      return p.id;
+      const job = await tx.job.create({
+        data: {
+          ...nw.data,
+          customerId: d.customerId,
+          propertyId: p.id,
+          unitCount: d.unitCount,
+          vehicleId: w.vehicleId,
+          amount: allowAmount ? w.amount : null,
+          status: JOB_STATUS_FOR_PROPERTY[d.status],
+          createdById: me.id,
+        },
+        select: JOB_RESULT_SELECT,
+      });
+      if (w.addToCalendar && w.contractType !== "REGULAR") await createSingleOccurrence(tx, job, w, me.id);
+      return { propertyId: p.id, jobId: job.id };
     });
   } catch {
-    return { error: "物件の保存に失敗しました。時間をおいて再度お試しください" };
+    return { error: "現場の保存に失敗しました。時間をおいて再度お試しください" };
   }
-  revalidatePath("/properties");
-  revalidatePath(`/customers/${d.customerId}`);
-  redirect(`/properties/${id}?toast=${encodeURIComponent("保存しました")}`);
+
+  let toast = "現場を登録しました";
+  if (w.addToCalendar) {
+    toast = w.contractType === "REGULAR" ? await generateAfterSave(ids.jobId, w, d.status, me.id, toast) : "現場を登録し、カレンダーに予定を入れました";
+  }
+  revalidateProperty(ids.propertyId, d.customerId);
+  redirect(`/properties/${ids.propertyId}?toast=${encodeURIComponent(toast)}`);
 }
 
 export async function updateProperty(_prev: PropertyFormState, formData: FormData): Promise<PropertyFormState> {
   const me = await requireUser();
+  const allowAmount = canViewAmounts(me);
   try {
     assertCan(me, "property.manage");
   } catch (e) {
     return forbidden(e) ?? { error: "エラーが発生しました" };
   }
   const id = formData.get("id");
-  if (typeof id !== "string" || !id) return { error: "物件が見つかりません" };
+  if (typeof id !== "string" || !id) return { error: "現場が見つかりません" };
   const parsed = parseProperty(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "入力エラー" };
   const d = parsed.data;
@@ -158,33 +398,102 @@ export async function updateProperty(_prev: PropertyFormState, formData: FormDat
   const sets = parsePhotoFields(formData);
   if ("error" in sets) return { error: sets.error };
 
+  const current = await db.property.findUnique({ where: { id }, select: { status: true } });
+  if (!current) return { error: "現場が見つかりません" };
+  const existingJob = await primaryJobOf(db, id);
+  // 他部門の作業を持つ現場を手配担当が編集するときは、作業内容とステータスには触らせない（フォームも読み取り専用）
+  const workEditable = await canEditAllWork(me, id);
+  if (!workEditable && d.status !== current.status) return { error: "ステータスは担当部門の手配担当・事務だけが変更できます" };
+  let w: Work | null = null;
+  let nw: { data: JobData } | null = null;
+  if (workEditable) {
+    const pw = parseWork(formData);
+    if ("error" in pw) return { error: pw.error };
+    w = pw.work;
+    if (!w && existingJob) return { error: "部門（クリーニング／工事）を選択してください" };
+    if (w) {
+      try {
+        assertCan(me, "job.manage", { department: w.department });
+      } catch (e) {
+        return forbidden(e) ?? { error: "エラーが発生しました" };
+      }
+      const n = normalizeWork(w);
+      if ("error" in n) return { error: n.error };
+      nw = n;
+      const vErr = await checkVehicle(w.vehicleId);
+      if (vErr) return { error: vErr };
+    }
+  }
+
+  let jobId: string | null = existingJob?.id ?? null;
   try {
-    await db.$transaction(async (tx) => {
+    jobId = await db.$transaction(async (tx) => {
       await tx.property.update({ where: { id }, data: d });
       await applyPhotoSets(tx, id, sets, me.id);
-      // 顧客が変わったら、この物件の案件・実施回の顧客も追従させる
-      await tx.job.updateMany({ where: { propertyId: id }, data: { customerId: d.customerId } });
+      // 顧客が変わったら、この現場の作業・予定の顧客も追従させる
+      await tx.job.updateMany({ where: { propertyId: id }, data: { customerId: d.customerId, unitCount: d.unitCount } });
       await tx.occurrence.updateMany({ where: { propertyId: id }, data: { customerId: d.customerId } });
+      if (workEditable) await syncJobStatus(tx, id, current.status, d.status);
+      if (!w || !nw) return existingJob?.id ?? null;
+      if (!existingJob) {
+        // 作業内容が未設定だった現場：部門を選んだら作業を作る
+        const job = await tx.job.create({
+          data: { ...nw.data, customerId: d.customerId, propertyId: id, unitCount: d.unitCount, vehicleId: w.vehicleId, amount: allowAmount ? w.amount : null, status: JOB_STATUS_FOR_PROPERTY[d.status], createdById: me.id },
+          select: JOB_RESULT_SELECT,
+        });
+        if (w.addToCalendar && w.contractType !== "REGULAR") await createSingleOccurrence(tx, job, w, me.id);
+        return job.id;
+      }
+      // 作業名は種別を変えたときだけ付け直す（統合前に付けた独自の名前を残す）
+      const { name, ...rest } = nw.data;
+      const job = await tx.job.update({
+        where: { id: existingJob.id },
+        data: {
+          ...rest,
+          ...(existingJob.category !== w.category ? { name } : {}),
+          vehicleId: w.vehicleId,
+          ...(allowAmount ? { amount: w.amount } : {}),
+        },
+        select: JOB_RESULT_SELECT,
+      });
+      // 部門・種別を変えたら、まだ確定していない予定にも反映する
+      if (existingJob.category !== w.category || existingJob.department !== w.department) {
+        await tx.occurrence.updateMany({
+          where: { jobId: existingJob.id, status: { in: ["UNASSIGNED", "TENTATIVE"] } },
+          data: { department: w.department, category: w.category },
+        });
+      }
+      if (w.addToCalendar && w.contractType !== "REGULAR") await createSingleOccurrence(tx, job, w, me.id);
+      return job.id;
     });
   } catch {
-    return { error: "物件の保存に失敗しました。時間をおいて再度お試しください" };
+    return { error: "現場の保存に失敗しました。時間をおいて再度お試しください" };
   }
-  revalidatePath("/properties");
-  revalidatePath(`/properties/${id}`);
-  revalidatePath("/schedule");
-  redirect(`/properties/${id}?toast=${encodeURIComponent("保存しました")}`);
+
+  let toast = "保存しました";
+  if (w?.addToCalendar && jobId) {
+    toast = w.contractType === "REGULAR" ? await generateAfterSave(jobId, w, d.status, me.id, toast) : "保存し、カレンダーに予定を入れました";
+  }
+  revalidateProperty(id, d.customerId);
+  redirect(`/properties/${id}?toast=${encodeURIComponent(toast)}`);
 }
 
-export async function setPropertyStatus(id: string, status: "ACTIVE" | "INACTIVE"): Promise<PropertyFormState> {
+export async function setPropertyStatus(id: string, status: PropertyStatus): Promise<PropertyFormState> {
   const me = await requireUser();
   try {
     assertCan(me, "property.manage");
   } catch (e) {
     return forbidden(e) ?? { error: "エラーが発生しました" };
   }
-  await db.property.update({ where: { id }, data: { status } });
-  revalidatePath("/properties");
-  revalidatePath(`/properties/${id}`);
+  if (!(PROPERTY_STATUS_OPTIONS as string[]).includes(status)) return { error: "ステータスが不正です" };
+  const current = await db.property.findUnique({ where: { id }, select: { status: true } });
+  if (!current) return { error: "現場が見つかりません" };
+  if (!(await canEditAllWork(me, id))) return { error: "ステータスは担当部門の手配担当・事務だけが変更できます" };
+  await db.$transaction(async (tx) => {
+    await tx.property.update({ where: { id }, data: { status } });
+    await syncJobStatus(tx, id, current.status, status);
+  });
+  revalidateProperty(id);
   return {};
 }
 
@@ -195,19 +504,79 @@ export async function deleteProperty(id: string): Promise<PropertyFormState | vo
   } catch (e) {
     return forbidden(e) ?? { error: "エラーが発生しました" };
   }
-  const [occ, jobs] = await Promise.all([db.occurrence.count({ where: { propertyId: id } }), db.job.count({ where: { propertyId: id } })]);
-  if (occ > 0 || jobs > 0) {
-    return { error: `案件 ${jobs} 件・予定 ${occ} 件が紐づいているため削除できません。ステータスを「終了」にしてください` };
+  if (!(await canEditAllWork(me, id))) return { error: "他部門の作業がある現場は削除できません" };
+  const occ = await db.occurrence.count({ where: { propertyId: id } });
+  if (occ > 0) {
+    return { error: `予定が ${occ} 件紐づいているため削除できません。ステータスを「終了」にしてください` };
   }
   const p = await db.property.findUnique({ where: { id }, select: { customerId: true } });
   try {
+    // 予定の無い作業は現場と一緒に消す（Job は現場に Cascade）
     await db.property.delete({ where: { id } });
   } catch {
     return { error: "削除に失敗しました" };
   }
   revalidatePath("/properties");
   if (p) revalidatePath(`/customers/${p.customerId}`);
-  redirect(`/properties?toast=${encodeURIComponent("物件を削除しました")}`);
+  redirect(`/properties?toast=${encodeURIComponent("現場を削除しました")}`);
+}
+
+/**
+ * 統合前のデータで1つの現場に作業が複数ある場合に、指定の作業を「この現場のコピー」へ移す。
+ * 住所・キーBOX・入館メモなどを引き継いだ新しい現場を作り、作業とその予定・日報の現場を付け替える。
+ */
+export async function moveJobToCopiedProperty(jobId: string): Promise<PropertyFormState | void> {
+  const me = await requireUser();
+  const job = await db.job.findUnique({ where: { id: jobId }, select: { id: true, name: true, department: true, status: true, propertyId: true } });
+  if (!job) return { error: "作業が見つかりません" };
+  try {
+    assertCan(me, "property.manage");
+    assertCan(me, "job.manage", { department: job.department });
+  } catch (e) {
+    return forbidden(e) ?? { error: "エラーが発生しました" };
+  }
+  const src = await db.property.findUnique({ where: { id: job.propertyId } });
+  if (!src) return { error: "現場が見つかりません" };
+  const primary = await primaryJobOf(db, src.id);
+  if (primary?.id === job.id) return { error: "この現場の主な作業は移せません" };
+  // 新しい現場の状態は作業の状態に合わせる（終了した作業 → 終了の現場）
+  const status: PropertyStatus = job.status === "ENDED" ? "INACTIVE" : job.status === "PAUSED" ? "PAUSED" : "ACTIVE";
+
+  let newId: string;
+  try {
+    newId = await db.$transaction(async (tx) => {
+      const p = await tx.property.create({
+        data: {
+          customerId: src.customerId,
+          name: `${src.name}（${job.name}）`,
+          kana: src.kana,
+          address: src.address,
+          building: src.building,
+          unitCount: src.unitCount,
+          keyboxStatus: src.keyboxStatus,
+          keyboxNumber: src.keyboxNumber,
+          keyboxPlace: src.keyboxPlace,
+          keyboxNoneReason: src.keyboxNoneReason,
+          accessNote: src.accessNote,
+          contactName: src.contactName,
+          contactPhone: src.contactPhone,
+          handoverNote: src.handoverNote,
+          status,
+          createdById: me.id,
+        },
+        select: { id: true },
+      });
+      await tx.job.update({ where: { id: job.id }, data: { propertyId: p.id } });
+      const occIds = (await tx.occurrence.findMany({ where: { jobId: job.id }, select: { id: true } })).map((o) => o.id);
+      await tx.occurrence.updateMany({ where: { id: { in: occIds } }, data: { propertyId: p.id } });
+      await tx.dailyReport.updateMany({ where: { occurrenceId: { in: occIds } }, data: { propertyId: p.id } });
+      return p.id;
+    });
+  } catch {
+    return { error: "分けられませんでした。時間をおいて再度お試しください" };
+  }
+  revalidateProperty(src.id, src.customerId);
+  redirect(`/properties/${newId}?toast=${encodeURIComponent("作業を別の現場に分けました。現場名は必要に応じて編集してください")}`);
 }
 
 // ── 関連物件 ──

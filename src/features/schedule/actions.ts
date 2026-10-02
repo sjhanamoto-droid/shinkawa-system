@@ -93,7 +93,7 @@ function computeStatus(current: string, dateKey: string | null, assigneeCount: n
 function revalidateAll(propertyId?: string | null) {
   revalidatePath("/schedule");
   revalidatePath("/");
-  revalidatePath("/jobs");
+  revalidatePath("/properties");
   if (propertyId) revalidatePath(`/properties/${propertyId}`);
 }
 
@@ -625,7 +625,12 @@ export async function deleteOccurrence(id: string, scope: "ONE" | "FOLLOWING"): 
           ids.push(s.id);
         }
         // 契約の終了日を元の日付の前日に
-        if (oldDate) await tx.job.update({ where: { id: occ.jobId }, data: { endsOn: dateFromKey(shiftKey(oldDate, -1)), status: "ENDED" } });
+        if (oldDate) {
+          const job = await tx.job.update({ where: { id: occ.jobId }, data: { endsOn: dateFromKey(shiftKey(oldDate, -1)), status: "ENDED" }, select: { propertyId: true } });
+          // 現場1件＝作業1つ：ほかに稼働中の作業が無ければ現場も「終了」にする（再開は現場の編集から）
+          const others = await tx.job.count({ where: { propertyId: job.propertyId, status: "ACTIVE" } });
+          if (others === 0) await tx.property.update({ where: { id: job.propertyId }, data: { status: "INACTIVE" } });
+        }
       }
       await tx.occurrence.deleteMany({ where: { id: { in: ids } } });
       return { ids, propertyId: occ.propertyId };

@@ -14,6 +14,7 @@ export type GenerateInput = {
   jobId?: string;
   department?: string;
   actorId?: string | null;
+  notBefore?: string; // "YYYY-MM-DD"。これより前の日付の回は作らない（登録直後の自動生成用）
 };
 
 export type GenerateResult = { created: number; skipped: number; jobs: number };
@@ -61,6 +62,7 @@ export async function generateOccurrencesForMonth(input: GenerateInput): Promise
     const params = (job.ruleParams ?? {}) as RuleParams;
     const slots = slotsForMonth(job.ruleKind, params, month);
     for (const slot of slots) {
+      if (input.notBefore && slot.date && slot.date < input.notBefore) continue;
       const key = seriesKey(job.id, month, slot.index);
       if (job.vehicleId) vehicleBySeriesKey.set(key, job.vehicleId);
       rows.push({

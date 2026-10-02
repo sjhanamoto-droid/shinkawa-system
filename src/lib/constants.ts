@@ -119,14 +119,40 @@ export function isOccurrenceStatus(v: string | null | undefined): v is Occurrenc
   return !!v && (OCCURRENCE_STATUS_OPTIONS as string[]).includes(v);
 }
 
-// ── 案件の契約種別 ──
+// ── 作業の頻度（保存値は Job.contractType。現場1件＝作業1つ） ──
 export type ContractType = "REGULAR" | "SPOT" | "CONSTRUCTION";
 export const CONTRACT_TYPE_LABEL: Record<ContractType, string> = {
-  REGULAR: "定期契約",
+  REGULAR: "定期",
   SPOT: "スポット",
-  CONSTRUCTION: "工事",
+  CONSTRUCTION: "工事（期間あり）",
 };
 export const CONTRACT_TYPE_OPTIONS: ContractType[] = ["REGULAR", "SPOT", "CONSTRUCTION"];
+export function isContractType(v: string | null | undefined): v is ContractType {
+  return !!v && (CONTRACT_TYPE_OPTIONS as string[]).includes(v);
+}
+/** 種別を選んだときに自動で選ぶ頻度 */
+export function defaultContractTypeFor(category: CategoryKey): ContractType {
+  if (category === "REGULAR_CLEANING") return "REGULAR";
+  if (CATEGORY[category].department === "CONSTRUCTION") return "CONSTRUCTION";
+  return "SPOT";
+}
+/** 現場の作業に選べる種別（「休み」は除く） */
+export const WORK_CATEGORY_OPTIONS = CATEGORY_OPTIONS.filter((k) => k !== "OFF");
+
+// ── 現場のステータス（作業の状態も兼ねる） ──
+export type PropertyStatus = "ACTIVE" | "PAUSED" | "INACTIVE";
+export const PROPERTY_STATUS_LABEL: Record<PropertyStatus, string> = {
+  ACTIVE: "稼働中",
+  PAUSED: "休止",
+  INACTIVE: "終了",
+};
+export const PROPERTY_STATUS_OPTIONS: PropertyStatus[] = ["ACTIVE", "PAUSED", "INACTIVE"];
+/** 現場のステータス → 作業（Job）の状態 */
+export const JOB_STATUS_FOR_PROPERTY: Record<PropertyStatus, JobStatus> = {
+  ACTIVE: "ACTIVE",
+  PAUSED: "PAUSED",
+  INACTIVE: "ENDED",
+};
 
 export type JobStatus = "ACTIVE" | "PAUSED" | "ENDED";
 export const JOB_STATUS_LABEL: Record<JobStatus, string> = {
@@ -279,12 +305,7 @@ export const CONTACT_TYPE_LABEL: Record<ContactType, string> = {
   APPROVER: "決裁",
 };
 
-// ── 物件 ──
-export type PropertyStatus = "ACTIVE" | "INACTIVE";
-export const PROPERTY_STATUS_LABEL: Record<PropertyStatus, string> = {
-  ACTIVE: "稼働中",
-  INACTIVE: "終了",
-};
+// ── 物件（現場のステータスは上の PROPERTY_STATUS_LABEL） ──
 export type KeyboxStatus = "HAS" | "NONE";
 export const KEYBOX_STATUS_LABEL: Record<KeyboxStatus, string> = {
   HAS: "あり",

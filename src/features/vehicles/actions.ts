@@ -44,7 +44,7 @@ function parse(formData: FormData) {
 function revalidate(id?: string) {
   revalidatePath("/vehicles");
   revalidatePath("/schedule");
-  revalidatePath("/jobs");
+  revalidatePath("/properties", "layout");
   if (id) revalidatePath(`/vehicles/${id}/edit`);
 }
 
@@ -104,7 +104,7 @@ export async function deleteVehicle(id: string): Promise<VehicleFormState | void
     db.job.count({ where: { vehicleId: id } }),
   ]);
   if (used > 0 || jobs > 0) {
-    return { error: `予定 ${used} 件・案件 ${jobs} 件で使われているため削除できません。使わなくなった車両は「無効化」してください` };
+    return { error: `予定 ${used} 件・現場 ${jobs} 件の既定に使われているため削除できません。使わなくなった車両は「無効化」してください` };
   }
   await db.vehicle.delete({ where: { id } });
   revalidate();

@@ -191,9 +191,9 @@ export function OccurrenceDrawer({
                   <p className="mt-1 flex items-center gap-1.5 pl-6 text-xs text-ink-muted">
                     <Repeat className="h-3.5 w-3.5" />
                     定期：{o.ruleSummary}
-                    {o.jobId && (
-                      <Link href={`/jobs/${o.jobId}`} className="ml-1 inline-flex items-center gap-0.5 font-semibold text-brand-600">
-                        案件 <ExternalLink className="h-3 w-3" />
+                    {o.property && (
+                      <Link href={`/properties/${o.property.id}`} className="ml-1 inline-flex items-center gap-0.5 font-semibold text-brand-600">
+                        現場 <ExternalLink className="h-3 w-3" />
                       </Link>
                     )}
                   </p>
@@ -484,7 +484,7 @@ export function OccurrenceDrawer({
                   <input type="radio" checked={deleteScope === "ONE"} onChange={() => setDeleteScope("ONE")} /> この回だけ
                 </label>
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="radio" checked={deleteScope === "FOLLOWING"} onChange={() => setDeleteScope("FOLLOWING")} /> 以降の未確定の回も削除し、契約を終了にする
+                  <input type="radio" checked={deleteScope === "FOLLOWING"} onChange={() => setDeleteScope("FOLLOWING")} /> 以降の未確定の回も削除し、定期を終了にする（現場も「終了」になります）
                 </label>
               </div>
             )}
