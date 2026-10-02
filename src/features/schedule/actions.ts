@@ -12,6 +12,7 @@ import {
   NON_WORK_CATEGORIES,
   OCCURRENCE_STATUS_LABEL,
   isRuleKind,
+  hasFixedDates,
   isOccurrenceStatus,
   type OccurrenceStatus,
 } from "@/lib/constants";
@@ -440,7 +441,7 @@ export async function moveOccurrence(
 
       // ── 以降の定期もまとめて動かす ──
       const movedIds: string[] = [];
-      if (move.scope === "FOLLOWING" && dateChanged && newDate && occ.jobId && isRuleKind(occ.job?.ruleKind)) {
+      if (move.scope === "FOLLOWING" && dateChanged && newDate && occ.jobId && isRuleKind(occ.job?.ruleKind) && hasFixedDates(occ.job?.ruleKind)) {
         const kind = occ.job!.ruleKind;
         const params = (occ.job!.ruleParams ?? {}) as RuleParams;
         const slotIndex = parseSlotIndex(occ.seriesKey) ?? 0;

@@ -1,7 +1,5 @@
 import { requireCan } from "@/lib/session";
-import { canViewAmounts } from "@/lib/permissions";
 import { db } from "@/lib/db";
-import { jstMonthKey } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { PropertyForm, type PropertyFormValues } from "@/features/properties/property-form";
@@ -9,9 +7,8 @@ import { PropertyForm, type PropertyFormValues } from "@/features/properties/pro
 export default async function NewPropertyPage({ searchParams }: { searchParams: Promise<{ customerId?: string; copyFrom?: string }> }) {
   const user = await requireCan("property.manage");
   const { customerId, copyFrom } = await searchParams;
-  const [customers, vehicles, source] = await Promise.all([
+  const [customers, source] = await Promise.all([
     db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
-    db.vehicle.findMany({ select: { id: true, name: true, vehicleType: true, active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     copyFrom ? db.property.findUnique({ where: { id: copyFrom } }) : null,
   ]);
 
@@ -29,11 +26,8 @@ export default async function NewPropertyPage({ searchParams }: { searchParams: 
       <PageContainer size="narrow">
         <PropertyForm
           customers={customers}
-          vehicles={vehicles}
           property={initial}
           work={user.department ? { department: user.department } : null}
-          showAmount={canViewAmounts(user)}
-          currentMonth={jstMonthKey()}
           copiedFrom={source?.name}
         />
       </PageContainer>

@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Loader2, Plus, CalendarDays } from "lucide-r
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { isPlanner, can, type Actor } from "@/lib/permissions";
-import { NON_WORK_CATEGORIES, type Department } from "@/lib/constants";
+import { NON_WORK_CATEGORIES, type Department, hasFixedDates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useOccurrenceStore } from "./use-occurrence-store";
 import { useIsCoarsePointer, useScheduleSensors, parseDropId, type DragData } from "./dnd";
@@ -174,7 +174,8 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   const requestMove = useCallback(
     (o: OccurrenceView, move: MoveInput, opts: { confirmAlways?: boolean } = {}) => {
       const dateChanged = move.date !== o.date;
-      const recurring = dateChanged && !!move.date && !!o.ruleKind && !!o.jobId;
+      // 「月◯回」は日付を持たない定期なので、日付に置いても「この回だけ／以降も」は聞かない
+      const recurring = dateChanged && !!move.date && hasFixedDates(o.ruleKind) && !!o.jobId;
       if (opts.confirmAlways || recurring) {
         setConfirm({ occurrence: o, move });
         return;

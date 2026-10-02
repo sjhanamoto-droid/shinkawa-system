@@ -8,6 +8,8 @@ import type { RuleKind } from "./constants";
 import { WEEKDAY_LABEL } from "./constants";
 
 export type RuleParams = {
+  /** TIMES_PER_MONTH: 月の回数（1〜31）。日付は持たず、毎月その回数ぶん未割当に入れる */
+  timesPerMonth?: number | null;
   /** MONTHLY / EVERY_N_MONTHS / SEASONAL: 実施日（1〜31。月末を超えたらクランプ）。省略時は日付未定 */
   dayOfMonth?: number | null;
   /** TWICE_MONTHLY: 前半・後半それぞれの実施日。省略時は window のみ */
@@ -128,6 +130,17 @@ export function slotsForMonth(kind: RuleKind, params: RuleParams, ym: string): R
   const last = keyOf(y, m, dim);
 
   switch (kind) {
+    case "TIMES_PER_MONTH": {
+      const n = Math.max(0, Math.min(31, params.timesPerMonth ?? 1));
+      return Array.from({ length: n }, (_, i) => ({
+        index: i,
+        date: null,
+        windowStart: first,
+        windowEnd: last,
+        label: n > 1 ? `${i + 1}回目` : null,
+      }));
+    }
+
     case "MONTHLY":
       return [
         {
@@ -252,6 +265,8 @@ export function describeRule(kind: RuleKind | null | undefined, params: RulePara
   const p = params ?? {};
   const day = p.dayOfMonth ? `${p.dayOfMonth}日` : "日付未定";
   switch (kind) {
+    case "TIMES_PER_MONTH":
+      return `月${p.timesPerMonth ?? 1}回`;
     case "MONTHLY":
       return `毎月 ${day}`;
     case "TWICE_MONTHLY": {
@@ -285,6 +300,8 @@ export function seriesKey(jobId: string, ym: string, index: number): string {
 export function validateRule(kind: RuleKind, params: RuleParams): string | null {
   const dayOk = (v: number | null | undefined) => v == null || (Number.isInteger(v) && v >= 1 && v <= 31);
   switch (kind) {
+    case "TIMES_PER_MONTH":
+      return Number.isInteger(params.timesPerMonth) && params.timesPerMonth! >= 1 && params.timesPerMonth! <= 31 ? null : "月の回数は1〜31で入力してください";
     case "MONTHLY":
       return dayOk(params.dayOfMonth) ? null : "実施日は1〜31で指定してください";
     case "TWICE_MONTHLY":

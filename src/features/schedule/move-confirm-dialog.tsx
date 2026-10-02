@@ -1,5 +1,6 @@
 "use client";
 
+import { hasFixedDates } from "@/lib/constants";
 import { useEffect, useState } from "react";
 import { Repeat, ArrowRight, UserPlus, UserMinus, Inbox } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -41,7 +42,7 @@ export function MoveConfirmDialog({
   if (!occurrence || !move) return null;
   const o = occurrence;
   const dateChanged = move.date !== o.date;
-  const recurring = dateChanged && !!move.date && !!o.ruleKind && !!o.jobId;
+  const recurring = dateChanged && !!move.date && hasFixedDates(o.ruleKind) && !!o.jobId;
   const nameOf = (id: string) => workers.find((w) => w.id === id)?.name ?? id;
   const adds = (move.workerAdd ?? []).map(nameOf);
   const removes = (move.workerRemove ?? []).map(nameOf);

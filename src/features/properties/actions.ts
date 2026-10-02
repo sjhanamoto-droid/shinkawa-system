@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { assertCan, canEditDepartment, canViewAmounts, PermissionError } from "@/lib/permissions";
+import { assertCan, canEditDepartment, PermissionError } from "@/lib/permissions";
 import { parseAndValidatePhotosField, type NewPhotoInput } from "@/lib/photos";
 import { dateFromKey, jstDateKey, jstMonthKey, addMonthsKey } from "@/lib/date";
 import {
@@ -14,8 +14,6 @@ import {
   DEPARTMENT_OPTIONS,
   JOB_STATUS_FOR_PROPERTY,
   PROPERTY_STATUS_OPTIONS,
-  RULE_KIND_OPTIONS,
-  isRuleKind,
   type PropertyStatus,
 } from "@/lib/constants";
 import { validateRule, type RuleParams } from "@/lib/recurrence";
@@ -34,14 +32,12 @@ function forbidden(e: unknown): PropertyFormState | null {
   return e instanceof PermissionError ? { error: e.message } : null;
 }
 
-const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
-const monthRe = /^\d{4}-\d{2}$/;
 
 const propertySchema = z.object({
   customerId: z.string().min(1, "顧客を選択してください"),
   name: z.string().trim().min(1, "現場名を入力してください").max(100),
-  kana: z.string().trim().max(100).nullable(),
+  kana: z.string().trim().max(100).nullable().optional(),
   address: z.string().trim().max(300).nullable(),
   building: z.string().trim().max(100).nullable(),
   unitCount: z.coerce.number().int().min(0).max(999).nullable(),
@@ -61,7 +57,7 @@ function parseProperty(formData: FormData) {
   return propertySchema.safeParse({
     customerId: formData.get("customerId") ?? "",
     name: formData.get("name") ?? "",
-    kana: nz(formData.get("kana")),
+    kana: formData.has("kana") ? nz(formData.get("kana")) : undefined,
     address: nz(formData.get("address")),
     building: nz(formData.get("building")),
     unitCount: nz(formData.get("unitCount")),
@@ -82,17 +78,10 @@ const workSchema = z.object({
   department: z.enum(DEPARTMENT_OPTIONS),
   category: z.string().regex(/^[A-Z0-9_]{1,40}$/),
   contractType: z.enum(CONTRACT_TYPE_OPTIONS),
-  ruleKind: z.enum(RULE_KIND_OPTIONS).nullable(),
-  ruleParams: z.string().nullable(),
-  startMonth: z.string().regex(monthRe, "開始月の形式が正しくありません").nullable(),
+  timesPerMonth: z.coerce.number().int("月の回数は整数で入力してください").min(1, "月の回数は1以上にしてください").max(31, "月の回数は31以下にしてください").nullable(),
   spotDate: z.string().regex(dateRe, "実施日の形式が正しくありません").nullable(),
   workStart: z.string().regex(dateRe, "工事の開始日の形式が正しくありません").nullable(),
   workEnd: z.string().regex(dateRe, "工事の終了日の形式が正しくありません").nullable(),
-  headcount: z.coerce.number().int().min(0).max(99).nullable(),
-  defaultStartTime: z.string().regex(timeRe, "開始時刻の形式が正しくありません").nullable(),
-  defaultEndTime: z.string().regex(timeRe, "終了時刻の形式が正しくありません").nullable(),
-  vehicleId: z.string().trim().max(50).nullable(),
-  amount: z.coerce.number().int().min(0).max(100_000_000).nullable(),
   addToCalendar: z.boolean(),
 });
 type Work = z.infer<typeof workSchema>;
@@ -101,22 +90,14 @@ type Work = z.infer<typeof workSchema>;
 function parseWork(formData: FormData): { work: Work | null } | { error: string } {
   const department = nz(formData.get("workDepartment"));
   if (!department) return { work: null };
-  const rk = nz(formData.get("ruleKind"));
   const parsed = workSchema.safeParse({
     department,
     category: formData.get("category") ?? "",
     contractType: formData.get("contractType") ?? "",
-    ruleKind: rk && isRuleKind(rk) ? rk : null,
-    ruleParams: nz(formData.get("ruleParams")),
-    startMonth: nz(formData.get("startMonth")),
+    timesPerMonth: nz(formData.get("timesPerMonth")),
     spotDate: nz(formData.get("spotDate")),
     workStart: nz(formData.get("workStart")),
     workEnd: nz(formData.get("workEnd")),
-    headcount: nz(formData.get("headcount")),
-    defaultStartTime: nz(formData.get("defaultStartTime")),
-    defaultEndTime: nz(formData.get("defaultEndTime")),
-    vehicleId: nz(formData.get("vehicleId")),
-    amount: nz(formData.get("amount")),
     addToCalendar: formData.get("addToCalendar") === "1",
   });
   if (!parsed.success) {
@@ -128,7 +109,8 @@ function parseWork(formData: FormData): { work: Work | null } | { error: string 
   return { work: parsed.data };
 }
 
-type JobData = Omit<Prisma.JobUncheckedCreateInput, "customerId" | "propertyId" | "amount" | "status" | "unitCount" | "vehicleId">;
+// 人数・時刻・車両・金額は現場の画面から外した（予定ごとにカレンダーで入れる）。既存の作業に入っている値は触らない
+type JobData = Omit<Prisma.JobUncheckedCreateInput, "customerId" | "propertyId" | "amount" | "status" | "unitCount" | "vehicleId" | "headcount" | "defaultStartTime" | "defaultEndTime">;
 
 /** 作業内容の整合性チェックと Job 保存用データ。currentCategory＝今保存されている種別（使わない設定になっていても、そのままなら保存できる） */
 function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | null): { data: JobData } | { error: string } {
@@ -140,16 +122,12 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
   // 期間は頻度ごとに必要なものだけ書く（スポットは触らない＝旧データの契約期間を消さない）
   let period: { startsOn?: Date | null; endsOn?: Date | null } = {};
   if (w.contractType === "REGULAR") {
-    if (!w.ruleKind) return { error: "定期は周期を選択してください" };
-    ruleKind = w.ruleKind;
-    try {
-      ruleParams = w.ruleParams ? (JSON.parse(w.ruleParams) as RuleParams) : {};
-    } catch {
-      return { error: "周期の設定が読み取れません" };
-    }
-    const err = validateRule(w.ruleKind, ruleParams);
+    // 定期は「月◯回」：日付は持たず、毎月その回数ぶん未割当に入れる（日付はカレンダーで配置）
+    if (!w.timesPerMonth) return { error: "月に何回かを入力してください" };
+    ruleKind = "TIMES_PER_MONTH";
+    ruleParams = { timesPerMonth: w.timesPerMonth };
+    const err = validateRule("TIMES_PER_MONTH", ruleParams);
     if (err) return { error: err };
-    period = { startsOn: w.startMonth ? dateFromKey(`${w.startMonth}-01`) : null };
   }
   if (w.contractType === "CONSTRUCTION") {
     if (w.workStart && w.workEnd && w.workEnd < w.workStart) return { error: "工事の終了日は開始日以降にしてください" };
@@ -164,9 +142,6 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
       contractType: w.contractType,
       ruleKind,
       ruleParams: ruleParams === null ? Prisma.JsonNull : (ruleParams as Prisma.InputJsonValue),
-      headcount: w.headcount,
-      defaultStartTime: w.defaultStartTime,
-      defaultEndTime: w.defaultEndTime,
       ...period,
     },
   };
@@ -206,10 +181,9 @@ async function createSingleOccurrence(
   if (job.vehicleId) await tx.occurrenceVehicle.create({ data: { occurrenceId: occ.id, vehicleId: job.vehicleId, createdById: actorId } });
 }
 
-/** 定期：開始月（または今月）から2か月分を生成。今日より前の日付は作らない */
-async function generateFirstMonths(jobId: string, startMonth: string | null, actorId: string): Promise<number> {
-  const thisMonth = jstMonthKey();
-  const first = startMonth && startMonth > thisMonth ? startMonth : thisMonth;
+/** 定期：今月と来月の分を未割当に入れる（その先は毎月の自動生成） */
+async function generateFirstMonths(jobId: string, actorId: string): Promise<number> {
+  const first = jstMonthKey();
   let created = 0;
   for (const month of [first, addMonthsKey(first, 1)]) {
     const r = await generateOccurrencesForMonth({ month, jobId, actorId, notBefore: jstDateKey() });
@@ -296,11 +270,6 @@ async function canEditAllWork(me: Parameters<typeof canEditDepartment>[0], prope
   return depts.every((j) => canEditDepartment(me, j.department));
 }
 
-async function checkVehicle(vehicleId: string | null): Promise<string | null> {
-  if (vehicleId && !(await db.vehicle.findUnique({ where: { id: vehicleId }, select: { id: true } }))) return "車両が見つかりません";
-  return null;
-}
-
 function revalidateProperty(id: string, customerId?: string) {
   revalidatePath("/properties");
   revalidatePath(`/properties/${id}`);
@@ -313,13 +282,12 @@ const JOB_RESULT_SELECT = { id: true, propertyId: true, customerId: true, depart
 /** 定期で「予定を作る」にチェックしたときの結果メッセージ */
 async function generateAfterSave(jobId: string, w: Work, status: PropertyStatus, actorId: string, done: string): Promise<string> {
   if (status !== "ACTIVE") return `${done}（休止・終了中のため予定は作っていません）`;
-  const n = await generateFirstMonths(jobId, w.startMonth, actorId).catch(() => -1);
-  return n < 0 ? `${done}（予定の作成に失敗しました。「予定を作る」から作り直せます）` : `${done}。予定を${n}件作りました`;
+  const n = await generateFirstMonths(jobId, actorId).catch(() => -1);
+  return n < 0 ? `${done}（予定の作成に失敗しました。「予定を作る」から作り直せます）` : `${done}。未割当に${n}件入れました`;
 }
 
 export async function createProperty(_prev: PropertyFormState, formData: FormData): Promise<PropertyFormState> {
   const me = await requireUser();
-  const allowAmount = canViewAmounts(me);
   try {
     assertCan(me, "property.manage");
   } catch (e) {
@@ -345,9 +313,6 @@ export async function createProperty(_prev: PropertyFormState, formData: FormDat
   if ("error" in sets) return { error: sets.error };
   const customer = await db.customer.findUnique({ where: { id: d.customerId }, select: { id: true } });
   if (!customer) return { error: "顧客が見つかりません" };
-  const vErr = await checkVehicle(w.vehicleId);
-  if (vErr) return { error: vErr };
-
   let ids: { propertyId: string; jobId: string };
   try {
     ids = await db.$transaction(async (tx) => {
@@ -359,8 +324,6 @@ export async function createProperty(_prev: PropertyFormState, formData: FormDat
           customerId: d.customerId,
           propertyId: p.id,
           unitCount: d.unitCount,
-          vehicleId: w.vehicleId,
-          amount: allowAmount ? w.amount : null,
           status: JOB_STATUS_FOR_PROPERTY[d.status],
           createdById: me.id,
         },
@@ -383,7 +346,6 @@ export async function createProperty(_prev: PropertyFormState, formData: FormDat
 
 export async function updateProperty(_prev: PropertyFormState, formData: FormData): Promise<PropertyFormState> {
   const me = await requireUser();
-  const allowAmount = canViewAmounts(me);
   try {
     assertCan(me, "property.manage");
   } catch (e) {
@@ -421,8 +383,6 @@ export async function updateProperty(_prev: PropertyFormState, formData: FormDat
       const n = normalizeWork(w, await getCategories(), existingJob?.category);
       if ("error" in n) return { error: n.error };
       nw = n;
-      const vErr = await checkVehicle(w.vehicleId);
-      if (vErr) return { error: vErr };
     }
   }
 
@@ -439,7 +399,7 @@ export async function updateProperty(_prev: PropertyFormState, formData: FormDat
       if (!existingJob) {
         // 作業内容が未設定だった現場：部門を選んだら作業を作る
         const job = await tx.job.create({
-          data: { ...nw.data, customerId: d.customerId, propertyId: id, unitCount: d.unitCount, vehicleId: w.vehicleId, amount: allowAmount ? w.amount : null, status: JOB_STATUS_FOR_PROPERTY[d.status], createdById: me.id },
+          data: { ...nw.data, customerId: d.customerId, propertyId: id, unitCount: d.unitCount, status: JOB_STATUS_FOR_PROPERTY[d.status], createdById: me.id },
           select: JOB_RESULT_SELECT,
         });
         if (w.addToCalendar && w.contractType !== "REGULAR") await createSingleOccurrence(tx, job, w, me.id);
@@ -452,8 +412,6 @@ export async function updateProperty(_prev: PropertyFormState, formData: FormDat
         data: {
           ...rest,
           ...(existingJob.category !== w.category ? { name } : {}),
-          vehicleId: w.vehicleId,
-          ...(allowAmount ? { amount: w.amount } : {}),
         },
         select: JOB_RESULT_SELECT,
       });

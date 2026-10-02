@@ -2,11 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Save, AlertCircle, KeyRound, FileText, ChevronDown, Briefcase, Lock } from "lucide-react";
+import { Save, AlertCircle, KeyRound, FileText, ChevronDown, Briefcase, Lock, Repeat } from "lucide-react";
 import { createProperty, updateProperty, type PropertyFormState } from "./actions";
 import { PropertyPhotoField, type PropertyPhotoInit } from "./property-photo-field";
-import { RuleEditor } from "@/features/jobs/rule-editor";
-import { Field, Input, Textarea, Select } from "@/components/ui/form";
+import { Field, Input, Textarea } from "@/components/ui/form";
 import { SearchSelect } from "@/components/ui/search-select";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
@@ -20,7 +19,6 @@ import {
   PROPERTY_STATUS_OPTIONS,
   isContractType,
   isDepartment,
-  isRuleKind,
   type ContractType,
   type Department,
 } from "@/lib/constants";
@@ -66,7 +64,6 @@ export type WorkFormValues = {
 };
 
 export type CustomerChoice = { id: string; name: string; shortName: string | null; kana?: string | null };
-export type VehicleChoice = { id: string; name: string; vehicleType: string | null; active: boolean };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -115,9 +112,6 @@ export function PropertyForm({
   workEditable = true,
   workSummary,
   customers,
-  vehicles,
-  showAmount,
-  currentMonth,
   photos,
   copiedFrom,
 }: {
@@ -127,9 +121,6 @@ export function PropertyForm({
   workEditable?: boolean;
   workSummary?: string;
   customers: CustomerChoice[];
-  vehicles: VehicleChoice[];
-  showAmount: boolean;
-  currentMonth: string;
   photos?: { keybox: PropertyPhotoInit[]; drawing: PropertyPhotoInit[]; survey: PropertyPhotoInit[] };
   copiedFrom?: string;
 }) {
@@ -166,9 +157,12 @@ export function PropertyForm({
     setContractType(defaultContractTypeFor(categories, k));
   }
 
+  // 月の回数（「月◯回」以外の旧い周期で登録されていた場合は1回から）
+  const initialTimes = work?.ruleKind === "TIMES_PER_MONTH" ? ((work.ruleParams as RuleParams | null)?.timesPerMonth ?? 1) : 1;
+
   const calendarLabel =
     contractType === "REGULAR"
-      ? isEdit ? "保存と同時に、開始月から2か月分の予定を作る" : "登録と同時に、開始月から2か月分の予定を作る"
+      ? `${isEdit ? "保存" : "登録"}と同時に、今月と来月の未割当に入れる（その先は毎月自動で入ります）`
       : "カレンダーに予定を1件入れる（日付が未定なら「未割当」に入ります）";
 
   return (
@@ -200,14 +194,9 @@ export function PropertyForm({
               emptyLabel="選択を解除"
             />
           </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="現場名" required htmlFor="name">
-              <Input id="name" name="name" defaultValue={property?.name ?? ""} placeholder="○○マンション" required />
-            </Field>
-            <Field label="ふりがな" htmlFor="kana" hint="検索用">
-              <Input id="kana" name="kana" defaultValue={property?.kana ?? ""} />
-            </Field>
-          </div>
+          <Field label="現場名" required htmlFor="name">
+            <Input id="name" name="name" defaultValue={property?.name ?? ""} placeholder="○○マンション" required />
+          </Field>
           <Field label="住所" htmlFor="address">
             <Input id="address" name="address" defaultValue={property?.address ?? ""} placeholder="埼玉県○○市○○1-2-3" />
           </Field>
@@ -273,15 +262,17 @@ export function PropertyForm({
                 </Field>
 
                 {contractType === "REGULAR" && (
-                  <div className="space-y-3 rounded-xl border border-line p-3">
-                    <RuleEditor
-                      initialKind={isRuleKind(work?.ruleKind) ? work.ruleKind : null}
-                      initialParams={(work?.ruleParams as RuleParams) ?? null}
-                      currentMonth={currentMonth}
-                    />
-                    <Field label="開始月" htmlFor="startMonth" hint="この月から予定を作ります">
-                      <Input id="startMonth" name="startMonth" type="month" defaultValue={work?.startMonth ?? currentMonth} className="max-w-[12rem]" />
+                  <div className="space-y-2 rounded-xl border border-line p-3">
+                    <Field label="月に何回" htmlFor="timesPerMonth" required>
+                      <div className="flex items-center gap-2">
+                        <Input id="timesPerMonth" name="timesPerMonth" type="number" inputMode="numeric" min={1} max={31} required defaultValue={initialTimes} className="max-w-[6rem]" />
+                        <span className="text-sm font-semibold text-ink-soft">回</span>
+                      </div>
                     </Field>
+                    <p className="flex items-start gap-1.5 text-xs leading-relaxed text-ink-muted">
+                      <Repeat className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      毎月この回数ぶん、カレンダーの「未割当」に入ります。日付はカレンダーで未割当からドラッグして決めてください。
+                    </p>
                   </div>
                 )}
 
@@ -318,47 +309,6 @@ export function PropertyForm({
           </Card>
         )}
       </section>
-
-      {/* ③ 1回あたりの標準 */}
-      {workEditable && department && (
-        <section className="space-y-3">
-          <SectionTitle>1回あたりの標準</SectionTitle>
-          <Card className="space-y-3 p-4">
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="人数" htmlFor="headcount">
-                <Input id="headcount" name="headcount" type="number" inputMode="numeric" min={0} max={99} defaultValue={work?.headcount ?? ""} placeholder="2" />
-              </Field>
-              <Field label="開始時刻" htmlFor="defaultStartTime">
-                <Input id="defaultStartTime" name="defaultStartTime" type="time" defaultValue={work?.defaultStartTime ?? ""} />
-              </Field>
-              <Field label="終了時刻" htmlFor="defaultEndTime">
-                <Input id="defaultEndTime" name="defaultEndTime" type="time" defaultValue={work?.defaultEndTime ?? ""} />
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="車両" htmlFor="vehicleId" hint="作る予定に付きます。当日の変更はカレンダーで">
-                <Select id="vehicleId" name="vehicleId" defaultValue={work?.vehicleId ?? ""}>
-                  <option value="">指定なし（当日に選ぶ）</option>
-                  {vehicles
-                    .filter((v) => v.active || v.id === work?.vehicleId)
-                    .map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                        {v.vehicleType ? `（${v.vehicleType}）` : ""}
-                        {!v.active ? " ※無効" : ""}
-                      </option>
-                    ))}
-                </Select>
-              </Field>
-              {showAmount && (
-                <Field label="金額（税抜・円）" htmlFor="amount" hint="1回あたり。最高管理者・事務経理のみ表示">
-                  <Input id="amount" name="amount" type="number" inputMode="numeric" min={0} defaultValue={work?.amount ?? ""} placeholder="25000" />
-                </Field>
-              )}
-            </div>
-          </Card>
-        </section>
-      )}
 
       {/* ステータス */}
       {isEdit && !workEditable && <input type="hidden" name="status" value={status} />}

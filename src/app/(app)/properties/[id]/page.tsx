@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, MapPin, KeyRound, DoorOpen, Phone, Briefcase, CalendarDays, Copy, Repeat, Car, FileText, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users } from "lucide-react";
+import { Pencil, MapPin, KeyRound, DoorOpen, Phone, Briefcase, CalendarDays, Copy, Repeat, FileText, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser, avatarUrlFor } from "@/lib/session";
 import { can, canEditDepartment, canViewAmounts, isManager } from "@/lib/permissions";
@@ -24,7 +24,7 @@ import { GenerateButton } from "@/features/jobs/generate-button";
 import { MoveJobButton } from "@/features/properties/move-job-button";
 import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
 import { getCategories } from "@/lib/categories-server";
-import { fmtYen, mapSearchUrl } from "@/lib/utils";
+import { mapSearchUrl } from "@/lib/utils";
 import { canViewAllReports } from "@/lib/reports";
 import { loadPropertyReports } from "@/features/reports/queries";
 import { ReportListRow } from "@/features/reports/report-items";
@@ -100,6 +100,15 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const canEditWork = job ? canEditDepartment(user, job.department) : false;
   const thisMonth = jstMonthKey();
   const categories = await getCategories();
+  // 定期（月◯回）：今月・来月それぞれ、何回のうち何回の日付が決まったか
+  const monthCounts = job && job.contractType === "REGULAR"
+    ? await Promise.all(
+        [thisMonth, addMonthsKey(thisMonth, 1)].map(async (ym) => {
+          const rows = await db.occurrence.findMany({ where: { jobId: job.id, targetMonth: ym, status: { not: "CANCELLED" } }, select: { date: true } });
+          return { ym, total: rows.length, placed: rows.filter((r) => r.date).length };
+        }),
+      )
+    : [];
 
   const basicTab = (
     <div className="space-y-5">
@@ -206,26 +215,33 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             </div>
             <DataList>
               {rule && <DataRow label="周期" value={<span className="flex items-center justify-end gap-1"><Repeat className="h-3.5 w-3.5 text-ink-faint" />{describeRule(rule.kind, rule.params)}</span>} />}
-              <DataRow label="1回あたり" value={[job.headcount ? `${job.headcount}名` : null, property.unitCount ? `${property.unitCount}件` : null, job.defaultStartTime ? `${job.defaultStartTime}〜${job.defaultEndTime ?? ""}` : null].filter(Boolean).join(" ・ ") || null} />
-              <DataRow label="車両" value={job.vehicle ? <span className="flex items-center justify-end gap-1.5"><Car className="h-3.5 w-3.5 text-ink-faint" /><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: job.vehicle.color }} />{job.vehicle.name}</span> : null} />
-              {showAmount && <DataRow label="金額（1回・税抜）" value={"amount" in job && job.amount != null ? <span className="font-bold tnum text-emerald-700">{fmtYen(job.amount)}</span> : "未設定"} />}
-              {job.contractType === "REGULAR" && (
-                <DataRow
-                  label="期間"
-                  value={job.startsOn || job.endsOn ? `${job.startsOn ? `${storedDateKey(job.startsOn).slice(0, 7).replace("-", "年")}月` : ""}〜${job.endsOn ? fmtKeyShort(storedDateKey(job.endsOn)) : ""}` : null}
-                />
-              )}
+              {job.contractType === "REGULAR" && job.endsOn && <DataRow label="定期の終了" value={fmtKeyShort(storedDateKey(job.endsOn))} />}
               {job.contractType === "CONSTRUCTION" && (
                 <DataRow label="工期" value={job.startsOn ? `${fmtKeyShort(storedDateKey(job.startsOn))}${job.endsOn ? ` 〜 ${fmtKeyShort(storedDateKey(job.endsOn))}` : ""}` : "未定"} />
               )}
-              {rule && <DataRow label="予定の作成" value={job.generatedThrough ? `${job.generatedThrough.replace("-", "年")}月分まで作成済み` : "まだ作っていません"} />}
+              {monthCounts.map((m) => (
+                <DataRow
+                  key={m.ym}
+                  label={`${Number(m.ym.slice(5))}月`}
+                  value={
+                    m.total === 0 ? (
+                      "まだ未割当に入っていません"
+                    ) : (
+                      <span>
+                        {m.total}回中 <span className="font-bold tnum">{m.placed}</span>回 日付決定
+                        {m.total > m.placed && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">未割当 {m.total - m.placed}</span>}
+                      </span>
+                    )
+                  }
+                />
+              ))}
             </DataList>
             {job.note && <p className="mt-3 whitespace-pre-wrap rounded-xl bg-surface-subtle p-3 text-sm text-ink-soft">{job.note}</p>}
             {rule && canEditWork && job.status === "ACTIVE" && (
               <div className="mt-4 space-y-2 border-t border-line pt-3">
-                <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Repeat className="h-4 w-4 text-ink-muted" />予定を作る</p>
+                <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Repeat className="h-4 w-4 text-ink-muted" />未割当に入れる</p>
                 <GenerateButton jobId={job.id} months={[0, 1, 2].map((i) => ({ ym: addMonthsKey(thisMonth, i), label: i === 0 ? "今月分" : i === 1 ? "翌月分" : "翌々月分" }))} />
-                <p className="text-[11px] text-ink-faint">毎月の設定日に翌月分が自動で作られます。作成済みの回は重複しません。</p>
+                <p className="text-[11px] text-ink-faint">毎月の設定日に翌月分が自動で未割当に入ります。入れ済みの回は重複しません。日付はカレンダーで未割当からドラッグして決めます。</p>
               </div>
             )}
           </Card>

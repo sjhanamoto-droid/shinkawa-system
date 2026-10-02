@@ -106,3 +106,26 @@ describe("recurrence: describe/validate", () => {
     expect(validateRule("SEASONAL", { months: [] })).not.toBeNull();
   });
 });
+
+describe("recurrence: TIMES_PER_MONTH（月◯回・日付は未割当から配置）", () => {
+  it("月の回数ぶん、日付なしのスロットを月いっぱいの期間で作る", () => {
+    const s = slotsForMonth("TIMES_PER_MONTH", { timesPerMonth: 3 }, "2026-11");
+    expect(s).toHaveLength(3);
+    expect(s.map((x) => x.index)).toEqual([0, 1, 2]);
+    expect(s.every((x) => x.date === null)).toBe(true);
+    expect(s[0].windowStart).toBe("2026-11-01");
+    expect(s[0].windowEnd).toBe("2026-11-30");
+  });
+  it("回数が未設定なら1回", () => {
+    expect(slotsForMonth("TIMES_PER_MONTH", {}, "2026-02")).toHaveLength(1);
+  });
+  it("説明と検証", () => {
+    expect(describeRule("TIMES_PER_MONTH", { timesPerMonth: 2 })).toBe("月2回");
+    expect(validateRule("TIMES_PER_MONTH", { timesPerMonth: 2 })).toBeNull();
+    expect(validateRule("TIMES_PER_MONTH", { timesPerMonth: 0 })).not.toBeNull();
+    expect(validateRule("TIMES_PER_MONTH", {})).not.toBeNull();
+  });
+  it("日付に動かしてもルールは変わらない（その回だけ動かす）", () => {
+    expect(ruleFromDate("TIMES_PER_MONTH", { timesPerMonth: 2 }, "2026-11-12")).toEqual({ timesPerMonth: 2 });
+  });
+});

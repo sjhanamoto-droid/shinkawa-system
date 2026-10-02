@@ -145,6 +145,7 @@ export const JOB_STATUS_OPTIONS: JobStatus[] = ["ACTIVE", "PAUSED", "ENDED"];
 
 // ── 周期ルール ──
 export type RuleKind =
+  | "TIMES_PER_MONTH"
   | "MONTHLY"
   | "TWICE_MONTHLY"
   | "WEEKLY"
@@ -152,6 +153,7 @@ export type RuleKind =
   | "EVERY_N_MONTHS"
   | "SEASONAL";
 export const RULE_KIND_LABEL: Record<RuleKind, string> = {
+  TIMES_PER_MONTH: "月◯回（日付は未割当から配置）",
   MONTHLY: "毎月",
   TWICE_MONTHLY: "月2回（前半・後半）",
   WEEKLY: "毎週",
@@ -160,6 +162,7 @@ export const RULE_KIND_LABEL: Record<RuleKind, string> = {
   SEASONAL: "季節（指定月）",
 };
 export const RULE_KIND_OPTIONS: RuleKind[] = [
+  "TIMES_PER_MONTH",
   "MONTHLY",
   "TWICE_MONTHLY",
   "WEEKLY",
@@ -169,6 +172,10 @@ export const RULE_KIND_OPTIONS: RuleKind[] = [
 ];
 export function isRuleKind(v: string | null | undefined): v is RuleKind {
   return !!v && (RULE_KIND_OPTIONS as string[]).includes(v);
+}
+/** 日付の決まった周期か（「月◯回」は日付を持たず、毎月未割当に入れて手で配置する） */
+export function hasFixedDates(v: string | null | undefined): boolean {
+  return isRuleKind(v) && v !== "TIMES_PER_MONTH";
 }
 
 // ── 作業者の区分 ──

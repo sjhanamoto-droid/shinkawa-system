@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { canEditDepartment, canViewAmounts } from "@/lib/permissions";
 import { db } from "@/lib/db";
-import { jstMonthKey } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { PropertyForm } from "@/features/properties/property-form";
@@ -13,13 +12,12 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
   const user = await requireCan("property.manage");
   const showAmount = canViewAmounts(user);
   const { id } = await params;
-  const [property, customers, vehicles, work, depts] = await Promise.all([
+  const [property, customers, work, depts] = await Promise.all([
     db.property.findUnique({
       where: { id },
       include: { photos: { where: { kind: { in: ["KEYBOX", "DRAWING", "SURVEY"] } }, select: { id: true, caption: true, isVideo: true, width: true, kind: true }, orderBy: { createdAt: "asc" } } },
     }),
     db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
-    db.vehicle.findMany({ select: { id: true, name: true, vehicleType: true, active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     loadWorkForForm(id, showAmount),
     db.job.findMany({ where: { propertyId: id }, select: { department: true }, distinct: ["department"] }),
   ]);
@@ -35,13 +33,10 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
         <div className="space-y-6">
           <PropertyForm
             customers={customers}
-            vehicles={vehicles}
             property={property}
             work={work.work}
             workEditable={workEditable}
             workSummary={work.summary ?? undefined}
-            showAmount={showAmount}
-            currentMonth={jstMonthKey()}
             photos={{ keybox: pick("KEYBOX"), drawing: pick("DRAWING"), survey: pick("SURVEY") }}
           />
           <DeletePropertyButton propertyId={id} propertyName={property.name} status={property.status} />
