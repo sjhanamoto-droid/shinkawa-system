@@ -1,5 +1,7 @@
 "use client";
 
+import { useCategories } from "@/components/category-provider";
+import { catDepartment, selectableCategories } from "@/lib/categories";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { AlertCircle, Save, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -7,11 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { SearchSelect } from "@/components/ui/search-select";
 import {
-  CATEGORY,
-  CATEGORY_OPTIONS,
   DEPARTMENT_LABEL,
   DEPARTMENT_OPTIONS,
-  type CategoryKey,
   type Department,
 } from "@/lib/constants";
 import { AssigneePicker } from "./assignee-picker";
@@ -53,12 +52,13 @@ export function OccurrenceForm({
   defaultTimes: { start: string; end: string };
   onSaved: (o: OccurrenceView) => void;
 }) {
+  const categories = useCategories();
   const isEdit = !!occurrence;
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const [department, setDepartment] = useState<Department>(defaultDepartment);
-  const [category, setCategory] = useState<CategoryKey>("REGULAR_CLEANING");
+  const [category, setCategory] = useState<string>("REGULAR_CLEANING");
   const [customerId, setCustomerId] = useState("");
   const [propertyId, setPropertyId] = useState("");
   const [title, setTitle] = useState("");
@@ -83,7 +83,7 @@ export function OccurrenceForm({
     setError(null);
     if (occurrence) {
       setDepartment((occurrence.department as Department) ?? defaultDepartment);
-      setCategory((occurrence.category as CategoryKey) ?? "REGULAR_CLEANING");
+      setCategory(occurrence.category ?? "REGULAR_CLEANING");
       setCustomerId(occurrence.customer?.id ?? "");
       setPropertyId(occurrence.property?.id ?? "");
       setTitle(occurrence.customer || occurrence.property ? "" : occurrence.title);
@@ -138,15 +138,15 @@ export function OccurrenceForm({
 
   // 種別に部門が決まっていれば追従
   useEffect(() => {
-    const d = CATEGORY[category]?.department;
+    const d = catDepartment(categories, category);
     if (d) setDepartment(d);
-  }, [category]);
+  }, [category, categories]);
 
   const propertyOptions = useMemo(
     () => properties.filter((p) => !customerId || p.customerId === customerId),
     [properties, customerId],
   );
-  const categoryOptions = CATEGORY_OPTIONS.filter((k) => !CATEGORY[k].department || CATEGORY[k].department === department);
+  const categoryOptions = selectableCategories(categories, { department, current: occurrence?.category });
   const isPersonal = category === "OFF";
 
   function submit() {
@@ -203,10 +203,10 @@ export function OccurrenceForm({
             </Select>
           </Field>
           <Field label="種別" htmlFor="of-cat">
-            <Select id="of-cat" value={category} onChange={(e) => setCategory(e.target.value as CategoryKey)}>
-              {categoryOptions.map((k) => (
-                <option key={k} value={k}>
-                  {CATEGORY[k].label}
+            <Select id="of-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
+              {categoryOptions.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
                 </option>
               ))}
             </Select>

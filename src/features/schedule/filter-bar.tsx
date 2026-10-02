@@ -1,10 +1,9 @@
 "use client";
 
+import { useCategories } from "@/components/category-provider";
 import { useState } from "react";
 import { Search, X } from "lucide-react";
 import {
-  CATEGORY,
-  CATEGORY_OPTIONS,
   DEPARTMENT_LABEL,
   OCCURRENCE_STATUS_LABEL,
   OCCURRENCE_STATUS_OPTIONS,
@@ -30,6 +29,7 @@ export function FilterBar({
   onChange: (patch: Partial<FilterState>) => void;
   showMine: boolean;
 }) {
+  const categories = useCategories();
   const [q, setQ] = useState(filters.q);
   const active =
     !!filters.worker || !!filters.category || !!filters.customer || !!filters.status || !!filters.q;
@@ -115,9 +115,9 @@ export function FilterBar({
         </select>
         <select className={selectClass} value={filters.category ?? ""} onChange={(e) => onChange({ category: e.target.value || null })} aria-label="種別">
           <option value="">種別：すべて</option>
-          {CATEGORY_OPTIONS.map((k) => (
-            <option key={k} value={k}>
-              {CATEGORY[k].label}
+          {categories.filter((c) => c.active || c.key === filters.category).map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.label}
             </option>
           ))}
         </select>

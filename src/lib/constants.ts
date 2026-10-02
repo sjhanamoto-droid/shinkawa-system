@@ -36,8 +36,9 @@ export function isDepartment(v: string | null | undefined): v is Department {
   return v === "CLEANING" || v === "CONSTRUCTION";
 }
 
-// ── 種別（サイボウズのカレンダーのラベルに合わせる。色は種別固定） ──
-// 並び順＝予定の追加フォームや凡例に出る順。キーは保存値なので変えないこと（表示名は label を変える）。
+// ── 種別の初期値（サイボウズのカレンダーのラベルに合わせたもの） ──
+// 実際の名称・略称・色・並び順は「種別マスタ」（Category テーブル）で変えられる。画面や処理では lib/categories.ts を使うこと。
+// ここは種別マスタが空のときのフォールバックと、マイグレーションで入れた初期データの元。キーは保存値なので変えないこと。
 export type CategoryKey =
   | "HANDOVER_CLEANING"
   | "REGULAR_CLEANING"
@@ -76,18 +77,6 @@ export const CATEGORY: Record<CategoryKey, CategoryDef> = {
   OTHER: { label: "その他", short: "他", color: "#94a3b8", department: null },
 };
 export const CATEGORY_OPTIONS = Object.keys(CATEGORY) as CategoryKey[];
-export const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  CATEGORY_OPTIONS.map((k) => [k, CATEGORY[k].label]),
-);
-export function isCategory(v: string | null | undefined): v is CategoryKey {
-  return !!v && v in CATEGORY;
-}
-export function categoryColor(key: string | null | undefined): string {
-  return (key && isCategory(key) ? CATEGORY[key].color : null) ?? "#64748b";
-}
-export function categoryShort(key: string | null | undefined): string {
-  return key && isCategory(key) ? CATEGORY[key].short : "—";
-}
 // 「休み」など、担当が付いていなくても未割当扱いにしない種別
 export const NON_WORK_CATEGORIES: CategoryKey[] = ["OFF"];
 
@@ -130,14 +119,6 @@ export const CONTRACT_TYPE_OPTIONS: ContractType[] = ["REGULAR", "SPOT", "CONSTR
 export function isContractType(v: string | null | undefined): v is ContractType {
   return !!v && (CONTRACT_TYPE_OPTIONS as string[]).includes(v);
 }
-/** 種別を選んだときに自動で選ぶ頻度 */
-export function defaultContractTypeFor(category: CategoryKey): ContractType {
-  if (category === "REGULAR_CLEANING") return "REGULAR";
-  if (CATEGORY[category].department === "CONSTRUCTION") return "CONSTRUCTION";
-  return "SPOT";
-}
-/** 現場の作業に選べる種別（「休み」は除く） */
-export const WORK_CATEGORY_OPTIONS = CATEGORY_OPTIONS.filter((k) => k !== "OFF");
 
 // ── 現場のステータス（作業の状態も兼ねる） ──
 export type PropertyStatus = "ACTIVE" | "PAUSED" | "INACTIVE";

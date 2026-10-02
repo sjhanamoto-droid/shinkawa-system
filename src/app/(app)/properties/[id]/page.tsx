@@ -23,6 +23,7 @@ import { CONTRACT_TYPE_LABEL, DEPARTMENT_LABEL, PROPERTY_STATUS_LABEL, isDepartm
 import { GenerateButton } from "@/features/jobs/generate-button";
 import { MoveJobButton } from "@/features/properties/move-job-button";
 import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
+import { getCategories } from "@/lib/categories-server";
 import { fmtYen, mapSearchUrl } from "@/lib/utils";
 import { canViewAllReports } from "@/lib/reports";
 import { loadPropertyReports } from "@/features/reports/queries";
@@ -98,6 +99,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const rule = job && isRuleKind(job.ruleKind) ? { kind: job.ruleKind, params: (job.ruleParams ?? {}) as RuleParams } : null;
   const canEditWork = job ? canEditDepartment(user, job.department) : false;
   const thisMonth = jstMonthKey();
+  const categories = await getCategories();
 
   const basicTab = (
     <div className="space-y-5">
@@ -237,7 +239,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <CategoryBadge category={j.category} short />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-ink">{j.name}</p>
-                  <p className="truncate text-xs text-ink-muted">{describeWork(j)}・予定 {j._count.occurrences}件</p>
+                  <p className="truncate text-xs text-ink-muted">{describeWork(j, categories)}・予定 {j._count.occurrences}件</p>
                 </div>
                 {canManage && canEditDepartment(user, j.department) && <MoveJobButton jobId={j.id} jobName={j.name} />}
               </div>

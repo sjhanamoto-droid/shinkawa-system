@@ -606,3 +606,21 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+// ──────────────────── Category（種別マスタ：カレンダーのタグの名称・略称・色） ────────────────────
+// key は予定・作業に保存される値なので変えない。最初からある14種類（builtin）は消せず、部門も固定。
+// 追加した種別は key を自動で振る。使わなくなった種別は削除せず active=false にする（過去の予定の表示を残すため）。
+model Category {
+  key        String   @id
+  label      String
+  short      String
+  color      String
+  department String? // CLEANING | CONSTRUCTION | null（両部門共通）
+  sortOrder  Int      @default(0)
+  active     Boolean  @default(true)
+  builtin    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([sortOrder])
+}

@@ -10,19 +10,19 @@ import { assertCan, canEditDepartment, canViewAmounts, PermissionError } from "@
 import { parseAndValidatePhotosField, type NewPhotoInput } from "@/lib/photos";
 import { dateFromKey, jstDateKey, jstMonthKey, addMonthsKey } from "@/lib/date";
 import {
-  CATEGORY,
   CONTRACT_TYPE_OPTIONS,
   DEPARTMENT_OPTIONS,
   JOB_STATUS_FOR_PROPERTY,
   PROPERTY_STATUS_OPTIONS,
   RULE_KIND_OPTIONS,
-  WORK_CATEGORY_OPTIONS,
   isRuleKind,
   type PropertyStatus,
 } from "@/lib/constants";
 import { validateRule, type RuleParams } from "@/lib/recurrence";
 import { generateOccurrencesForMonth } from "@/lib/generate-occurrences";
 import { PRIMARY_JOB_ORDER } from "./work";
+import { getCategories } from "@/lib/categories-server";
+import type { Cat } from "@/lib/categories";
 
 export type PropertyFormState = { error?: string };
 
@@ -80,7 +80,7 @@ function parseProperty(formData: FormData) {
 // ── 作業内容（現場1件＝作業1つ。保存先は現場にぶら下がる Job） ──
 const workSchema = z.object({
   department: z.enum(DEPARTMENT_OPTIONS),
-  category: z.enum(WORK_CATEGORY_OPTIONS),
+  category: z.string().regex(/^[A-Z0-9_]{1,40}$/),
   contractType: z.enum(CONTRACT_TYPE_OPTIONS),
   ruleKind: z.enum(RULE_KIND_OPTIONS).nullable(),
   ruleParams: z.string().nullable(),
@@ -130,10 +130,11 @@ function parseWork(formData: FormData): { work: Work | null } | { error: string 
 
 type JobData = Omit<Prisma.JobUncheckedCreateInput, "customerId" | "propertyId" | "amount" | "status" | "unitCount" | "vehicleId">;
 
-/** 作業内容の整合性チェックと Job 保存用データ */
-function normalizeWork(w: Work): { data: JobData } | { error: string } {
-  const catDept = CATEGORY[w.category].department;
-  if (catDept && catDept !== w.department) return { error: `種別「${CATEGORY[w.category].label}」は${catDept === "CLEANING" ? "クリーニング" : "工事"}部門の種別です` };
+/** 作業内容の整合性チェックと Job 保存用データ。currentCategory＝今保存されている種別（使わない設定になっていても、そのままなら保存できる） */
+function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | null): { data: JobData } | { error: string } {
+  const cat = categories.find((c) => c.key === w.category);
+  if (!cat || w.category === "OFF" || (!cat.active && w.category !== currentCategory)) return { error: "種別を選択してください" };
+  if (cat.department && cat.department !== w.department) return { error: `種別「${cat.label}」は${cat.department === "CLEANING" ? "クリーニング" : "工事"}部門の種別です` };
   let ruleKind: string | null = null;
   let ruleParams: RuleParams | null = null;
   // 期間は頻度ごとに必要なものだけ書く（スポットは触らない＝旧データの契約期間を消さない）
@@ -157,7 +158,7 @@ function normalizeWork(w: Work): { data: JobData } | { error: string } {
   }
   return {
     data: {
-      name: CATEGORY[w.category].label,
+      name: cat.label,
       department: w.department,
       category: w.category,
       contractType: w.contractType,
@@ -338,7 +339,7 @@ export async function createProperty(_prev: PropertyFormState, formData: FormDat
   } catch (e) {
     return forbidden(e) ?? { error: "エラーが発生しました" };
   }
-  const nw = normalizeWork(w);
+  const nw = normalizeWork(w, await getCategories());
   if ("error" in nw) return { error: nw.error };
   const sets = parsePhotoFields(formData);
   if ("error" in sets) return { error: sets.error };
@@ -417,7 +418,7 @@ export async function updateProperty(_prev: PropertyFormState, formData: FormDat
       } catch (e) {
         return forbidden(e) ?? { error: "エラーが発生しました" };
       }
-      const n = normalizeWork(w);
+      const n = normalizeWork(w, await getCategories(), existingJob?.category);
       if ("error" in n) return { error: n.error };
       nw = n;
       const vErr = await checkVehicle(w.vehicleId);

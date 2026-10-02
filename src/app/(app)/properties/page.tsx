@@ -99,7 +99,8 @@ export default async function PropertiesPage({
   return (
     <div>
       <PageHeader title="現場" subtitle="ここを開けば全部載っている（作業内容・周期もここで登録）">
-        <RememberDeptTab value={tab} />
+        {/* 自分でタブを選んだときだけ覚える（既定の部門で開いただけでは書き込まない） */}
+        {pick(sp.dept) && <RememberDeptTab value={tab} />}
         {/* 部門タブ（クリーニング／工事を分けて見る） */}
         <div className="mb-3 flex gap-1 rounded-xl bg-surface-sunken p-1">
           {(["CLEANING", "CONSTRUCTION", "ALL"] as const).map((t) => (

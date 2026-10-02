@@ -2,7 +2,8 @@
 
 import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
-import { categoryColor } from "@/lib/constants";
+import { catColor } from "@/lib/categories";
+import { useCategories } from "@/components/category-provider";
 import { cn } from "@/lib/utils";
 import { dayDropId } from "./dnd";
 import { OccurrenceCard } from "./occurrence-card";
@@ -32,6 +33,7 @@ function DayCell({
   onAdd: (date: string) => void;
   onOpenDay: (date: string) => void;
 }) {
+  const categories = useCategories();
   const { setNodeRef, isOver } = useDroppable({ id: dayDropId(dateKey), disabled: !dnd });
   const dow = weekdayOfKey(dateKey);
   const dayNum = Number(dateKey.slice(8, 10));
@@ -53,7 +55,7 @@ function DayCell({
 
   if (coarse) {
     // スマホ：件数＋種別色ドット＋警告。タップで日ビューへ
-    const colors = Array.from(new Set(items.map((o) => categoryColor(o.category)))).slice(0, 4);
+    const colors = Array.from(new Set(items.map((o) => catColor(categories, o.category)))).slice(0, 4);
     return (
       <button
         type="button"

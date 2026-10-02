@@ -11,6 +11,8 @@ import { SectionTitle } from "@/components/ui/card";
 import { IconBadge } from "@/components/ui/icon-badge";
 import { occurrenceSelect, loadPersonMap, toOccurrenceView } from "@/features/schedule/query";
 import { SiteVisitCard } from "@/features/schedule/site-visit-card";
+import { getCategories } from "@/lib/categories-server";
+import { catColor } from "@/lib/categories";
 import { fmtKeyLong } from "@/features/schedule/filters";
 import { notificationMeta } from "@/features/notifications/notification-meta";
 import { loadMyReportTodo, loadProxyTodo } from "@/features/reports/queries";
@@ -72,6 +74,7 @@ export default async function HomePage() {
       : Promise.resolve(0),
   ]);
 
+  const categories = await getCategories();
   const todayItems = todayRows.map((r) => toOccurrenceView(r, people, showAmount));
   const tomorrowItems = tomorrowRows.map((r) => toOccurrenceView(r, people, showAmount));
   const byDept = { CLEANING: todayItems.filter((o) => o.department === "CLEANING").length, CONSTRUCTION: todayItems.filter((o) => o.department === "CONSTRUCTION").length };
@@ -148,7 +151,7 @@ export default async function HomePage() {
               ) : (
                 <div className="space-y-2">
                   {(planner ? todayItems.slice(0, 10) : todayItems).map((o) => (
-                    <SiteVisitCard key={o.id} o={o} calendarHref={`/schedule?view=day&d=${today}${planner ? "" : "&mine=1"}`} />
+                    <SiteVisitCard key={o.id} o={o} color={catColor(categories, o.category)} calendarHref={`/schedule?view=day&d=${today}${planner ? "" : "&mine=1"}`} />
                   ))}
                   {planner && todayItems.length > 10 && (
                     <Link href={`/schedule?view=day&d=${today}`} className="block py-2 text-center text-sm font-bold text-brand-600">
@@ -168,7 +171,7 @@ export default async function HomePage() {
               ) : (
                 <div className="space-y-2">
                   {tomorrowItems.map((o) => (
-                    <SiteVisitCard key={o.id} o={o} collapsed calendarHref={`/schedule?view=day&d=${tomorrow}${planner ? "" : "&mine=1"}`} />
+                    <SiteVisitCard key={o.id} o={o} color={catColor(categories, o.category)} collapsed calendarHref={`/schedule?view=day&d=${tomorrow}${planner ? "" : "&mine=1"}`} />
                   ))}
                 </div>
               )}

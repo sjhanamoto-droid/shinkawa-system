@@ -1,6 +1,6 @@
 // searchParams ⇄ FilterState と、表示範囲・URL生成（純関数。サーバー／クライアント共用）
 import type { FilterState, ViewMode } from "./types";
-import { isCategory, isOccurrenceStatus } from "@/lib/constants";
+import { isOccurrenceStatus } from "@/lib/constants";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -71,7 +71,7 @@ export function parseFilters(
     date,
     dept,
     worker: get("worker") || null,
-    category: cat && isCategory(cat) ? cat : null,
+    category: cat && /^[A-Z0-9_]{1,40}$/.test(cat) ? cat : null,
     customer: get("customer") || null,
     status: status && isOccurrenceStatus(status) ? status : null,
     mine,

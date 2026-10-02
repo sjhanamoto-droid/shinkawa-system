@@ -5,7 +5,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { Building, Clock, MapPin, KeyRound, Users, Repeat, Car } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CategoryBadge, OccurrenceStatusBadge } from "@/components/ui/badge";
-import { categoryColor } from "@/lib/constants";
+import { catColor } from "@/lib/categories";
+import { useCategories } from "@/components/category-provider";
 import { cn, mapSearchUrl } from "@/lib/utils";
 import { dragId, type DragData } from "./dnd";
 import type { OccurrenceView } from "./types";
@@ -61,7 +62,7 @@ export function OccurrenceCard({
     disabled: !draggable || o.status === "DONE" || o.status === "CANCELLED",
   });
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
-  const color = categoryColor(o.category);
+  const color = catColor(useCategories(), o.category);
   const t = timeLabel(o);
   const label = occurrenceLabels(o);
 

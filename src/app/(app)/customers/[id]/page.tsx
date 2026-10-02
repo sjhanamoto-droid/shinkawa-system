@@ -26,9 +26,11 @@ import {
   type PropertyStatus,
 } from "@/lib/constants";
 import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
+import { getCategories } from "@/lib/categories-server";
 import { fmtDate, fmtYen } from "@/lib/utils";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const categories = await getCategories();
   const user = await requireUser();
   const canManage = can(user, "customer.manage");
   const showAmount = canViewAmounts(user);
@@ -130,7 +132,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                               キーBOXあり
                             </span>
                           )}
-                          {p.jobs[0] ? <span>{describeWork(p.jobs[0])}</span> : <span className="text-ink-faint">作業内容：未設定</span>}
+                          {p.jobs[0] ? <span>{describeWork(p.jobs[0], categories)}</span> : <span className="text-ink-faint">作業内容：未設定</span>}
                           {showAmount && p.jobs[0] && "amount" in p.jobs[0] && p.jobs[0].amount != null && <span className="font-bold tnum text-emerald-700">{fmtYen(p.jobs[0].amount)}</span>}
                         </p>
                       </div>

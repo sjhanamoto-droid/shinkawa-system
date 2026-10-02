@@ -1,7 +1,9 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { jstMonthKey, storedDateKey } from "@/lib/date";
-import { CATEGORY, CONTRACT_TYPE_LABEL, DEPARTMENT_LABEL, isCategory, isContractType, isDepartment, isRuleKind } from "@/lib/constants";
+import { CONTRACT_TYPE_LABEL, DEPARTMENT_LABEL, isContractType, isDepartment, isRuleKind } from "@/lib/constants";
+import { catLabel, type Cat } from "@/lib/categories";
+import { getCategories } from "@/lib/categories-server";
 import { describeRule, type RuleParams } from "@/lib/recurrence";
 import type { WorkFormValues } from "./property-form";
 
@@ -10,10 +12,10 @@ import type { WorkFormValues } from "./property-form";
 export const PRIMARY_JOB_ORDER = [{ createdAt: "asc" as const }];
 
 /** 「クリーニング・定期清掃・定期（毎月第2火曜）」のような1行の説明 */
-export function describeWork(j: { department: string; category: string; contractType: string; ruleKind: string | null; ruleParams: unknown }): string {
+export function describeWork(j: { department: string; category: string; contractType: string; ruleKind: string | null; ruleParams: unknown }, categories: Cat[]): string {
   const parts = [
     isDepartment(j.department) ? DEPARTMENT_LABEL[j.department] : null,
-    isCategory(j.category) ? CATEGORY[j.category].label : j.category,
+    catLabel(categories, j.category),
     isContractType(j.contractType) ? CONTRACT_TYPE_LABEL[j.contractType] : null,
   ].filter(Boolean);
   const rule = isRuleKind(j.ruleKind) ? `（${describeRule(j.ruleKind, (j.ruleParams ?? {}) as RuleParams)}）` : "";
@@ -35,7 +37,7 @@ export async function loadWorkForForm(propertyId: string, showAmount: boolean): 
   const startKey = job.startsOn ? storedDateKey(job.startsOn) : null;
   return {
     department: job.department,
-    summary: describeWork(job),
+    summary: describeWork(job, await getCategories()),
     work: {
       department: job.department,
       category: job.category,

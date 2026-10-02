@@ -12,24 +12,21 @@ import { Card, SectionTitle } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  CATEGORY,
   CONTRACT_TYPE_LABEL,
   CONTRACT_TYPE_OPTIONS,
   DEPARTMENT_LABEL,
   DEPARTMENT_OPTIONS,
   PROPERTY_STATUS_LABEL,
   PROPERTY_STATUS_OPTIONS,
-  WORK_CATEGORY_OPTIONS,
-  defaultContractTypeFor,
   isContractType,
-  isCategory,
   isDepartment,
   isRuleKind,
-  type CategoryKey,
   type ContractType,
   type Department,
 } from "@/lib/constants";
 import type { RuleParams } from "@/lib/recurrence";
+import { catDepartment, defaultCategoryFor, defaultContractTypeFor, selectableCategories } from "@/lib/categories";
+import { useCategories } from "@/components/category-provider";
 
 export type PropertyFormValues = {
   id?: string;
@@ -67,8 +64,6 @@ export type WorkFormValues = {
   amount?: number | null;
   occurrenceCount?: number;
 };
-
-const DEFAULT_CATEGORY: Record<Department, CategoryKey> = { CLEANING: "REGULAR_CLEANING", CONSTRUCTION: "INTERIOR" };
 
 export type CustomerChoice = { id: string; name: string; shortName: string | null; kana?: string | null };
 export type VehicleChoice = { id: string; name: string; vehicleType: string | null; active: boolean };
@@ -145,28 +140,30 @@ export function PropertyForm({
   const [customerId, setCustomerId] = useState<string>(property?.customerId ?? "");
   const [status, setStatus] = useState<string>(property?.status ?? "ACTIVE");
 
+  const categories = useCategories();
   const initialDept: Department | "" = isDepartment(work?.department) ? work.department : "";
-  const initialCategory: CategoryKey | "" = isCategory(work?.category) ? work.category : initialDept ? DEFAULT_CATEGORY[initialDept] : "";
+  const initialCategory: string = work?.category ? work.category : initialDept ? defaultCategoryFor(categories, initialDept) : "";
   const [department, setDepartment] = useState<Department | "">(initialDept);
-  const [category, setCategory] = useState<CategoryKey | "">(initialCategory);
+  const [category, setCategory] = useState<string>(initialCategory);
   const [contractType, setContractType] = useState<ContractType | "">(
-    isContractType(work?.contractType) ? work.contractType : initialCategory ? defaultContractTypeFor(initialCategory) : "",
+    isContractType(work?.contractType) ? work.contractType : initialCategory ? defaultContractTypeFor(categories, initialCategory) : "",
   );
   const [addToCalendar, setAddToCalendar] = useState<boolean>(!isEdit);
 
-  const categoryOptions = WORK_CATEGORY_OPTIONS.filter((k) => !CATEGORY[k].department || CATEGORY[k].department === department);
+  const categoryOptions = selectableCategories(categories, { department, current: work?.category, excludeOff: true });
   const occurrenceCount = work?.occurrenceCount ?? 0;
 
   function onDepartment(d: Department) {
     setDepartment(d);
     // 部門に合わない種別は選び直し。未選択なら部門の代表的な種別を入れておく
-    const next = category && (!CATEGORY[category].department || CATEGORY[category].department === d) ? category : DEFAULT_CATEGORY[d];
+    const cur = catDepartment(categories, category);
+    const next = category && (!cur || cur === d) ? category : defaultCategoryFor(categories, d);
     setCategory(next);
-    setContractType(defaultContractTypeFor(next));
+    setContractType(defaultContractTypeFor(categories, next));
   }
-  function onCategory(k: CategoryKey) {
+  function onCategory(k: string) {
     setCategory(k);
-    setContractType(defaultContractTypeFor(k));
+    setContractType(defaultContractTypeFor(categories, k));
   }
 
   const calendarLabel =
@@ -257,9 +254,9 @@ export function PropertyForm({
               <>
                 <Field label="種別" required>
                   <div className="flex flex-wrap gap-1.5">
-                    {categoryOptions.map((k) => (
-                      <ChoiceButton key={k} name="category" value={k} checked={category === k} onChange={() => onCategory(k)} color={CATEGORY[k].color} size="sm">
-                        {CATEGORY[k].label}
+                    {categoryOptions.map((c) => (
+                      <ChoiceButton key={c.key} name="category" value={c.key} checked={category === c.key} onChange={() => onCategory(c.key)} color={c.color} size="sm">
+                        {c.label}
                       </ChoiceButton>
                     ))}
                   </div>

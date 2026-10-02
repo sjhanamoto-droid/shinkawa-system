@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { getAppSettings } from "@/lib/settings";
 import { COMPANY_NAME } from "@/lib/brand";
-import { CATEGORY, isCategory, PHOTO_KIND_LABEL, isPhotoKind } from "@/lib/constants";
+import { PHOTO_KIND_LABEL, isPhotoKind } from "@/lib/constants";
+import { catLabel } from "@/lib/categories";
+import { getCategories } from "@/lib/categories-server";
 import { fmtWorkHours, REPORT_STATUS_LABEL, workMinutes } from "@/lib/reports";
 import { fmtYen } from "@/lib/utils";
 import { jstDateKey, jstDateTimeLabel } from "@/lib/date";
@@ -23,7 +25,7 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
   const minutes = workMinutes(r.startTime, r.endTime);
   const proxyBy = r.createdBy && r.createdBy.id !== r.userId ? r.createdBy.name : null;
   const photos = r.photos.filter((p) => !p.isVideo);
-  const cat = r.occurrence && isCategory(r.occurrence.category) ? CATEGORY[r.occurrence.category].label : null;
+  const cat = r.occurrence ? catLabel(await getCategories(), r.occurrence.category) : null;
 
   const th = "w-28 border border-slate-300 bg-slate-50 px-2 py-1.5 text-left font-semibold";
   const td = "border border-slate-300 px-2 py-1.5";

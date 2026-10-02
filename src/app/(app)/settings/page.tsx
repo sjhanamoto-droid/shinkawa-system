@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users2, Building2, UserCog, ChevronRight, Info, Handshake, Car, Lightbulb } from "lucide-react";
+import { Users2, Building2, UserCog, ChevronRight, Info, Handshake, Car, Lightbulb, Tags } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
@@ -59,6 +59,12 @@ export default async function SettingsPage() {
                   icon={<Car className="h-5 w-5" />}
                   title="車両管理"
                   desc={`カレンダーで選ぶ社有車の台帳（${vehicleCount}台）`}
+                />
+                <SettingRow
+                  href="/settings/categories"
+                  icon={<Tags className="h-5 w-5" />}
+                  title="種別マスタ"
+                  desc="カレンダーのタグ（AC・定期など）の名称・色・並び順、種別の追加"
                 />
                 <SettingRow
                   href="/settings/app"

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, Building, CalendarDays, ChevronDown, Clock, DoorOpen, KeyRound, MapPin, Phone, Users } from "lucide-react";
 import { CategoryBadge, OccurrenceStatusBadge } from "@/components/ui/badge";
-import { categoryColor } from "@/lib/constants";
 import { cn, mapSearchUrl } from "@/lib/utils";
 import { occurrenceLabels, timeLabel } from "./labels";
 import type { OccurrenceView } from "./types";
@@ -10,7 +9,7 @@ import type { OccurrenceView } from "./types";
  * ホームの「今日・明日行く現場」カード。現場に着くまでに要る情報（住所・キーBOX・入館・連絡先・引き継ぎ）をまとめて出す。
  * collapsed=true（明日の分）は1行の見出しだけ出し、タップで開く。
  */
-export function SiteVisitCard({ o, calendarHref, collapsed = false }: { o: OccurrenceView; calendarHref: string; collapsed?: boolean }) {
+export function SiteVisitCard({ o, color, calendarHref, collapsed = false }: { o: OccurrenceView; color: string; calendarHref: string; collapsed?: boolean }) {
   const label = occurrenceLabels(o);
   const t = timeLabel(o);
   const p = o.property;
@@ -18,7 +17,7 @@ export function SiteVisitCard({ o, calendarHref, collapsed = false }: { o: Occur
   return (
     <details open={!collapsed} className="group card overflow-hidden">
       <summary className="flex cursor-pointer list-none items-stretch [&::-webkit-details-marker]:hidden">
-        <span className="w-1.5 shrink-0" style={{ backgroundColor: categoryColor(o.category) }} />
+        <span className="w-1.5 shrink-0" style={{ backgroundColor: color }} />
         <span className="min-w-0 flex-1 p-3">
           <span className="flex flex-wrap items-center gap-1.5">
             <CategoryBadge category={o.category} short />

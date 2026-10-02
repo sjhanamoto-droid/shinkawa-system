@@ -7,6 +7,8 @@ import { StartupGate } from "@/features/notifications/startup-gate";
 import { ClaimGate, type PendingClaim } from "@/features/claims/claim-gate";
 import { CLAIM_VIEW_SELECT } from "@/features/claims/claim-body";
 import { claimVisibleWhere, involvedNames } from "@/features/claims/queries";
+import { getCategories } from "@/lib/categories-server";
+import { CategoryProvider } from "@/components/category-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -14,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const collapsed = store.get(SIDEBAR_COOKIE)?.value === "1";
 
   // 起動ゲート＆通知バッジ用の未読データ
-  const [unreadCount, unread, pendingAcks] = await Promise.all([
+  const [unreadCount, unread, pendingAcks, categories] = await Promise.all([
     db.notification.count({ where: { userId: user.id, read: false } }),
     db.notification.findMany({
       where: { userId: user.id, read: false },
@@ -29,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       take: 20,
       select: { claim: { select: { id: true, createdBy: { select: { name: true } }, ...CLAIM_VIEW_SELECT } } },
     }),
+    getCategories(),
   ]);
   const pendingClaims: PendingClaim[] = await Promise.all(
     pendingAcks.map(async ({ claim: { createdBy, ...c } }) => ({
@@ -41,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const actor = { id: user.id, role: user.role, department: user.department, kind: user.kind };
 
   return (
+    <CategoryProvider categories={categories}>
     <div className="min-h-dvh bg-surface-subtle">
       <AppFrame user={user} initialCollapsed={collapsed} unreadCount={unreadCount}>
         {children}
@@ -49,5 +53,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* クレームの確認が先。確認が済んだら、起動ゲート（未読通知）を出す */}
       {pendingClaims.length > 0 ? <ClaimGate claims={pendingClaims} /> : <StartupGate items={unread} />}
     </div>
+    </CategoryProvider>
   );
 }

@@ -1,12 +1,15 @@
-import { CATEGORY, CATEGORY_OPTIONS } from "@/lib/constants";
+"use client";
+
+import { useCategories } from "@/components/category-provider";
 
 export function Legend() {
+  const categories = useCategories().filter((c) => c.active);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-ink-muted">
-      {CATEGORY_OPTIONS.map((k) => (
-        <span key={k} className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: CATEGORY[k].color }} />
-          {CATEGORY[k].label}
+      {categories.map((c) => (
+        <span key={c.key} className="flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: c.color }} />
+          {c.label}
         </span>
       ))}
       <span className="ml-2 flex items-center gap-1">

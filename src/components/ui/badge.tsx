@@ -4,8 +4,6 @@ import {
   OCCURRENCE_STATUS_LABEL,
   OCCURRENCE_STATUS_TONE,
   STATUS_TOKEN,
-  CATEGORY,
-  isCategory,
   isOccurrenceStatus,
 } from "@/lib/constants";
 
@@ -51,24 +49,5 @@ export function OccurrenceStatusBadge({ status, className }: { status: string; c
   );
 }
 
-// 種別バッジ（サイボウズの色付きラベルを踏襲。色は種別固定）
-export function CategoryBadge({
-  category,
-  short = false,
-  className,
-}: {
-  category: string;
-  short?: boolean;
-  className?: string;
-}) {
-  const def = isCategory(category) ? CATEGORY[category] : null;
-  const color = def?.color ?? "#64748b";
-  return (
-    <span
-      className={cn("inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[11px] font-bold leading-none text-white", className)}
-      style={{ backgroundColor: color }}
-    >
-      {def ? (short ? def.short : def.label) : category}
-    </span>
-  );
-}
+// 種別バッジは種別マスタを読むためクライアント部品（category-badge.tsx）
+export { CategoryBadge } from "./category-badge";

@@ -8,7 +8,8 @@ import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { dayRangeForKey, tomorrowKey } from "@/lib/date";
 import { sweepOrphanBlobs } from "@/lib/media";
-import { CATEGORY, isCategory } from "@/lib/constants";
+import { catShort } from "@/lib/categories";
+import { getCategories } from "@/lib/categories-server";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,12 @@ async function handle(req: NextRequest) {
     },
     orderBy: [{ startTime: "asc" }],
   });
+  const categories = await getCategories();
   const byUser = new Map<string, string[]>();
   for (const o of occurrences) {
     const label = [
       o.startTime,
-      isCategory(o.category) ? CATEGORY[o.category].short : null,
+      catShort(categories, o.category),
       o.title ?? o.customer?.shortName ?? o.customer?.name ?? o.property?.name ?? "予定",
     ]
       .filter(Boolean)

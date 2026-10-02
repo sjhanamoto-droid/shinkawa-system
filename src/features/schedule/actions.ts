@@ -8,16 +8,16 @@ import { requireUser, type CurrentUser } from "@/lib/session";
 import { assertCan, can, canViewAmounts, PermissionError } from "@/lib/permissions";
 import { dateFromKey, storedDateKey, jstDateKey } from "@/lib/date";
 import {
-  CATEGORY_OPTIONS,
   DEPARTMENT_OPTIONS,
   NON_WORK_CATEGORIES,
-  CATEGORY,
   OCCURRENCE_STATUS_LABEL,
   isRuleKind,
   isOccurrenceStatus,
   type OccurrenceStatus,
 } from "@/lib/constants";
 import { ruleFromDate, slotsForMonth, type RuleParams } from "@/lib/recurrence";
+import { catDepartment, catLabel } from "@/lib/categories";
+import { getCategories, isUsableCategory } from "@/lib/categories-server";
 import { createNotificationForUsers } from "@/lib/notifications";
 import type { NotificationType } from "@/lib/constants";
 import { fetchOccurrenceView, loadChangeLog, loadVehicleUsage } from "./query";
@@ -45,7 +45,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const inputSchema = z.object({
   department: z.enum(DEPARTMENT_OPTIONS),
-  category: z.enum(CATEGORY_OPTIONS),
+  category: z.string().regex(/^[A-Z0-9_]{1,40}$/, "種別が正しくありません"),
   customerId: z.string().nullable(),
   propertyId: z.string().nullable(),
   title: z.string().trim().max(100).nullable(),
@@ -223,8 +223,14 @@ async function notify(
   });
 }
 
-function occLabelWithDate(occ: Loaded, dateKey: string | null): string {
-  const cat = occ.category in CATEGORY ? CATEGORY[occ.category as keyof typeof CATEGORY].label : occ.category;
+/** 部門が決まっている種別（例：内装工事＝工事）を、別の部門の予定にさせない */
+async function assertCategoryDepartment(category: string, department: string) {
+  const dept = catDepartment(await getCategories(), category);
+  if (dept && dept !== department) throw new ValidationError(`種別「${catLabel(await getCategories(), category)}」は${dept === "CLEANING" ? "クリーニング" : "工事"}部門の種別です`);
+}
+
+async function occLabelWithDate(occ: Loaded, dateKey: string | null): Promise<string> {
+  const cat = catLabel(await getCategories(), occ.category);
   return `${dateKey ? fmtKeyShort(dateKey) : "日付未定"} ${cat} ${labelOfOcc(occ)}`;
 }
 
@@ -239,6 +245,8 @@ function parseSlotIndex(seriesKey: string | null): number | null {
 export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResult<{ occurrence: OccurrenceView }>> {
   return run(async (me) => {
     const input = inputSchema.parse(raw);
+    if (!(await isUsableCategory(input.category))) throw new ValidationError("種別が見つからないか、使わない設定になっています");
+    await assertCategoryDepartment(input.category, input.department);
     assertCan(me, "occurrence.create", { department: input.department });
     if (input.amount !== undefined && input.amount !== null) assertCan(me, "amount.edit");
     if (input.endDate && input.date && input.endDate < input.date) throw new ValidationError("終了日は開始日以降にしてください");
@@ -306,6 +314,8 @@ export async function updateOccurrence(
       const occ = await loadForMutation(tx, id);
       assertCan(me, "occurrence.edit", { department: occ.department });
       if (input.department !== occ.department) assertCan(me, "occurrence.edit", { department: input.department });
+      if (!(await isUsableCategory(input.category, occ.category))) throw new ValidationError("種別が見つからないか、使わない設定になっています");
+      await assertCategoryDepartment(input.category, input.department);
       const amountChanged = input.amount !== undefined && (input.amount ?? null) !== occ.amount;
       if (amountChanged) assertCan(me, "amount.edit");
 
@@ -483,7 +493,7 @@ export async function moveOccurrence(
     const view = await fetchOccurrenceView(id, me);
     if (!view) throw new NotFoundError();
     const occRef = { id, version: view.version, date: view.date ? dateFromKey(view.date) : null, category: view.category };
-    const label = occLabelWithDate(result.occ, view.date);
+    const label = await occLabelWithDate(result.occ, view.date);
     if (result.dateChanged) await notify(me, occRef, result.notifyMoved, "OCC_MOVED", "予定の日付が変わりました", label + (reason ? `（${reason}）` : ""));
     if (result.notifyAdded.length) await notify(me, occRef, result.notifyAdded, "OCC_ASSIGNED", "予定の担当になりました", label);
     revalidateAll(view.property?.id);
@@ -527,7 +537,7 @@ export async function setOccurrenceStatus(
         r.occ.assignments.map((a) => a.userId),
         status === "CONFIRMED" ? "OCC_CONFIRMED" : "OCC_CANCELLED",
         status === "CONFIRMED" ? "予定が確定しました" : "予定が中止になりました",
-        `${occLabelWithDate(r.occ, view.date)}（${OCCURRENCE_STATUS_LABEL[status]}）`,
+        `${await occLabelWithDate(r.occ, view.date)}（${OCCURRENCE_STATUS_LABEL[status]}）`,
       );
     }
     revalidateAll(view.property?.id);
@@ -563,7 +573,7 @@ export async function assignWorkers(
     if (!view) throw new NotFoundError();
     if (r.added.length) {
       const occRef = { id, version: view.version, date: view.date ? dateFromKey(view.date) : null, category: view.category };
-      await notify(me, occRef, r.added, "OCC_ASSIGNED", "予定の担当になりました", occLabelWithDate(r.occ, view.date));
+      await notify(me, occRef, r.added, "OCC_ASSIGNED", "予定の担当になりました", await occLabelWithDate(r.occ, view.date));
     }
     revalidateAll(view.property?.id);
     return { occurrence: view };
@@ -602,8 +612,9 @@ export async function linkOccurrenceProperty(
   sameCustomer: boolean,
 ): Promise<ActionResult<{ occurrence: OccurrenceView; alsoLinked: number }>> {
   return run(async (me) => {
-    const property = await db.property.findUnique({ where: { id: propertyId }, select: { id: true, name: true, customerId: true } });
+    const property = await db.property.findUnique({ where: { id: propertyId }, select: { id: true, name: true, customerId: true, status: true } });
     if (!property) throw new ValidationError("現場が見つかりません");
+    if (property.status === "INACTIVE") throw new ValidationError("終了した現場には設定できません");
     const alsoLinked = await db.$transaction(async (tx) => {
       const occ = await loadForMutation(tx, id);
       assertCan(me, "occurrence.edit", { department: occ.department });
@@ -625,9 +636,16 @@ export async function linkOccurrenceProperty(
       });
       const editable = others.filter((o) => can(me, "occurrence.edit", { department: o.department })).map((o) => o.id);
       if (editable.length === 0) return 0;
-      await tx.occurrence.updateMany({ where: { id: { in: editable } }, data: { propertyId: property.id, version: { increment: 1 } } });
-      await tx.occurrenceChangeLog.createMany({ data: editable.map((occurrenceId) => ({ occurrenceId, actorId: me.id, action: "EDIT", field: "property", toValue: property.name })) });
-      return editable.length;
+      // 探してから更新するまでに誰かが現場を設定した予定は上書きしない（propertyId: null の条件を更新にも付ける）
+      const updatedIds: string[] = [];
+      for (const oid of editable) {
+        const r = await tx.occurrence.updateMany({ where: { id: oid, propertyId: null }, data: { propertyId: property.id, version: { increment: 1 } } });
+        if (r.count > 0) updatedIds.push(oid);
+      }
+      if (updatedIds.length > 0) {
+        await tx.occurrenceChangeLog.createMany({ data: updatedIds.map((occurrenceId) => ({ occurrenceId, actorId: me.id, action: "EDIT", field: "property", toValue: property.name })) });
+      }
+      return updatedIds.length;
     });
     const view = await fetchOccurrenceView(id, me);
     if (!view) throw new NotFoundError();
