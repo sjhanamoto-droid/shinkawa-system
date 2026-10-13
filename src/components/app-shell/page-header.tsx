@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { HeaderBack } from "./header-back";
 import { HeaderUserMenu } from "./shell-user";
+import { HeaderNotifications } from "./header-notifications";
 
 // レスポンシブなページ上部バー。
 // スマホ：コンパクト。PC/タブレット：高さ・文字を大きく、コンテンツ幅に整列。
@@ -44,6 +45,7 @@ export function PageHeader({
           )}
         </div>
         {right && <div className="flex shrink-0 items-center gap-1.5 md:gap-2">{right}</div>}
+        <HeaderNotifications />
         {/* ログイン中のユーザー（PC・タブレット。スマホはメニュー画面） */}
         <HeaderUserMenu />
       </div>

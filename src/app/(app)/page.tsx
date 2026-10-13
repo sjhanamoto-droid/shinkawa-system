@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CalendarDays, ChevronRight, Inbox, AlertTriangle, Clock3, Users, ClipboardList, UserCheck } from "lucide-react";
+import { CalendarDays, ChevronRight, Inbox, AlertTriangle, Clock3, ClipboardList, UserCheck } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { canViewAmounts, isManager, isPlanner } from "@/lib/permissions";
@@ -8,13 +8,11 @@ import { DEPARTMENT_LABEL } from "@/lib/constants";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { SectionTitle } from "@/components/ui/card";
-import { IconBadge } from "@/components/ui/icon-badge";
 import { occurrenceSelect, loadPersonMap, toOccurrenceView } from "@/features/schedule/query";
 import { SiteVisitCard } from "@/features/schedule/site-visit-card";
 import { getCategories } from "@/lib/categories-server";
 import { catColor } from "@/lib/categories";
 import { fmtKeyLong } from "@/features/schedule/filters";
-import { notificationMeta } from "@/features/notifications/notification-meta";
 import { loadMyReportTodo, loadProxyTodo } from "@/features/reports/queries";
 import { DueRow } from "@/features/reports/report-items";
 
@@ -48,7 +46,7 @@ export default async function HomePage() {
     loadMyReportTodo(user.id),
     isManager(user) ? loadProxyTodo() : Promise.resolve([]),
   ]);
-  const [todayRows, tomorrowRows, people, unread, unassignedCount, tentativeCount, noWorkerCount] = await Promise.all([
+  const [todayRows, tomorrowRows, people, unassignedCount, tentativeCount, noWorkerCount] = await Promise.all([
     db.occurrence.findMany({
       where: { date: dayRangeForKey(today), status: { notIn: ["CANCELLED"] }, ...mineWhere },
       select,
@@ -61,12 +59,6 @@ export default async function HomePage() {
       take: planner ? 8 : 50,
     }),
     loadPersonMap(),
-    db.notification.findMany({
-      where: { userId: user.id, read: false },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { id: true, type: true, title: true, body: true, href: true, createdAt: true },
-    }),
     planner ? db.occurrence.count({ where: { date: null, targetMonth: { lte: month }, status: "UNASSIGNED" } }) : Promise.resolve(0),
     planner ? db.occurrence.count({ where: { targetMonth: month, status: "TENTATIVE" } }) : Promise.resolve(0),
     planner
@@ -85,155 +77,96 @@ export default async function HomePage() {
     <div>
       <PageHeader title={`${greeting}、${user.name}さん`} subtitle={fmtKeyLong(today)} />
       <PageContainer>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="space-y-5">
-            {planner && (
-              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-                <StatCard href={`/schedule?view=day&d=${today}`} label="今日の予定" value={todayItems.length} tone="brand" icon={<CalendarDays className="h-5 w-5" />} />
-                <StatCard href={`/schedule?view=week&d=${today}`} label="未割当（今月まで）" value={unassignedCount} tone="amber" icon={<Inbox className="h-5 w-5" />} />
-                <StatCard href={`/schedule?view=week&d=${today}&status=TENTATIVE`} label="仮の予定（今月）" value={tentativeCount} tone="sky" icon={<Clock3 className="h-5 w-5" />} />
-                <StatCard href={`/schedule?view=board&d=${today}`} label="担当未定（今日以降）" value={noWorkerCount} tone="rose" icon={<AlertTriangle className="h-5 w-5" />} />
-              </div>
-            )}
+        <div className="space-y-5">
+          {planner && (
+            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+              <StatCard href={`/schedule?view=day&d=${today}`} label="今日の予定" value={todayItems.length} tone="brand" icon={<CalendarDays className="h-5 w-5" />} />
+              <StatCard href={`/schedule?view=week&d=${today}`} label="未割当（今月まで）" value={unassignedCount} tone="amber" icon={<Inbox className="h-5 w-5" />} />
+              <StatCard href={`/schedule?view=week&d=${today}&status=TENTATIVE`} label="仮の予定（今月）" value={tentativeCount} tone="sky" icon={<Clock3 className="h-5 w-5" />} />
+              <StatCard href={`/schedule?view=board&d=${today}`} label="担当未定（今日以降）" value={noWorkerCount} tone="rose" icon={<AlertTriangle className="h-5 w-5" />} />
+            </div>
+          )}
 
-            {(reportTodo.today.length > 0 || reportTodo.missing.length > 0 || proxyTodo.length > 0) && (
-              <section className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <SectionTitle>
-                    <span className="flex items-center gap-1.5">
-                      <ClipboardList className="h-4 w-4" />
-                      今日の日報
-                    </span>
-                  </SectionTitle>
-                  <Link href="/reports" className="text-xs font-bold text-brand-600">
-                    日報へ
-                  </Link>
-                </div>
-                {reportTodo.today.length > 0 && (
-                  <div className="card divide-y divide-line">
-                    {reportTodo.today.map((i) => (
-                      <DueRow key={`${i.occurrenceId}-${i.workDate}`} item={i} />
-                    ))}
-                  </div>
-                )}
-                {reportTodo.missing.length > 0 && (
-                  <Link href="/reports" className="card flex items-center gap-2 border-red-200 bg-red-50/60 px-3.5 py-3 text-sm font-bold text-red-700">
-                    <Inbox className="h-4 w-4 shrink-0" />
-                    <span className="flex-1">未提出の日報が {reportTodo.missing.length} 件あります</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                )}
-                {proxyTodo.length > 0 && (
-                  <Link href="/reports" className="card flex items-center gap-2 border-violet-200 bg-violet-50/60 px-3.5 py-3 text-sm font-bold text-violet-700">
-                    <UserCheck className="h-4 w-4 shrink-0" />
-                    <span className="flex-1">代理入力が必要な日報が {proxyTodo.length} 件あります（ログインしない作業者の分）</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                )}
-              </section>
-            )}
-
+          {(reportTodo.today.length > 0 || reportTodo.missing.length > 0 || proxyTodo.length > 0) && (
             <section className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <SectionTitle>
-                  {planner ? "今日の予定" : "今日のあなたの予定"}{" "}
-                  <span className="text-ink-faint">
-                    {todayItems.length}件
-                    {planner && todayItems.length > 0 && `（${DEPARTMENT_LABEL.CLEANING} ${byDept.CLEANING} ・ ${DEPARTMENT_LABEL.CONSTRUCTION} ${byDept.CONSTRUCTION}）`}
+                  <span className="flex items-center gap-1.5">
+                    <ClipboardList className="h-4 w-4" />
+                    今日の日報
                   </span>
                 </SectionTitle>
-                <Link href={`/schedule?view=day&d=${today}`} className="text-xs font-bold text-brand-600">
-                  カレンダーで見る
+                <Link href="/reports" className="text-xs font-bold text-brand-600">
+                  日報へ
                 </Link>
               </div>
-              {todayItems.length === 0 ? (
-                <p className="card p-5 text-center text-sm text-ink-muted">今日の予定はありません</p>
-              ) : (
-                <div className="space-y-2">
-                  {(planner ? todayItems.slice(0, 10) : todayItems).map((o) => (
-                    <SiteVisitCard key={o.id} o={o} color={catColor(categories, o.category)} calendarHref={`/schedule?view=day&d=${today}${planner ? "" : "&mine=1"}`} />
+              {reportTodo.today.length > 0 && (
+                <div className="card divide-y divide-line">
+                  {reportTodo.today.map((i) => (
+                    <DueRow key={`${i.occurrenceId}-${i.workDate}`} item={i} />
                   ))}
-                  {planner && todayItems.length > 10 && (
-                    <Link href={`/schedule?view=day&d=${today}`} className="block py-2 text-center text-sm font-bold text-brand-600">
-                      残り {todayItems.length - 10} 件を見る
-                    </Link>
-                  )}
                 </div>
               )}
+              {reportTodo.missing.length > 0 && (
+                <Link href="/reports" className="card flex items-center gap-2 border-red-200 bg-red-50/60 px-3.5 py-3 text-sm font-bold text-red-700">
+                  <Inbox className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">未提出の日報が {reportTodo.missing.length} 件あります</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              )}
+              {proxyTodo.length > 0 && (
+                <Link href="/reports" className="card flex items-center gap-2 border-violet-200 bg-violet-50/60 px-3.5 py-3 text-sm font-bold text-violet-700">
+                  <UserCheck className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">代理入力が必要な日報が {proxyTodo.length} 件あります（ログインしない作業者の分）</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              )}
             </section>
+          )}
 
-            <section className="space-y-2.5">
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between">
               <SectionTitle>
-                明日の予定 <span className="text-ink-faint">{tomorrowItems.length}件（タップで現場情報）</span>
+                {planner ? "今日の予定" : "今日のあなたの予定"}{" "}
+                <span className="text-ink-faint">
+                  {todayItems.length}件
+                  {planner && todayItems.length > 0 && `（${DEPARTMENT_LABEL.CLEANING} ${byDept.CLEANING} ・ ${DEPARTMENT_LABEL.CONSTRUCTION} ${byDept.CONSTRUCTION}）`}
+                </span>
               </SectionTitle>
-              {tomorrowItems.length === 0 ? (
-                <p className="card p-4 text-center text-sm text-ink-muted">明日の予定はありません</p>
-              ) : (
-                <div className="space-y-2">
-                  {tomorrowItems.map((o) => (
-                    <SiteVisitCard key={o.id} o={o} color={catColor(categories, o.category)} collapsed calendarHref={`/schedule?view=day&d=${tomorrow}${planner ? "" : "&mine=1"}`} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <aside className="space-y-5">
-            <section className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <SectionTitle>
-                  <span className="flex items-center gap-1.5">
-                    <Bell className="h-4 w-4" />
-                    未読の通知
-                  </span>
-                </SectionTitle>
-                <Link href="/notifications" className="text-xs font-bold text-brand-600">
-                  すべて見る
-                </Link>
+              <Link href={`/schedule?view=day&d=${today}`} className="text-xs font-bold text-brand-600">
+                カレンダーで見る
+              </Link>
+            </div>
+            {todayItems.length === 0 ? (
+              <p className="card p-5 text-center text-sm text-ink-muted">今日の予定はありません</p>
+            ) : (
+              <div className="space-y-2">
+                {(planner ? todayItems.slice(0, 10) : todayItems).map((o) => (
+                  <SiteVisitCard key={o.id} o={o} color={catColor(categories, o.category)} calendarHref={`/schedule?view=day&d=${today}${planner ? "" : "&mine=1"}`} />
+                ))}
+                {planner && todayItems.length > 10 && (
+                  <Link href={`/schedule?view=day&d=${today}`} className="block py-2 text-center text-sm font-bold text-brand-600">
+                    残り {todayItems.length - 10} 件を見る
+                  </Link>
+                )}
               </div>
-              {unread.length === 0 ? (
-                <p className="card p-4 text-center text-xs text-ink-muted">未読の通知はありません</p>
-              ) : (
-                <div className="card divide-y divide-line">
-                  {unread.map((n) => {
-                    const meta = notificationMeta(n.type);
-                    return (
-                      <Link key={n.id} href={n.href ?? "/notifications"} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-surface-subtle">
-                        <IconBadge icon={meta.icon} tone={meta.tone} size="sm" />
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold text-ink">{n.title}</span>
-                          {n.body && <span className="block truncate text-xs text-ink-muted">{n.body}</span>}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            {planner && (
-              <section className="space-y-2.5">
-                <SectionTitle>
-                  <span className="flex items-center gap-1.5">
-                    <Users className="h-4 w-4" />
-                    よく使う
-                  </span>
-                </SectionTitle>
-                <div className="card divide-y divide-line">
-                  {[
-                    { href: `/schedule?view=week&d=${today}`, label: "週ビュー（未割当レーンから配置）" },
-                    { href: `/schedule?view=board&d=${today}`, label: "担当者ボード（空き枠を見る）" },
-                                        { href: "/properties", label: "現場（作業内容・定期の周期）" },
-                  ].map((l) => (
-                    <Link key={l.href} href={l.href} className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-ink hover:bg-surface-subtle">
-                      <span className="flex-1">{l.label}</span>
-                      <ChevronRight className="h-4 w-4 text-ink-faint" />
-                    </Link>
-                  ))}
-                </div>
-              </section>
             )}
-          </aside>
+          </section>
+
+          <section className="space-y-2.5">
+            <SectionTitle>
+              明日の予定 <span className="text-ink-faint">{tomorrowItems.length}件（タップで現場情報）</span>
+            </SectionTitle>
+            {tomorrowItems.length === 0 ? (
+              <p className="card p-4 text-center text-sm text-ink-muted">明日の予定はありません</p>
+            ) : (
+              <div className="space-y-2">
+                {tomorrowItems.map((o) => (
+                  <SiteVisitCard key={o.id} o={o} color={catColor(categories, o.category)} collapsed calendarHref={`/schedule?view=day&d=${tomorrow}${planner ? "" : "&mine=1"}`} />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </PageContainer>
     </div>
