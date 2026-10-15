@@ -18,8 +18,8 @@ export type ClaimView = {
 function Block({ label, text, strong }: { label: string; text: string | null; strong?: boolean }) {
   if (!text) return null;
   return (
-    <div className={strong ? "rounded-xl border border-emerald-200 bg-emerald-50 p-3" : ""}>
-      <p className={strong ? "text-xs font-bold text-emerald-800" : "text-xs font-bold text-ink-soft"}>{label}</p>
+    <div className={strong ? "rounded-2xl border border-emerald-200 bg-emerald-50 p-4" : ""}>
+      <p className={strong ? "text-sm font-bold text-emerald-800" : "text-sm font-bold text-ink-soft"}>{label}</p>
       <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed text-ink">{text}</p>
     </div>
   );
@@ -30,8 +30,8 @@ export function ClaimBody({ claim }: { claim: ClaimView }) {
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <h2 className="text-lg font-black leading-snug text-ink">{claim.title}</h2>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-soft">
+        <h2 className="break-words text-2xl font-bold leading-tight text-ink">{claim.title}</h2>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[15px] text-ink-soft">
           {claim.property && (
             <span className="flex items-center gap-1.5">
               <Building className="h-4 w-4 text-ink-faint" />

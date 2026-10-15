@@ -1,22 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, MapPin, KeyRound, DoorOpen, Phone, Briefcase, CalendarDays, Copy, Repeat, FileText, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users } from "lucide-react";
+import { Pencil, MapPin, KeyRound, DoorOpen, Phone, CalendarDays, Copy, Repeat, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users, Building2, ChevronRight, ClipboardCheck, UserRound, Map as MapIcon } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser, avatarUrlFor } from "@/lib/session";
 import { can, canEditDepartment, canViewAmounts, isManager } from "@/lib/permissions";
 import { dayRangeForKey, jstDateKey, jstMonthKey, addDaysKey, addMonthsKey, storedDateKey } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { PageContainer } from "@/components/app-shell/page-container";
 import { Card, DataList, DataRow, SectionTitle } from "@/components/ui/card";
 import { Badge, CategoryBadge, OccurrenceStatusBadge } from "@/components/ui/badge";
-import { LinkButton } from "@/components/ui/button";
+import { LinkButton, buttonClass } from "@/components/ui/button";
 import { SearchParamToast } from "@/components/ui/toast";
 import { PhotoGrid } from "@/components/photo-grid";
 import { PdfRow } from "@/components/pdf-row";
 import { PropertyDetailTabs } from "@/features/properties/property-detail-tabs";
 import { PropertyMemoPanel, type PropertyMemoAuthor } from "@/features/properties/property-memo-panel";
 import { RelationControl } from "@/features/properties/relation-control";
-import { HandoverPanel } from "@/features/properties/handover-panel";
+import { HandoverPanel, ClampedText } from "@/features/properties/handover-panel";
 import { describeRule, type RuleParams } from "@/lib/recurrence";
 import { fmtKeyShort } from "@/features/schedule/filters";
 import { CONTRACT_TYPE_LABEL, DEPARTMENT_LABEL, PROPERTY_STATUS_LABEL, isDepartment, isRuleKind, type ContractType, type PropertyStatus } from "@/lib/constants";
@@ -24,7 +23,7 @@ import { GenerateButton } from "@/features/jobs/generate-button";
 import { MoveJobButton } from "@/features/properties/move-job-button";
 import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
 import { getCategories } from "@/lib/categories-server";
-import { mapSearchUrl } from "@/lib/utils";
+import { cn, mapSearchUrl } from "@/lib/utils";
 import { canViewAllReports } from "@/lib/reports";
 import { loadPropertyReports } from "@/features/reports/queries";
 import { ReportListRow } from "@/features/reports/report-items";
@@ -110,104 +109,136 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       )
     : [];
 
+  // 見出しの件数（大見出しの横に控えめに出す）
+  const countLabel = (n: number) => <span className="text-sm font-normal text-ink-muted tnum">{n}件</span>;
+  const emptyBox = (text: string) => (
+    <div className="rounded-2xl border border-dashed border-line-strong px-4 py-5 text-center text-sm font-medium text-ink-muted">{text}</div>
+  );
+  const mapsUrl = property.address ? mapSearchUrl(property.address) : null;
+  const calendarHref = `/schedule?view=month&d=${today}&q=${encodeURIComponent(property.name)}`;
+
   const basicTab = (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {openHandovers.length > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
-          <p className="flex items-center gap-1.5 text-sm font-bold text-amber-800">
-            <AlertTriangle className="h-4 w-4" />
+        <div className="rounded-2xl border border-amber-200 border-t-4 border-t-amber-400 bg-amber-50 px-4 py-3.5 dark:border-amber-900/60 dark:bg-amber-950/40">
+          <p className="flex items-center gap-2 text-base font-bold text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
             未解決の引き継ぎが {openHandovers.length} 件あります
           </p>
-          <ul className="mt-1 space-y-0.5 text-sm text-ink-soft">
+          <ul className="mt-1.5 space-y-0.5 text-sm text-ink-soft">
             {openHandovers.slice(0, 3).map((h) => (
-              <li key={h.id} className="truncate">・{h.content}</li>
+              <li key={h.id} className="line-clamp-2 break-words">・{h.content}</li>
             ))}
           </ul>
         </div>
       )}
       {property.handoverNote && (
-        <div className="rounded-xl border border-line bg-surface-subtle p-3 text-sm text-ink-soft">
-          <p className="mb-1 text-xs font-bold text-ink-muted">業務連絡</p>
-          <p className="whitespace-pre-wrap">{property.handoverNote}</p>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/40">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+            <ClipboardCheck className="h-4 w-4" />
+            業務連絡
+          </p>
+          <ClampedText text={property.handoverNote} className="text-sm leading-relaxed text-amber-900 dark:text-amber-100" toggleClassName="text-amber-800 dark:text-amber-300" />
         </div>
       )}
-      <Card className="p-4">
-        <DataList>
-          <DataRow label="顧客" value={<Link href={`/customers/${property.customer.id}`} className="text-brand-600">{property.customer.name}</Link>} />
-          <DataRow
-            label="住所"
-            value={
-              property.address ? (
-                <span className="flex items-center justify-end gap-2">
-                  <span>{property.address}</span>
-                  <a href={mapSearchUrl(property.address)} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-0.5 text-xs font-bold text-brand-600">
-                    <MapPin className="h-3.5 w-3.5" />地図
+
+      <section className="space-y-2.5">
+        <SectionTitle>現場情報</SectionTitle>
+        <Card className="space-y-4 p-4">
+          {/* キーBOX（あり＝番号を大きく／なし＝受け渡し方法） */}
+          <div className="rounded-xl bg-surface-sunken p-3.5">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-ink-muted">
+              <KeyRound className="h-4 w-4" />
+              {property.keyboxStatus === "HAS" ? "キーBOX番号" : "キーBOX"}
+            </p>
+            {property.keyboxStatus === "HAS" ? (
+              <>
+                <p className="mt-1 text-3xl font-bold tracking-wider text-ink tnum">{property.keyboxNumber ?? "番号未登録"}</p>
+                {property.keyboxPlace && <p className="mt-1.5 text-sm font-medium text-ink-soft">場所: {property.keyboxPlace}</p>}
+              </>
+            ) : property.keyboxStatus === "NONE" ? (
+              <>
+                <p className="mt-1 text-lg font-bold text-ink">なし</p>
+                {property.keyboxNoneReason && <p className="mt-1 text-sm font-medium text-ink-soft">{property.keyboxNoneReason}</p>}
+              </>
+            ) : (
+              <p className="mt-1 text-lg font-bold text-ink-muted">未確認</p>
+            )}
+          </div>
+
+          <DataList>
+            <DataRow label="顧客" value={<Link href={`/customers/${property.customer.id}`} className="font-medium text-brand-600">{property.customer.name}</Link>} />
+            <DataRow
+              label="住所"
+              value={
+                property.address && mapsUrl ? (
+                  // タップで Google マップを開く
+                  <a href={mapsUrl} target="_blank" rel="noreferrer" className="inline-flex items-start gap-1 font-medium text-brand-600 underline-offset-2 hover:underline">
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {property.address}
                   </a>
-                </span>
-              ) : null
-            }
-          />
-          <DataRow label="建物・部屋" value={property.building} />
-          <DataRow label="部屋数・箇所" value={property.unitCount != null ? `${property.unitCount}件` : null} />
-          <DataRow
-            label="キーBOX"
-            value={
-              property.keyboxStatus === "HAS" ? (
-                <span className="flex items-center justify-end gap-1.5">
-                  <KeyRound className="h-4 w-4 text-ink-faint" />
-                  <span className="font-bold tnum">{property.keyboxNumber ?? "番号未登録"}</span>
-                  {property.keyboxPlace && <span className="text-ink-muted">（{property.keyboxPlace}）</span>}
-                </span>
-              ) : property.keyboxStatus === "NONE" ? (
-                <span>なし{property.keyboxNoneReason && ` — ${property.keyboxNoneReason}`}</span>
-              ) : (
-                "未確認"
-              )
-            }
-          />
-          <DataRow label="入館・注意" value={property.accessNote ? <span className="whitespace-pre-wrap text-left">{property.accessNote}</span> : null} />
-          <DataRow
-            label="現場連絡先"
-            value={
-              property.contactName || property.contactPhone ? (
-                <span>
-                  {property.contactName}
-                  {property.contactPhone && (
-                    <a href={`tel:${property.contactPhone}`} className="ml-2 inline-flex items-center gap-0.5 text-brand-600">
-                      <Phone className="h-3.5 w-3.5" />
-                      {property.contactPhone}
-                    </a>
-                  )}
-                </span>
-              ) : null
-            }
-          />
-        </DataList>
-      </Card>
+                ) : null
+              }
+            />
+            <DataRow label="建物・部屋" value={property.building} />
+            <DataRow label="部屋数・箇所" value={property.unitCount != null ? `${property.unitCount}件` : null} />
+            <DataRow
+              label="現場連絡先"
+              value={
+                property.contactName || property.contactPhone ? (
+                  <span className="inline-flex items-center gap-1">
+                    <UserRound className="h-3.5 w-3.5 text-ink-muted" />
+                    {property.contactName || property.contactPhone}
+                  </span>
+                ) : null
+              }
+            />
+          </DataList>
+
+          {property.accessNote && (
+            <div className="rounded-xl bg-surface-sunken p-3.5">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-ink-muted">
+                <DoorOpen className="h-4 w-4" />
+                入館・注意
+              </p>
+              <ClampedText text={property.accessNote} className="mt-1 text-sm font-medium leading-relaxed text-ink-soft" toggleClassName="text-brand-600" />
+            </div>
+          )}
+
+          {/* 地図は上部の概要カードにある。電話はここから */}
+          {property.contactPhone && (
+            <a href={`tel:${property.contactPhone}`} className={buttonClass({ size: "md", className: "w-full" })}>
+              <Phone className="h-5 w-5" />
+              {property.contactName ? `${property.contactName}に電話` : "現場連絡先に電話"}
+              <span className="font-medium tnum opacity-80">{property.contactPhone}</span>
+            </a>
+          )}
+        </Card>
+      </section>
 
       {/* 作業内容（現場1件＝作業1つ） */}
       <section className="space-y-2.5">
         <SectionTitle
           action={
             canManage ? (
-              <Link href={`/properties/new?copyFrom=${id}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
+              <Link href={`/properties/new?copyFrom=${id}`} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
                 <Copy className="h-3.5 w-3.5" />コピーして別の作業を登録
               </Link>
             ) : undefined
           }
         >
-          <span className="flex items-center gap-1.5"><Briefcase className="h-4 w-4" />作業内容</span>
+          作業内容
         </SectionTitle>
         {!job ? (
-          <div className="card p-4 text-center text-sm text-ink-muted">
-            作業内容はまだ設定されていません
+          <div className="rounded-2xl border border-dashed border-line-strong px-4 py-5 text-center">
+            <p className="text-sm font-medium text-ink-muted">作業内容はまだ設定されていません</p>
             {canManage && (
-              <Link href={`/properties/${id}/edit`} className="mt-1 block font-bold text-brand-600">編集から設定する</Link>
+              <Link href={`/properties/${id}/edit`} className="mt-1 inline-flex min-h-[44px] items-center text-sm font-bold text-brand-600">編集から設定する</Link>
             )}
           </div>
         ) : (
           <Card className="p-4">
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
               {isDepartment(job.department) && <Badge tone="info">{DEPARTMENT_LABEL[job.department]}</Badge>}
               <CategoryBadge category={job.category} />
               <Badge tone="neutral">{CONTRACT_TYPE_LABEL[job.contractType as ContractType] ?? job.contractType}</Badge>
@@ -236,26 +267,30 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 />
               ))}
             </DataList>
-            {job.note && <p className="mt-3 whitespace-pre-wrap rounded-xl bg-surface-subtle p-3 text-sm text-ink-soft">{job.note}</p>}
+            {job.note && (
+              <div className="mt-3 rounded-xl bg-surface-sunken p-3.5">
+                <ClampedText text={job.note} className="text-sm leading-relaxed text-ink-soft" toggleClassName="text-brand-600" />
+              </div>
+            )}
             {rule && canEditWork && job.status === "ACTIVE" && (
               <div className="mt-4 space-y-2 border-t border-line pt-3">
                 <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Repeat className="h-4 w-4 text-ink-muted" />未割当に入れる</p>
                 <GenerateButton jobId={job.id} months={[0, 1, 2].map((i) => ({ ym: addMonthsKey(thisMonth, i), label: i === 0 ? "今月分" : i === 1 ? "翌月分" : "翌々月分" }))} />
-                <p className="text-[11px] text-ink-faint">毎月の設定日に翌月分が自動で未割当に入ります。入れ済みの回は重複しません。日付はカレンダーで未割当からドラッグして決めます。</p>
+                <p className="text-xs text-ink-faint">毎月の設定日に翌月分が自動で未割当に入ります。入れ済みの回は重複しません。日付はカレンダーで未割当からドラッグして決めます。</p>
               </div>
             )}
           </Card>
         )}
         {otherJobs.length > 0 && (
-          <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-            <p className="text-sm font-bold text-amber-800">この現場には、統合前に登録された作業がほかに {otherJobs.length} 件あります</p>
-            <p className="text-xs text-amber-800/80">「別の現場に分ける」と、この現場をコピーした新しい現場にその作業と予定を移します。</p>
+          <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/40">
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">この現場には、統合前に登録された作業がほかに {otherJobs.length} 件あります</p>
+            <p className="text-xs text-amber-800/80 dark:text-amber-300/80">「別の現場に分ける」と、この現場をコピーした新しい現場にその作業と予定を移します。</p>
             {otherJobs.map((j) => (
-              <div key={j.id} className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2">
+              <div key={j.id} className="flex min-h-[52px] items-center gap-2 rounded-xl bg-surface px-3 py-2">
                 <CategoryBadge category={j.category} short />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink">{j.name}</p>
-                  <p className="truncate text-xs text-ink-muted">{describeWork(j, categories)}・予定 {j._count.occurrences}件</p>
+                  <p className="break-words text-sm font-bold text-ink">{j.name}</p>
+                  <p className="break-words text-xs text-ink-muted">{describeWork(j, categories)}・予定 {j._count.occurrences}件</p>
                 </div>
                 {canManage && canEditDepartment(user, j.department) && <MoveJobButton jobId={j.id} jobName={j.name} />}
               </div>
@@ -268,26 +303,26 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       <section className="space-y-2.5">
         <SectionTitle
           action={
-            <Link href={`/schedule?view=month&d=${today}&q=${encodeURIComponent(property.name)}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
+            <Link href={calendarHref} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
               <CalendarDays className="h-3.5 w-3.5" />カレンダー
             </Link>
           }
         >
-          今後60日の予定 <span className="text-ink-faint">{property.occurrences.length}件</span>
+          <span className="flex items-baseline gap-2">今後60日の予定{countLabel(property.occurrences.length)}</span>
         </SectionTitle>
         {property.occurrences.length === 0 ? (
-          <p className="card p-4 text-center text-sm text-ink-muted">予定はありません</p>
+          emptyBox("予定はありません")
         ) : (
-          <Card className="divide-y divide-line">
+          <Card className="divide-y divide-line overflow-hidden">
             {property.occurrences.map((o) => {
               const key = o.date ? storedDateKey(o.date) : null;
               return (
-                <Link key={o.id} href={key ? `/schedule?view=day&d=${key}` : "/schedule"} className="flex items-center gap-2.5 px-3.5 py-2 text-sm hover:bg-surface-subtle">
-                  <span className="w-20 shrink-0 tnum font-semibold text-ink-soft">{key ? fmtKeyShort(key) : "未定"}</span>
-                  {o.startTime && <span className="w-12 shrink-0 tnum text-xs text-ink-muted">{o.startTime}</span>}
+                <Link key={o.id} href={key ? `/schedule?view=day&d=${key}` : "/schedule"} className="flex min-h-[52px] items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-surface-subtle">
+                  <span className="w-20 shrink-0 tnum font-bold text-ink">{key ? fmtKeyShort(key) : "未定"}</span>
+                  {o.startTime && <span className="w-12 shrink-0 tnum text-sm text-ink-muted">{o.startTime}</span>}
                   <CategoryBadge category={o.category} short />
-                  <span className="min-w-0 flex-1 truncate text-xs text-ink-muted">
-                    <Users className="mr-1 inline h-3 w-3" />
+                  <span className="min-w-0 flex-1 break-words text-sm text-ink-soft">
+                    <Users className="mr-1 inline h-3.5 w-3.5 text-ink-muted" />
                     {o.assignments.map((a) => a.user.name).join("・") || "担当未定"}
                   </span>
                   <OccurrenceStatusBadge status={o.status} />
@@ -303,18 +338,18 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <SectionTitle
             action={
               reports.total > 0 ? (
-                <Link href={`/reports/all?property=${id}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
+                <Link href={`/reports/all?property=${id}`} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
                   すべて見る（{reports.total}）
                 </Link>
               ) : undefined
             }
           >
-            日報 <span className="text-ink-faint">{reports.total}件</span>
+            <span className="flex items-baseline gap-2">日報{countLabel(reports.total)}</span>
           </SectionTitle>
           {reports.items.length === 0 ? (
-            <p className="card p-4 text-center text-sm text-ink-muted">日報はまだありません</p>
+            emptyBox("日報はまだありません")
           ) : (
-            <Card className="divide-y divide-line">
+            <Card className="divide-y divide-line overflow-hidden">
               {reports.items.map((r) => (
                 <ReportListRow key={r.id} r={r} />
               ))}
@@ -331,11 +366,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   );
 
   const photosTab = (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <section className="space-y-2.5">
-        <SectionTitle><span className="flex items-center gap-1.5"><FileText className="h-4 w-4" />図面・資料（PDF）</span></SectionTitle>
+        <SectionTitle>図面・資料（PDF）</SectionTitle>
         {drawings.length === 0 ? (
-          <p className="card p-4 text-center text-sm text-ink-muted">図面・資料はまだありません{canManage && "（編集から追加できます）"}</p>
+          emptyBox(`図面・資料はまだありません${canManage ? "（編集から追加できます）" : ""}`)
         ) : (
           <div className="space-y-2">
             {drawings.filter((p) => p.width == null).map((p, i) => (
@@ -346,12 +381,12 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         )}
       </section>
       <section className="space-y-2.5">
-        <SectionTitle><span className="flex items-center gap-1.5"><KeyRound className="h-4 w-4" />キーBOX写真</span></SectionTitle>
-        {keyboxPhotos.length === 0 ? <p className="card p-4 text-center text-sm text-ink-muted">写真はありません</p> : <PhotoGrid photos={keyboxPhotos} />}
+        <SectionTitle>キーBOX写真</SectionTitle>
+        {keyboxPhotos.length === 0 ? emptyBox("写真はありません") : <PhotoGrid photos={keyboxPhotos} />}
       </section>
       <section className="space-y-2.5">
-        <SectionTitle><span className="flex items-center gap-1.5"><Camera className="h-4 w-4" />現調写真</span></SectionTitle>
-        {surveyPhotos.length === 0 ? <p className="card p-4 text-center text-sm text-ink-muted">写真はありません</p> : <PhotoGrid photos={surveyPhotos} />}
+        <SectionTitle>現調写真</SectionTitle>
+        {surveyPhotos.length === 0 ? emptyBox("写真はありません") : <PhotoGrid photos={surveyPhotos} />}
       </section>
       {workPhotos.length > 0 && (
         <section className="space-y-2.5">
@@ -363,9 +398,14 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   );
 
   const memoTab = (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <section className="space-y-2.5">
-        <SectionTitle><span className="flex items-center gap-1.5"><AlertTriangle className="h-4 w-4" />引き継ぎ事項</span></SectionTitle>
+        <SectionTitle>
+          <span className="flex items-baseline gap-2">
+            引き継ぎ事項
+            {openHandovers.length > 0 && <span className="text-sm font-normal text-ink-muted tnum">未解決 {openHandovers.length}件</span>}
+          </span>
+        </SectionTitle>
         <HandoverPanel
           propertyId={id}
           items={property.handovers.map((h) => ({
@@ -379,7 +419,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         />
       </section>
       <section className="space-y-2.5">
-        <SectionTitle><span className="flex items-center gap-1.5"><StickyNote className="h-4 w-4" />物件メモ</span></SectionTitle>
+        <SectionTitle>物件メモ</SectionTitle>
         <PropertyMemoPanel
           propertyId={id}
           memos={property.memos.map((m) => ({ id: m.id, content: m.content, createdAt: m.createdAt.toISOString(), updatedAt: m.updatedAt.toISOString(), createdById: m.createdById, atSurvey: m.atSurvey }))}
@@ -392,16 +432,80 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     </div>
   );
 
+  // ───────────────── 上部の概要カード（状態・現場名・作業・場所・主な操作） ─────────────────
+  const summaryCard = (
+    <div className="border-b border-line bg-surface">
+      <div className="mx-auto w-full max-w-7xl px-5 pb-5 pt-5 md:px-8 md:pt-6">
+        <div className="flex items-center justify-between gap-3">
+          {/* 顧客（タップで顧客情報へ） */}
+          <Link href={`/customers/${property.customer.id}`} className="flex min-h-[32px] min-w-0 items-center gap-1.5 text-sm font-semibold text-ink-soft active:opacity-70">
+            <Building2 className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+            <span className="truncate">{property.customer.shortName ?? property.customer.name}</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
+          </Link>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {job && isDepartment(job.department) && <Badge tone="info">{DEPARTMENT_LABEL[job.department]}</Badge>}
+            {job && <CategoryBadge category={job.category} short />}
+            {property.status !== "ACTIVE" && <Badge tone="past" className="px-3 py-1 text-sm font-bold">{PROPERTY_STATUS_LABEL[property.status as PropertyStatus] ?? property.status}</Badge>}
+          </div>
+        </div>
+        <h1 className="mt-3 break-words text-2xl font-bold leading-snug text-ink [text-wrap:pretty]">{property.name}</h1>
+        {(property.building || property.unitCount != null || job) && (
+          <p className="mt-2 text-sm text-ink-muted tnum">
+            {[
+              property.building,
+              property.unitCount != null ? `${property.unitCount}件` : null,
+              job ? (rule ? `${CONTRACT_TYPE_LABEL[job.contractType as ContractType] ?? job.contractType}（${describeRule(rule.kind, rule.params)}）` : (CONTRACT_TYPE_LABEL[job.contractType as ContractType] ?? job.contractType)) : null,
+            ]
+              .filter(Boolean)
+              .join(" ・ ")}
+          </p>
+        )}
+
+        {property.address && mapsUrl && (
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="mt-3 flex min-w-0 items-start gap-1.5 text-sm font-medium text-brand-600">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span className="break-words">{property.address}</span>
+          </a>
+        )}
+
+        {/* 現場に着いて最初に要るもの：キーBOX番号 */}
+        {property.keyboxStatus === "HAS" && property.keyboxNumber && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-surface-sunken px-3.5 py-2.5">
+            <KeyRound className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+            <span className="text-sm font-semibold text-ink-muted">キーBOX</span>
+            <span className="text-xl font-bold tracking-wider text-ink tnum">{property.keyboxNumber}</span>
+            {property.keyboxPlace && <span className="min-w-0 truncate text-sm text-ink-muted">（{property.keyboxPlace}）</span>}
+          </div>
+        )}
+
+        {/* カレンダー・地図（横並び） */}
+        <div className={cn("mt-4 grid gap-3", mapsUrl ? "grid-cols-2" : "grid-cols-1")}>
+          <LinkButton href={calendarHref} variant="outline" className="min-h-[52px] border-brand-200 text-brand-700 dark:border-brand-800">
+            <CalendarDays className="h-5 w-5" aria-hidden />
+            <span className="truncate">カレンダー</span>
+          </LinkButton>
+          {mapsUrl && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonClass({ variant: "outline", className: "min-h-[52px] border-brand-200 text-brand-700 dark:border-brand-800" })}
+            >
+              <MapIcon className="h-5 w-5" aria-hidden />
+              地図を開く
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <PageHeader
-        title={property.name}
-        subtitle={
-          <span className="flex items-center gap-1.5">
-            {property.customer.shortName ?? property.customer.name}
-            {property.status !== "ACTIVE" && <Badge tone="past">{PROPERTY_STATUS_LABEL[property.status as PropertyStatus] ?? property.status}</Badge>}
-          </span>
-        }
+        title="現場詳細"
+        subtitle={property.customer.shortName ?? property.customer.name}
         backHref="/properties"
         right={
           canManage ? (
@@ -411,22 +515,25 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           ) : undefined
         }
       />
-      <PageContainer size="narrow">
-        <SearchParamToast />
-        <PropertyDetailTabs
-          defaultId="basic"
-          tabs={[
-            { id: "basic", label: "基本情報", icon: <Info className="h-4 w-4" />, count: openHandovers.length, alert: openHandovers.length > 0, content: basicTab },
-            { id: "photos", label: "写真・図面", icon: <Camera className="h-4 w-4" />, count: property.photos.length, content: photosTab },
-            { id: "memo", label: "メモ・引き継ぎ", icon: <StickyNote className="h-4 w-4" />, count: property._count.memos, content: memoTab },
-          ]}
-        />
-        <p className="mt-4 flex items-center gap-1 px-1 text-[11px] text-ink-faint">
-          <DoorOpen className="h-3 w-3" />
+      <SearchParamToast />
+
+      {summaryCard}
+
+      <PropertyDetailTabs
+        defaultId="basic"
+        tabs={[
+          { id: "basic", label: "基本情報", icon: <Info className="h-4 w-4" />, count: openHandovers.length, alert: openHandovers.length > 0, content: basicTab },
+          { id: "photos", label: "写真・図面", icon: <Camera className="h-4 w-4" />, count: property.photos.length, content: photosTab },
+          { id: "memo", label: "メモ・引き継ぎ", icon: <StickyNote className="h-4 w-4" />, count: property._count.memos, content: memoTab },
+        ]}
+      />
+      <div className="mx-auto w-full max-w-7xl px-4 pb-6 md:px-8">
+        <p className="flex items-center gap-1 px-1 text-xs text-ink-faint">
+          <DoorOpen className="h-3.5 w-3.5 shrink-0" />
           キーBOX番号や入館方法は、カレンダーの予定を開いても確認できます
-          <ExternalLink className="h-3 w-3" />
+          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
         </p>
-      </PageContainer>
+      </div>
     </div>
   );
 }

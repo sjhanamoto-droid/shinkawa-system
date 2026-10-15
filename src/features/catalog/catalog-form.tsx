@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertCircle, Loader2, Save, Trash2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, SectionTitle } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/form";
 import { buttonClass } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -28,34 +28,37 @@ export function CatalogForm({ initial, groups }: { initial: CatalogFormValues; g
   const [deleting, startDelete] = useTransition();
   const toast = useToast();
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-5">
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
-      <Card className="space-y-4 p-4">
-        <Field label="名前" required htmlFor="cat-title">
-          <Input id="cat-title" name="title" defaultValue={initial.title} required maxLength={80} placeholder="例）サンゲツ SP" />
-        </Field>
-        <Field label="リンク先のURL" required htmlFor="cat-url">
-          <Input id="cat-url" name="url" type="url" inputMode="url" defaultValue={initial.url} required placeholder="https://" />
-        </Field>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
-          <Field label="見出し" htmlFor="cat-group" hint="同じ見出しのリンクがまとまって並びます（例：自社・サンゲツ・3M）">
-            <Input id="cat-group" name="groupName" defaultValue={initial.groupName} maxLength={40} list="cat-groups" />
-            <datalist id="cat-groups">
-              {groups.map((g) => (
-                <option key={g} value={g} />
-              ))}
-            </datalist>
+      <section className="space-y-2.5">
+        <SectionTitle>リンク情報</SectionTitle>
+        <Card className="space-y-4 p-4 sm:p-5">
+          <Field label="名前" required htmlFor="cat-title">
+            <Input id="cat-title" name="title" defaultValue={initial.title} required maxLength={80} placeholder="例）サンゲツ SP" />
           </Field>
-          <Field label="並び順" htmlFor="cat-order" hint="小さい順">
-            <Input id="cat-order" name="sortOrder" type="number" inputMode="numeric" min={0} max={9999} defaultValue={initial.sortOrder} />
+          <Field label="リンク先のURL" required htmlFor="cat-url">
+            <Input id="cat-url" name="url" type="url" inputMode="url" defaultValue={initial.url} required placeholder="https://" />
           </Field>
-        </div>
-        <Field label="メモ" htmlFor="cat-note" hint="何のカタログか、使いどころなど（任意）">
-          <Input id="cat-note" name="note" defaultValue={initial.note} maxLength={200} />
-        </Field>
-      </Card>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
+            <Field label="見出し" htmlFor="cat-group" hint="同じ見出しのリンクがまとまって並びます（例：自社・サンゲツ・3M）">
+              <Input id="cat-group" name="groupName" defaultValue={initial.groupName} maxLength={40} list="cat-groups" />
+              <datalist id="cat-groups">
+                {groups.map((g) => (
+                  <option key={g} value={g} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label="並び順" htmlFor="cat-order" hint="小さい順">
+              <Input id="cat-order" name="sortOrder" type="number" inputMode="numeric" min={0} max={9999} defaultValue={initial.sortOrder} />
+            </Field>
+          </div>
+          <Field label="メモ" htmlFor="cat-note" hint="何のカタログか、使いどころなど（任意）">
+            <Input id="cat-note" name="note" defaultValue={initial.note} maxLength={200} />
+          </Field>
+        </Card>
+      </section>
       {state.error && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {state.error}
         </div>

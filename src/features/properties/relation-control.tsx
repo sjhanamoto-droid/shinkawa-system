@@ -40,11 +40,11 @@ export function RelationControl({ propertyId, related, candidates, canEdit }: { 
         <div className="space-y-2">
           {related.map((r) => (
             <div key={r.relationId} className="flex items-center gap-2">
-              <CardLink href={`/properties/${r.other.id}`} className="flex min-w-0 flex-1 items-center gap-3 p-3">
+              <CardLink href={`/properties/${r.other.id}`} className="flex min-h-[52px] min-w-0 flex-1 items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">{r.other.name}</p>
-                  {r.other.address && <p className="truncate text-xs text-ink-muted">{r.other.address}</p>}
-                  {r.note && <p className="truncate text-xs text-ink-faint">{r.note}</p>}
+                  <p className="break-words text-[15px] font-bold text-ink">{r.other.name}</p>
+                  {r.other.address && <p className="mt-0.5 break-words text-sm text-ink-muted">{r.other.address}</p>}
+                  {r.note && <p className="mt-0.5 break-words text-xs text-ink-faint">{r.note}</p>}
                 </div>
                 <ArrowRight className="h-4 w-4 shrink-0 text-ink-faint" />
               </CardLink>
@@ -64,8 +64,8 @@ export function RelationControl({ propertyId, related, candidates, canEdit }: { 
         </div>
       )}
       {canEdit && candidates.length > 0 && (
-        <div className="space-y-2 rounded-2xl border border-dashed border-line-strong bg-surface/50 p-3">
-          <p className="text-xs font-semibold text-ink-muted">関連物件を追加（同じ建物の別部屋・系列店舗など）</p>
+        <div className="space-y-2.5 rounded-2xl border border-dashed border-line-strong bg-surface/50 p-4">
+          <p className="text-sm font-semibold text-ink-soft">関連物件を追加（同じ建物の別部屋・系列店舗など）</p>
           <Select value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="関連物件を選択">
             <option value="">物件を選択…</option>
             {candidates.map((c) => (
@@ -82,7 +82,9 @@ export function RelationControl({ propertyId, related, candidates, canEdit }: { 
           </button>
         </div>
       )}
-      {related.length === 0 && (!canEdit || candidates.length === 0) && <p className="text-sm text-ink-muted">関連物件はありません</p>}
+      {related.length === 0 && (!canEdit || candidates.length === 0) && (
+        <p className="rounded-2xl border border-dashed border-line-strong px-4 py-5 text-center text-sm font-medium text-ink-muted">関連物件はありません</p>
+      )}
     </div>
   );
 }

@@ -7,7 +7,9 @@ import { useCategories } from "@/components/category-provider";
 import { cn } from "@/lib/utils";
 import { dayDropId } from "./dnd";
 import { OccurrenceCard } from "./occurrence-card";
+import { holidayName } from "@/lib/holidays";
 import { monthStartOf, monthEndExclusive, shiftKey, weekdayOfKey, WEEKDAY_JA } from "./filters";
+import { toneText } from "./day-heading";
 import type { OccurrenceView } from "./types";
 
 function DayCell({
@@ -35,7 +37,7 @@ function DayCell({
 }) {
   const categories = useCategories();
   const { setNodeRef, isOver } = useDroppable({ id: dayDropId(dateKey), disabled: !dnd });
-  const dow = weekdayOfKey(dateKey);
+  const holiday = holidayName(dateKey);
   const dayNum = Number(dateKey.slice(8, 10));
   const unassigned = items.filter((o) => o.status === "UNASSIGNED").length;
   const tentative = items.filter((o) => o.status === "TENTATIVE").length;
@@ -44,8 +46,8 @@ function DayCell({
   const numberEl = (
     <span
       className={cn(
-        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tnum",
-        isToday ? "bg-brand-600 text-white" : dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : "text-ink-soft",
+        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tnum md:h-7 md:w-7 md:text-sm",
+        isToday ? "bg-brand-600 text-white" : toneText(dateKey, "text-ink"),
         !inMonth && "opacity-40",
       )}
     >
@@ -60,12 +62,13 @@ function DayCell({
       <button
         type="button"
         onClick={() => onOpenDay(dateKey)}
-        className={cn("flex aspect-square flex-col items-center gap-0.5 rounded-lg p-0.5 active:bg-surface-sunken", !inMonth && "opacity-50")}
+        title={holiday ?? undefined}
+        className={cn("flex aspect-square flex-col items-center gap-0.5 rounded-xl p-0.5 active:bg-surface-sunken", !inMonth && "opacity-50")}
       >
         {numberEl}
         {items.length > 0 && (
           <>
-            <span className="text-[11px] font-bold tnum text-ink">{items.length}</span>
+            <span className="text-xs font-bold tnum text-ink">{items.length}</span>
             <span className="flex gap-0.5">
               {colors.map((c) => (
                 <span key={c} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c }} />
@@ -82,30 +85,32 @@ function DayCell({
     <div
       ref={setNodeRef}
       className={cn(
-        "group flex min-h-[7.5rem] flex-col rounded-lg border p-1 transition-colors",
+        "group flex min-h-[7.5rem] flex-col rounded-xl border p-1.5 transition-colors",
         inMonth ? "bg-surface" : "bg-surface-subtle",
-        isOver ? "border-brand-400 bg-brand-50" : "border-line",
+        isOver ? "border-brand-400 bg-brand-50" : isToday ? "border-brand-300" : "border-line",
       )}
     >
       <div className="flex items-center gap-1">
         <button type="button" onClick={() => onOpenDay(dateKey)} className="rounded-full hover:ring-2 hover:ring-brand-200" title="この日を開く">
           {numberEl}
         </button>
-        {items.length > 0 && <span className="text-[11px] tnum text-ink-faint">{items.length}件</span>}
-        {noWorker > 0 && <span className="rounded bg-red-100 px-1 text-[10px] font-bold text-red-600">担当未定{noWorker}</span>}
-        {tentative > 0 && <span className="rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-700">仮{tentative}</span>}
+        {items.length > 0 && <span className="text-xs tnum text-ink-muted">{items.length}件</span>}
+        {noWorker > 0 && <span className="rounded-md bg-red-100 px-1 text-[11px] font-bold text-red-600">担当未定{noWorker}</span>}
+        {tentative > 0 && <span className="rounded-md bg-amber-100 px-1 text-[11px] font-bold text-amber-700">仮{tentative}</span>}
         {canEdit && (
           <button
             type="button"
             onClick={() => onAdd(dateKey)}
             aria-label="予定を追加"
-            className="ml-auto hidden h-5 w-5 items-center justify-center rounded text-ink-faint hover:bg-surface-sunken hover:text-ink-soft group-hover:flex"
+            className="ml-auto hidden h-7 w-7 items-center justify-center rounded-full text-brand-600 hover:bg-brand-100 group-hover:flex"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
           </button>
         )}
       </div>
-      <div className="mt-1 flex flex-1 flex-col gap-0.5">
+      {/* 祝日名 */}
+      {holiday && <span className="truncate px-0.5 text-[11px] font-bold leading-tight text-red-500">{holiday}</span>}
+      <div className="mt-1 flex flex-1 flex-col gap-1">
         {items.map((o) => (
           <OccurrenceCard key={o.id} occurrence={o} variant="chip" draggable={dnd} onClick={onSelect} />
         ))}
@@ -146,10 +151,10 @@ export function MonthView({
   }
 
   return (
-    <div>
-      <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[11px] font-bold text-ink-faint">
+    <div className="card p-2 md:p-3">
+      <div className="grid grid-cols-7 gap-1 pb-1.5 text-center text-xs font-bold text-ink-muted md:text-sm">
         {WEEKDAY_JA.map((w, i) => (
-          <div key={w} className={cn(i === 0 && "text-red-400", i === 6 && "text-blue-400")}>
+          <div key={w} className={cn(i === 0 && "text-red-500", i === 6 && "text-blue-500")}>
             {w}
           </div>
         ))}

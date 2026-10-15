@@ -111,13 +111,13 @@ export function UserForm({
         </Field>
         <Field label="タグ" htmlFor="tags" hint="カンマ区切り。一括連絡や絞り込みに使う">
           <Input id="tags" name="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="例：アルバイト, 土日可" />
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className="mt-2 flex flex-wrap gap-2">
             {WORKER_TAG_SUGGESTIONS.map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => addTag(t)}
-                className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-subtle"
+                className="flex h-9 items-center rounded-full border border-line bg-surface px-3 text-sm font-semibold text-ink-soft hover:bg-surface-subtle"
               >
                 ＋{t}
               </button>
@@ -126,7 +126,7 @@ export function UserForm({
         </Field>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-line bg-surface-subtle p-4">
+      <div className="space-y-4 rounded-2xl border border-line bg-surface-subtle p-4">
         <label className="flex items-center gap-2.5 text-sm font-semibold text-ink">
           <input
             type="checkbox"
@@ -137,7 +137,7 @@ export function UserForm({
           />
           このシステムにログインできる
         </label>
-        <p className="text-xs text-ink-muted">
+        <p className="text-sm text-ink-muted">
           ログインしない作業者（協力会社のスタッフ・下請など）は、配員先としてだけ使えます。
         </p>
         {canLogin && (
@@ -175,7 +175,7 @@ export function UserForm({
       </Field>
 
       {state.error && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {state.error}
         </div>

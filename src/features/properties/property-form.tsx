@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Save, AlertCircle, KeyRound, FileText, ChevronDown, Briefcase, Lock, Repeat } from "lucide-react";
+import { Save, AlertCircle, KeyRound, FileText, ChevronDown, Lock, Repeat } from "lucide-react";
 import { createProperty, updateProperty, type PropertyFormState } from "./actions";
 import { PropertyPhotoField, type PropertyPhotoInit } from "./property-photo-field";
 import { Field, Input, Textarea } from "@/components/ui/form";
@@ -80,7 +80,7 @@ function ChoiceButton({ name, value, checked, onChange, children, color, size = 
     <label
       className={cn(
         "flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border text-sm font-bold transition-colors",
-        size === "md" ? "h-12 flex-1" : "h-10 px-3",
+        size === "md" ? "h-12 flex-1" : "h-11 px-3.5",
         checked ? "border-brand-600 bg-brand-50 text-brand-700" : "border-line-strong bg-surface text-ink-soft hover:bg-surface-subtle",
       )}
     >
@@ -94,14 +94,16 @@ function ChoiceButton({ name, value, checked, onChange, children, color, size = 
 /** 折りたたみセクション（閉じていても中の入力は送信される） */
 function Collapsible({ title, icon, defaultOpen, children }: { title: string; icon: React.ReactNode; defaultOpen?: boolean; children: React.ReactNode }) {
   return (
-    <details open={defaultOpen} className="group rounded-2xl border border-line bg-surface">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-3 text-sm font-bold text-ink [&::-webkit-details-marker]:hidden">
-        {icon}
-        <span className="flex-1">{title}</span>
-        <span className="text-xs font-medium text-ink-muted group-open:hidden">あとで入力してもOK</span>
-        <ChevronDown className="h-4 w-4 text-ink-faint transition-transform group-open:rotate-180" />
+    <details open={defaultOpen} className="card group">
+      <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-4 py-3 text-lg font-bold text-ink [&::-webkit-details-marker]:hidden">
+        <span className="shrink-0 text-ink-muted">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block">{title}</span>
+          <span className="block text-xs font-medium text-ink-muted group-open:hidden">あとで入力してもOK</span>
+        </span>
+        <ChevronDown className="h-5 w-5 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
       </summary>
-      <div className="space-y-3 border-t border-line p-4">{children}</div>
+      <div className="space-y-4 border-t border-line p-4">{children}</div>
     </details>
   );
 }
@@ -166,10 +168,10 @@ export function PropertyForm({
       : "カレンダーに予定を1件入れる（日付が未定なら「未割当」に入ります）";
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-5">
       {isEdit && <input type="hidden" name="id" value={property?.id} />}
       {copiedFrom && (
-        <p className="rounded-xl bg-brand-50 px-3 py-2.5 text-sm text-brand-700">
+        <p className="rounded-xl bg-brand-50 px-3.5 py-3 text-sm text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
           「{copiedFrom}」の住所・キーBOX・入館メモなどをコピーしています。作業内容を選んで登録してください。
         </p>
       )}
@@ -177,7 +179,7 @@ export function PropertyForm({
       {/* ① 基本情報 */}
       <section className="space-y-3">
         <SectionTitle>基本情報</SectionTitle>
-        <Card className="space-y-3 p-4">
+        <Card className="space-y-4 p-4">
           <Field label="顧客（元請・管理会社）" required htmlFor="customerId" hint="名前・ふりがなで検索">
             <SearchSelect
               id="customerId"
@@ -213,12 +215,7 @@ export function PropertyForm({
 
       {/* ② 作業内容 */}
       <section className="space-y-3">
-        <SectionTitle>
-          <span className="flex items-center gap-1.5">
-            <Briefcase className="h-4 w-4" />
-            作業内容
-          </span>
-        </SectionTitle>
+        <SectionTitle>作業内容</SectionTitle>
         {!workEditable ? (
           <Card className="p-4">
             <p className="text-sm font-bold text-ink">{workSummary ?? "—"}</p>
@@ -262,7 +259,7 @@ export function PropertyForm({
                 </Field>
 
                 {contractType === "REGULAR" && (
-                  <div className="space-y-2 rounded-xl border border-line p-3">
+                  <div className="space-y-2 rounded-xl border border-line p-3.5">
                     <Field label="月に何回" htmlFor="timesPerMonth" required>
                       <div className="flex items-center gap-2">
                         <Input id="timesPerMonth" name="timesPerMonth" type="number" inputMode="numeric" min={1} max={31} required defaultValue={initialTimes} className="max-w-[6rem]" />
@@ -288,9 +285,9 @@ export function PropertyForm({
                 )}
 
                 {contractType && (
-                  <div className="space-y-3 rounded-xl bg-surface-subtle p-3">
-                    <label className="flex cursor-pointer items-start gap-2 text-sm font-semibold text-ink">
-                      <input type="checkbox" name="addToCalendar" value="1" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand-600" />
+                  <div className="space-y-3 rounded-xl bg-surface-sunken p-3.5">
+                    <label className="flex min-h-[44px] cursor-pointer items-start gap-2.5 text-sm font-semibold text-ink">
+                      <input type="checkbox" name="addToCalendar" value="1" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
                       <span>{calendarLabel}</span>
                     </label>
                     {contractType === "SPOT" && addToCalendar && (
@@ -385,7 +382,7 @@ export function PropertyForm({
       </Collapsible>
 
       {state.error && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3.5 py-3 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {state.error}
         </div>

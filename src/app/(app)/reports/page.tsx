@@ -43,33 +43,33 @@ export default async function ReportsPage() {
         <SearchParamToast />
         <div className="space-y-6">
           <section className="space-y-2.5">
-            <SectionTitle>
+            <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{fmtKeyLong(today)}</span>}>
               <span className="flex items-center gap-1.5">
-                <ClipboardList className="h-4 w-4" />
-                今日の日報 <span className="text-ink-faint">{fmtKeyLong(today)}</span>
+                <ClipboardList className="h-5 w-5" />
+                今日の日報
               </span>
             </SectionTitle>
             {todo.today.length === 0 ? (
               <p className="card p-5 text-center text-sm text-ink-muted">今日あなたが担当の予定はありません</p>
             ) : (
-              <Card className="divide-y divide-line">
+              <div className="space-y-2.5">
                 {todo.today.map((i) => (
-                  <DueRow key={`${i.occurrenceId}-${i.workDate}`} item={i} />
+                  <DueRow key={`${i.occurrenceId}-${i.workDate}`} item={i} variant="card" />
                 ))}
-              </Card>
+              </div>
             )}
           </section>
 
           {todo.missing.length > 0 && (
             <section className="space-y-2.5">
-              <SectionTitle>
+              <SectionTitle action={<span className="text-sm font-semibold text-red-600 tnum">{todo.missing.length}件</span>}>
                 <span className="flex items-center gap-1.5 text-red-600">
-                  <Inbox className="h-4 w-4" />
-                  未提出の日報 {todo.missing.length}件
+                  <Inbox className="h-5 w-5" />
+                  未提出の日報
                 </span>
               </SectionTitle>
-              <p className="px-1 text-xs text-ink-muted">過去{MISSING_LOOKBACK_DAYS}日で、まだ提出していない日報です。</p>
-              <Card className="divide-y divide-line">
+              <p className="px-1 text-sm text-ink-muted">過去{MISSING_LOOKBACK_DAYS}日で、まだ提出していない日報です。</p>
+              <Card className="divide-y divide-line overflow-hidden">
                 {todo.missing.map((i) => (
                   <DueRow key={`${i.occurrenceId}-${i.workDate}`} item={i} showDate />
                 ))}
@@ -79,17 +79,17 @@ export default async function ReportsPage() {
 
           {manager && (
             <section className="space-y-2.5">
-              <SectionTitle>
+              <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{proxy.length}件</span>}>
                 <span className="flex items-center gap-1.5">
-                  <UserCheck className="h-4 w-4" />
-                  代理入力が必要な日報 <span className="text-ink-faint">{proxy.length}件</span>
+                  <UserCheck className="h-5 w-5" />
+                  代理入力が必要な日報
                 </span>
               </SectionTitle>
-              <p className="px-1 text-xs text-ink-muted">ログインしない作業者（協力会社・下請など）の、今日まで{MISSING_LOOKBACK_DAYS}日分の未提出です。</p>
+              <p className="px-1 text-sm text-ink-muted">ログインしない作業者（協力会社・下請など）の、今日まで{MISSING_LOOKBACK_DAYS}日分の未提出です。</p>
               {proxy.length === 0 ? (
                 <p className="card p-4 text-center text-sm text-ink-muted">代理入力が必要な日報はありません</p>
               ) : (
-                <Card className="divide-y divide-line">
+                <Card className="divide-y divide-line overflow-hidden">
                   {proxy.map((i) => (
                     <DueRow key={`${i.occurrenceId}-${i.userId}-${i.workDate}`} item={i} showDate showWorker proxy />
                   ))}
@@ -101,14 +101,14 @@ export default async function ReportsPage() {
           <section className="space-y-2.5">
             <SectionTitle>
               <span className="flex items-center gap-1.5">
-                <History className="h-4 w-4" />
+                <History className="h-5 w-5" />
                 最近の日報
               </span>
             </SectionTitle>
             {recent.length === 0 ? (
               <p className="card p-4 text-center text-sm text-ink-muted">まだ日報はありません</p>
             ) : (
-              <Card className="divide-y divide-line">
+              <Card className="divide-y divide-line overflow-hidden">
                 {recent.map((r) => (
                   <ReportListRow key={r.id} r={r} />
                 ))}

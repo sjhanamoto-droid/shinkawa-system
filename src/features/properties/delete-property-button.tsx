@@ -15,7 +15,7 @@ export function DeletePropertyButton({ propertyId, propertyName, status }: { pro
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-line bg-surface p-4">
+      <div className="card p-4">
         <p className="text-sm font-bold text-ink">{inactive ? "終了した現場" : "取引が終わったら"}</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-muted">
           {inactive ? "再開するとカレンダーの現場候補に戻ります。" : "「終了」にするとカレンダーの現場候補から外れます（過去の予定・写真は残ります）。"}
@@ -38,9 +38,9 @@ export function DeletePropertyButton({ propertyId, propertyName, status }: { pro
           {inactive ? "現場を再開する" : "現場を終了にする"}
         </Button>
       </div>
-      <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4">
-        <p className="text-sm font-bold text-red-700">危険な操作</p>
-        <p className="mt-1 text-xs leading-relaxed text-red-600/90">予定が紐づいている現場は削除できません。写真・メモも消えます。取り消せません。</p>
+      <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4 dark:border-red-900 dark:bg-red-950/30">
+        <p className="text-sm font-bold text-red-700 dark:text-red-300">危険な操作</p>
+        <p className="mt-1 text-xs leading-relaxed text-red-600/90 dark:text-red-300/80">予定が紐づいている現場は削除できません。写真・メモも消えます。取り消せません。</p>
         <Button type="button" variant="danger" size="md" className="mt-3 w-full" onClick={() => setOpen(true)}>
           <Trash2 className="h-4 w-4" />
           この現場を削除

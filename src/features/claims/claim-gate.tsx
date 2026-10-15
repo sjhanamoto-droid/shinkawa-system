@@ -55,9 +55,11 @@ export function ClaimGate({ claims }: { claims: PendingClaim[] }) {
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="claim-gate-title" className="fixed inset-0 z-[100] flex flex-col bg-surface-subtle">
-      <div className="shrink-0 border-b border-red-200 bg-red-50 px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-center gap-2.5">
+    <div role="dialog" aria-modal="true" aria-labelledby="claim-gate-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in">
+      {/* 後ろの画面の上に重ねるモーダル */}
+      <div className="flex max-h-[88dvh] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl bg-surface shadow-float">
+      <div className="shrink-0 border-b border-red-200 bg-red-50 px-5 py-4">
+        <div className="flex items-center gap-2.5">
           <ShieldAlert className="h-6 w-6 shrink-0 text-red-600" />
           <div className="min-w-0 flex-1">
             <p id="claim-gate-title" className="font-black text-red-700">
@@ -67,22 +69,23 @@ export function ClaimGate({ claims }: { claims: PendingClaim[] }) {
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-5">
-        <div className="card mx-auto max-w-2xl p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-subtle px-4 py-4">
+        <div className="card p-4">
           <ClaimBody claim={current} />
           {current.createdByName && <p className="mt-4 border-t border-line pt-3 text-xs text-ink-muted">共有：{current.createdByName}</p>}
         </div>
       </div>
-      <div className="shrink-0 border-t border-line bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="shrink-0 border-t border-line bg-surface px-4 py-3">
         <button
           type="button"
           onClick={confirm}
           disabled={pending}
-          className="mx-auto flex h-14 w-full max-w-2xl items-center justify-center gap-2 rounded-2xl bg-red-600 text-base font-black text-white active:scale-[0.99] disabled:opacity-60"
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-red-600 text-base font-black text-white active:scale-[0.99] disabled:opacity-60"
         >
           {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
           内容を確認しました
         </button>
+      </div>
       </div>
     </div>
   );

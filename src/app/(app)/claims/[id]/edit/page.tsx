@@ -66,7 +66,7 @@ export default async function EditClaimPage({ params }: { params: Promise<{ id: 
           blobEnabled={isBlobConfigured()}
           aiEnabled={isAnthropicConfigured()}
         />
-        <p className="mt-3 text-center text-xs text-ink-muted">編集しても、もう一度通知はしません（共有した相手と確認状況はそのままです）。</p>
+        <p className="mt-4 text-center text-sm text-ink-muted">編集しても、もう一度通知はしません（共有した相手と確認状況はそのままです）。</p>
       </PageContainer>
     </div>
   );

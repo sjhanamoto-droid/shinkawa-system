@@ -46,23 +46,23 @@ export default async function CatalogPage() {
         ) : (
           <div className="space-y-6">
             {groups.map((g) => (
-              <section key={g.name} className="space-y-2">
+              <section key={g.name} className="space-y-2.5">
                 <SectionTitle>{g.name}</SectionTitle>
                 <ul className="card divide-y divide-line overflow-hidden">
                   {g.links.map((l) => (
                     <li key={l.id} className="flex items-center">
-                      <a href={l.url} target="_blank" rel="noopener noreferrer" className="tap-row flex min-w-0 flex-1 items-center gap-3.5 p-4 active:bg-surface-sunken">
+                      <a href={l.url} target="_blank" rel="noopener noreferrer" className="tap-row flex min-w-0 flex-1 items-center gap-3.5 px-4 py-3.5 active:bg-surface-sunken">
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                           <BookOpen className="h-5 w-5" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[15px] font-bold text-ink">{l.title}</span>
-                          <span className="block truncate text-xs text-ink-muted">{l.note || hostOf(l.url)}</span>
+                          <span className="block truncate text-base font-bold text-ink">{l.title}</span>
+                          <span className="block truncate text-sm text-ink-muted">{l.note || hostOf(l.url)}</span>
                         </span>
                         <ExternalLink className="h-4 w-4 shrink-0 text-ink-faint" />
                       </a>
                       {manager && (
-                        <Link href={`/catalog/${l.id}/edit`} aria-label={`${l.title}を編集`} className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-faint hover:bg-surface-sunken hover:text-ink-soft">
+                        <Link href={`/catalog/${l.id}/edit`} aria-label={`${l.title}を編集`} className="mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-faint hover:bg-surface-sunken hover:text-ink-soft">
                           <Pencil className="h-4 w-4" />
                         </Link>
                       )}
@@ -71,7 +71,7 @@ export default async function CatalogPage() {
                 </ul>
               </section>
             ))}
-            <p className="text-center text-xs text-ink-faint">リンクは新しいタブ（スマホではブラウザ）で開きます</p>
+            <p className="text-center text-xs text-ink-muted">リンクは新しいタブ（スマホではブラウザ）で開きます</p>
           </div>
         )}
       </PageContainer>

@@ -7,7 +7,8 @@ import { PeopleTabs } from "@/components/app-shell/section-tab-sets";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { LinkButton } from "@/components/ui/button";
+import { LinkButton, buttonClass } from "@/components/ui/button";
+import { SectionTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/form";
 import { StaffRowActions } from "@/features/users/staff-actions";
 import { avatarUrlFor } from "@/lib/session";
@@ -61,14 +62,14 @@ export default async function WorkersPage({
             <Input name="q" type="search" defaultValue={q ?? ""} placeholder="氏名・ふりがな・メールで検索" className="h-11 pl-10" />
           </div>
           {tag && <input type="hidden" name="tag" value={tag} />}
-          <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">検索</button>
+          <button type="submit" className={buttonClass({ className: "shrink-0 px-5" })}>検索</button>
         </form>
         {allTags.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-1.5">
-            <Tag className="h-3.5 w-3.5 text-ink-faint" />
-            <Link href="/workers" className={`rounded-full px-2.5 py-1 text-xs font-semibold ${!tag ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-soft"}`}>すべて</Link>
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            <Tag className="h-4 w-4 text-ink-faint" />
+            <Link href="/workers" className={`flex h-9 items-center rounded-full px-3.5 text-sm font-semibold ${!tag ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-soft"}`}>すべて</Link>
             {allTags.map((t) => (
-              <Link key={t} href={`/workers?tag=${encodeURIComponent(t)}`} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${tag === t ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-soft"}`}>
+              <Link key={t} href={`/workers?tag=${encodeURIComponent(t)}`} className={`flex h-9 items-center rounded-full px-3.5 text-sm font-semibold ${tag === t ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-soft"}`}>
                 {t}
               </Link>
             ))}
@@ -78,55 +79,70 @@ export default async function WorkersPage({
         <div className="space-y-6">
           {groups.map((g) => (
             <section key={g.kind} className="space-y-2.5">
-              <h2 className="px-1 text-sm font-bold text-ink-soft">
-                {WORKER_KIND_LABEL[g.kind as WorkerKind]} <span className="text-ink-faint">{g.items.length}名</span>
-              </h2>
-              {g.items.map((u) => {
-                const isSelf = u.id === me.id;
-                const canDelete = u._count.assignments === 0 && u._count.reports === 0 && !isSelf;
-                return (
-                  <div key={u.id} className={`card flex flex-wrap items-center gap-3 p-3.5 sm:flex-nowrap ${!u.active ? "opacity-60" : ""}`}>
-                    <Avatar name={u.name} color={u.avatarColor} image={avatarUrlFor(u)} size="lg" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="truncate text-[15px] font-bold text-ink">{u.name}</span>
-                        {u.canLogin ? (
-                          <Badge tone={u.role === "STAFF" ? "neutral" : "brand"}>{ROLE_LABEL[u.role as Role] ?? u.role}</Badge>
-                        ) : (
-                          <Badge tone="past">ログインなし</Badge>
-                        )}
-                        {isDepartment(u.department) && <Badge tone="info">{DEPARTMENT_LABEL[u.department]}</Badge>}
-                        {isSelf && <Badge tone="info">あなた</Badge>}
-                        {!u.active && <Badge tone="danger">無効</Badge>}
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
-                        {u.partner && <span>{u.partner.name}</span>}
-                        {u.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{u.email}</span>}
-                        {u.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{u.phone}</span>}
-                      </div>
-                      {u.tags.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {u.tags.map((t) => (
-                            <span key={t} className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-semibold text-ink-soft">{t}</span>
-                          ))}
+              <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{g.items.length}名</span>}>
+                {WORKER_KIND_LABEL[g.kind as WorkerKind]}
+              </SectionTitle>
+              {/* 1つのカードに行で並べる。スマホでは操作ボタンを下の段に回し、名前・連絡先を詰めない */}
+              <div className="card divide-y divide-line overflow-hidden">
+                {g.items.map((u) => {
+                  const isSelf = u.id === me.id;
+                  const canDelete = u._count.assignments === 0 && u._count.reports === 0 && !isSelf;
+                  return (
+                    <div key={u.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3.5 sm:flex-nowrap ${!u.active ? "opacity-60" : ""}`}>
+                      <div className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
+                        <Avatar name={u.name} color={u.avatarColor} image={avatarUrlFor(u)} size="lg" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="truncate text-base font-bold text-ink">{u.name}</span>
+                            {u.canLogin ? (
+                              <Badge tone={u.role === "STAFF" ? "neutral" : "brand"}>{ROLE_LABEL[u.role as Role] ?? u.role}</Badge>
+                            ) : (
+                              <Badge tone="past">ログインなし</Badge>
+                            )}
+                            {isDepartment(u.department) && <Badge tone="info">{DEPARTMENT_LABEL[u.department]}</Badge>}
+                            {isSelf && <Badge tone="info">あなた</Badge>}
+                            {!u.active && <Badge tone="danger">無効</Badge>}
+                          </div>
+                          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 text-sm text-ink-muted">
+                            {u.partner && <span>{u.partner.name}</span>}
+                            {u.email && (
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <Mail className="h-4 w-4 shrink-0" aria-hidden />
+                                <span className="min-w-0 truncate">{u.email}</span>
+                              </span>
+                            )}
+                            {u.phone && (
+                              <span className="flex items-center gap-1.5 tnum">
+                                <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                                {u.phone}
+                              </span>
+                            )}
+                          </div>
+                          {u.tags.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {u.tags.map((t) => (
+                                <span key={t} className="rounded-full bg-surface-sunken px-2.5 py-0.5 text-xs font-semibold text-ink-soft">{t}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+                      <div className="-my-1 ml-auto flex items-center gap-1.5">
+                        <Link href={`/workers/${u.id}/edit`} aria-label="編集" className="flex h-11 items-center gap-1 rounded-xl px-3 text-sm font-semibold text-brand-600 hover:bg-brand-50">
+                          <Pencil className="h-4 w-4" />編集
+                        </Link>
+                        <StaffRowActions id={u.id} active={u.active} canDelete={canDelete} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Link href={`/workers/${u.id}/edit`} aria-label="編集" className="flex h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-brand-600 hover:bg-brand-50">
-                        <Pencil className="h-3.5 w-3.5" />編集
-                      </Link>
-                      <StaffRowActions id={u.id} active={u.active} canDelete={canDelete} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </section>
           ))}
           {users.length === 0 && <p className="px-1 text-sm text-ink-muted">該当する作業者がいません。</p>}
         </div>
 
-        <p className="mt-4 px-1 text-xs text-ink-faint">
+        <p className="mt-5 px-1 text-xs text-ink-muted">
           ※ 配員や日報の記録がある作業者は「無効化」で対応します（記録は保持され、ログインと配員候補から外れます）。
         </p>
       </PageContainer>

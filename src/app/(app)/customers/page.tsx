@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Search, Plus, Building2, Building, Phone, ChevronRight, ChevronDown, Upload } from "lucide-react";
+import { Search, Plus, Building2, Building, Phone, MapPin, ChevronRight, ChevronDown, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
-import { CardLink } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Fab, EmptyState } from "@/components/ui/misc";
 import { Input } from "@/components/ui/form";
@@ -98,33 +97,35 @@ export default async function CustomersPage({
           />
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {/* 1つのカードに行で並べる（主：顧客名／副：本社住所・電話／右：現場数） */}
+            <div className="card divide-y divide-line overflow-hidden">
               {customers.map((c) => (
-                <CardLink key={c.id} href={`/customers/${c.id}`} className="h-full p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {c.shortName && <Badge tone="brand">{c.shortName}</Badge>}
-                        {c.tradeStatus !== "CONTINUING" && <Badge tone={c.tradeStatus === "NEW" ? "info" : "past"}>{TRADE_STATUS_LABEL[c.tradeStatus as TradeStatus] ?? c.tradeStatus}</Badge>}
-                      </div>
-                      <h3 className="mt-1 truncate text-[15px] font-bold leading-snug text-ink">{c.name}</h3>
-                      {c.headOfficeAddress && <p className="mt-0.5 truncate text-xs text-ink-muted">{c.headOfficeAddress}</p>}
-                      {c.phone && (
-                        <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-muted">
-                          <Phone className="h-3 w-3" />
-                          {c.phone}
-                        </p>
-                      )}
+                <Link key={c.id} href={`/customers/${c.id}`} className="tap-row flex min-h-[64px] items-center gap-3 px-4 py-3.5 hover:bg-surface-subtle">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <h3 className="min-w-0 break-words text-base font-bold leading-snug text-ink">{c.name}</h3>
+                      {c.shortName && <Badge tone="brand">{c.shortName}</Badge>}
+                      {c.tradeStatus !== "CONTINUING" && <Badge tone={c.tradeStatus === "NEW" ? "info" : "past"}>{TRADE_STATUS_LABEL[c.tradeStatus as TradeStatus] ?? c.tradeStatus}</Badge>}
                     </div>
-                    <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-ink-faint" />
+                    {c.headOfficeAddress && (
+                      <p className="mt-0.5 flex items-start gap-1.5 text-sm text-ink-muted">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                        <span className="min-w-0 break-words">{c.headOfficeAddress}</span>
+                      </p>
+                    )}
+                    {c.phone && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-muted tnum">
+                        <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                        {c.phone}
+                      </p>
+                    )}
                   </div>
-                  <div className="mt-3 flex items-center gap-4 border-t border-line pt-2.5 text-xs font-medium text-ink-muted">
-                    <span className="flex items-center gap-1">
-                      <Building className="h-3.5 w-3.5" />
-                      現場 {c._count.properties}
-                    </span>
-                  </div>
-                </CardLink>
+                  <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-ink-soft tnum">
+                    <Building className="h-4 w-4 text-ink-muted" aria-hidden />
+                    現場 {c._count.properties}
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
+                </Link>
               ))}
             </div>
             {hasMore && (

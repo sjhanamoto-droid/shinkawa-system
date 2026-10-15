@@ -82,7 +82,7 @@ export function CsvImport() {
       {headers.length > 0 && (
         <section className="space-y-2.5">
           <SectionTitle>2. 列の対応を確認</SectionTitle>
-          <Card className="space-y-3 p-4">
+          <Card className="space-y-4 p-4">
             {CUSTOMER_CSV_FIELDS.map((f) => (
               <div key={f.key} className="grid grid-cols-[1fr_1.4fr] items-center gap-3">
                 <span className="text-sm font-semibold text-ink-soft">
@@ -100,7 +100,7 @@ export function CsvImport() {
               </div>
             ))}
             {rows.length > 0 && mapping.name && (
-              <div className="rounded-xl bg-surface-subtle p-3 text-xs text-ink-soft">
+              <div className="rounded-xl bg-surface-sunken p-3.5 text-sm text-ink-soft">
                 <p className="mb-1 font-bold text-ink-muted">プレビュー（先頭3行）</p>
                 {rows.slice(0, 3).map((r, i) => (
                   <p key={i} className="truncate">
@@ -119,8 +119,8 @@ export function CsvImport() {
       {headers.length > 0 && (
         <section className="space-y-2.5">
           <SectionTitle>3. 確認して取り込む</SectionTitle>
-          <Card className="space-y-3 p-4">
-            <p className="text-xs text-ink-muted">同じサイボウズIDまたは同じ顧客名がある場合は上書き更新し、無ければ新規作成します。</p>
+          <Card className="space-y-4 p-4">
+            <p className="text-sm text-ink-muted">同じサイボウズIDまたは同じ顧客名がある場合は上書き更新し、無ければ新規作成します。</p>
             <div className="flex gap-2">
               <Button type="button" variant="outline" className="flex-1" onClick={() => run(true)} disabled={pending || !mapping.name}>
                 {pending && !preview ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

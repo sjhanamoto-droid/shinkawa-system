@@ -11,7 +11,7 @@ export default async function CategoriesSettingsPage() {
     <div>
       <PageHeader title="種別マスタ" subtitle="カレンダーのタグ（AC・定期など）の名称・略称・色・並び順" backHref="/settings" />
       <PageContainer size="narrow">
-        <p className="mb-3 text-xs leading-relaxed text-ink-muted">
+        <p className="mb-4 px-1 text-sm leading-relaxed text-ink-muted">
           変えた名称と色は、カレンダー・現場・日報などすべての画面にすぐ反映されます。並び順は、予定や現場の登録で選ぶときの順番です。
           使わなくなった種別は削除せず「使わない」にしてください（過去の予定の表示はそのまま残ります）。
         </p>

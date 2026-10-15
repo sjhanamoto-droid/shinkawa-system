@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, CalendarDays, Car, Send, Save, Sparkles, UserCheck, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CalendarDays, Camera, Car, ClipboardList, Clock, PenLine, Send, Save, Sparkles, UserCheck, Wallet, X } from "lucide-react";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Field, Select, Textarea } from "@/components/ui/form";
 import { CategoryBadge } from "@/components/ui/badge";
@@ -242,7 +242,7 @@ export function ReportForm(props: ReportFormProps) {
           /* noop */
         }
       }}
-      className="space-y-5"
+      className="space-y-6"
     >
       {reportId ? <input type="hidden" name="reportId" value={reportId} /> : (
         <>
@@ -257,7 +257,7 @@ export function ReportForm(props: ReportFormProps) {
           <span className="flex-1">前回の入力を復元しますか？（端末に自動保存された内容があります）</span>
           <button
             type="button"
-            className="h-9 rounded-lg bg-amber-600 px-3 text-xs font-bold text-white"
+            className="h-11 rounded-xl bg-amber-600 px-4 text-sm font-bold text-white"
             onClick={() => {
               setV(restore);
               dirty.current = true;
@@ -268,7 +268,7 @@ export function ReportForm(props: ReportFormProps) {
           </button>
           <button
             type="button"
-            className="h-9 rounded-lg px-3 text-xs font-bold text-amber-800 hover:bg-amber-100"
+            className="h-11 rounded-xl px-4 text-sm font-bold text-amber-800 hover:bg-amber-100"
             onClick={() => {
               try {
                 localStorage.removeItem(storageKey);
@@ -283,9 +283,13 @@ export function ReportForm(props: ReportFormProps) {
         </div>
       )}
 
-      {/* 予定（自動入力） */}
-      <Card className="space-y-2 p-4">
-        <div className="flex flex-wrap items-center gap-1.5">
+      {/* 予定（自動入力）。どの予定の日報かを一番大きく見せる */}
+      <div className="card p-4 md:p-5">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink-muted">
+          <ClipboardList className="h-4 w-4 shrink-0" />
+          予定（自動入力）
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <CategoryBadge category={o.category} />
           {proxy && (
             <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-bold text-violet-700">
@@ -294,32 +298,37 @@ export function ReportForm(props: ReportFormProps) {
             </span>
           )}
         </div>
-        <p className="text-lg font-bold leading-snug text-ink">
+        <p className={cn("mt-1.5 break-words font-bold leading-tight text-ink", o.title.length > 10 ? "text-2xl" : "text-[1.875rem]")}>
           {o.title}
-          {o.propertyName && o.propertyName !== o.title && <span className="ml-1.5 text-sm font-semibold text-ink-soft">{o.propertyName}</span>}
         </p>
-        {o.address && <p className="text-sm text-ink-soft">{o.address}</p>}
-        <p className="text-sm text-ink-soft">
+        {o.propertyName && o.propertyName !== o.title && <p className="mt-1 text-[15px] font-semibold text-ink-soft">{o.propertyName}</p>}
+        {o.address && <p className="mt-0.5 text-sm text-ink-soft">{o.address}</p>}
+        <p className="mt-3 text-[15px] text-ink-soft">
           作業者：<span className="font-bold text-ink">{worker.name}</span>
           {proxy && <span className="ml-1 text-xs text-ink-muted">（あなたが代わりに入力します）</span>}
         </p>
         {(o.startTime || o.vehicles.length > 0) && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             {o.startTime && <span>予定の時刻 {o.startTime}{o.endTime ? `〜${o.endTime}` : ""}</span>}
             {o.vehicles.length > 0 && (
               <span className="flex items-center gap-1">
-                <Car className="h-3.5 w-3.5" />
+                <Car className="h-4 w-4" />
                 {o.vehicles.map((x) => x.name).join("・")}
               </span>
             )}
           </p>
         )}
-        {o.note && <p className="whitespace-pre-wrap rounded-lg bg-surface-subtle p-2 text-xs text-ink-soft">{o.note}</p>}
-      </Card>
+        {o.note && <p className="mt-3 whitespace-pre-wrap rounded-xl bg-surface-subtle px-3.5 py-3 text-sm text-ink-soft">{o.note}</p>}
+      </div>
 
       {/* 作業日と時間 */}
-      <section className="space-y-3">
-        <SectionTitle>作業日と時間</SectionTitle>
+      <section className="space-y-2.5">
+        <SectionTitle>
+          <span className="flex items-center gap-1.5">
+            <Clock className="h-5 w-5" />
+            作業日と時間
+          </span>
+        </SectionTitle>
         <Card className="space-y-3 p-4">
           {reportId || workDays.length <= 1 ? (
             <p className="flex items-center gap-2 text-sm font-bold text-ink">
@@ -346,26 +355,29 @@ export function ReportForm(props: ReportFormProps) {
               <TimeSelect id="rf-end" name="endTime" value={v.endTime} onChange={(t) => set("endTime", t)} />
             </Field>
           </div>
-          <p className="text-xs text-ink-muted">
+          <p className="text-sm text-ink-muted">
             作業時間 <span className="font-bold text-ink">{fmtWorkHours(minutes)}</span>。この時間がそのまま勤怠（タイムカード）になります。
           </p>
         </Card>
       </section>
 
       {/* 作業内容 */}
-      <section className="space-y-3">
+      <section className="space-y-2.5">
         <SectionTitle
           action={
             aiEnabled &&
             !aiOpen && (
-              <button type="button" onClick={() => setAiOpen(true)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-brand-600 hover:bg-brand-50">
-                <Sparkles className="h-3.5 w-3.5" />
+              <button type="button" onClick={() => setAiOpen(true)} className="flex h-10 items-center gap-1 rounded-xl px-3 text-sm font-bold text-brand-600 hover:bg-brand-50">
+                <Sparkles className="h-4 w-4" />
                 AIでまとめる
               </button>
             )
           }
         >
-          作業内容
+          <span className="flex items-center gap-1.5">
+            <PenLine className="h-5 w-5" />
+            作業内容
+          </span>
         </SectionTitle>
         {aiOpen && (
           <AiSortPanel
@@ -399,10 +411,15 @@ export function ReportForm(props: ReportFormProps) {
       </section>
 
       {/* 経費 */}
-      <section className="space-y-3">
-        <SectionTitle>経費</SectionTitle>
+      <section className="space-y-2.5">
+        <SectionTitle>
+          <span className="flex items-center gap-1.5">
+            <Wallet className="h-5 w-5" />
+            経費
+          </span>
+        </SectionTitle>
         <Card className="space-y-4 p-4">
-          <p className="text-xs text-ink-muted">経費は本人と最高管理者・事務だけが見られます。</p>
+          <p className="text-sm text-ink-muted">経費は本人と最高管理者・事務だけが見られます。</p>
           <ExpenseEditor
             rows={v.expenses}
             onChange={(update) => {
@@ -418,8 +435,13 @@ export function ReportForm(props: ReportFormProps) {
       </section>
 
       {/* 引き継ぎ */}
-      <section className="space-y-3">
-        <SectionTitle>引き継ぎ事項</SectionTitle>
+      <section className="space-y-2.5">
+        <SectionTitle>
+          <span className="flex items-center gap-1.5">
+            <AlertTriangle className="h-5 w-5" />
+            引き継ぎ事項
+          </span>
+        </SectionTitle>
         <Card className="p-4">
           <Field required error={fe.handover} description="提出すると現場の「引き継ぎ事項」として登録され、次の人が「確認して停止」するまで表示されます。">
             <div className="space-y-2">
@@ -440,8 +462,13 @@ export function ReportForm(props: ReportFormProps) {
       </section>
 
       {/* 写真 */}
-      <section className="space-y-3">
-        <SectionTitle>写真{blobEnabled ? "・動画" : ""}</SectionTitle>
+      <section className="space-y-2.5">
+        <SectionTitle>
+          <span className="flex items-center gap-1.5">
+            <Camera className="h-5 w-5" />
+            写真{blobEnabled ? "・動画" : ""}
+          </span>
+        </SectionTitle>
         <Card className="p-4">
           <Field error={fe.photos} description="任意。タイル左上の種別をタップすると「作業／作業前／作業後／その他」を切り替えられます。">
             <PhotoUploader name="photos" defaultKind="WORK" initial={initialPhotos} blobEnabled={blobEnabled} onBusyChange={setPhotoBusy} />
@@ -450,11 +477,11 @@ export function ReportForm(props: ReportFormProps) {
       </section>
 
       {state.error && (
-        <div data-form-error className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
+        <div data-form-error className="flex items-center gap-2 rounded-xl bg-red-50 px-3.5 py-3 text-sm font-medium text-red-600">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span className="flex-1">{state.error}</span>
           {state.existingReportId && (
-            <Link href={`/reports/${state.existingReportId}/edit`} className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white">
+            <Link href={`/reports/${state.existingReportId}/edit`} className="flex h-10 shrink-0 items-center rounded-xl bg-red-600 px-3.5 text-sm font-bold text-white">
               その日報を開く
             </Link>
           )}
@@ -468,7 +495,7 @@ export function ReportForm(props: ReportFormProps) {
       )}
 
       <SubmitButtons submitted={submitted} uploading={uploading} />
-      <p className="text-center text-xs text-ink-muted">
+      <p className="text-center text-sm text-ink-muted">
         {submitted ? "提出済みの日報を修正して、もう一度提出します。" : "提出すると管理者が内容を確認できるようになります。担当者全員の日報がそろうと、予定は自動で「完了」になります。"}
       </p>
     </form>

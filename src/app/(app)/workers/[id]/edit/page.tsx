@@ -4,7 +4,7 @@ import { isOwner } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
-import { Card } from "@/components/ui/card";
+import { Card, SectionTitle } from "@/components/ui/card";
 import { UserForm } from "@/features/users/user-form";
 
 export default async function EditWorkerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,6 +26,7 @@ export default async function EditWorkerPage({ params }: { params: Promise<{ id:
     <div>
       <PageHeader title="作業者を編集" subtitle={user.name} backHref="/workers" />
       <PageContainer size="narrow">
+        <SectionTitle className="mb-2.5">作業者情報</SectionTitle>
         <Card className="p-4 sm:p-5">
           <UserForm user={user} partners={partners} canAssignOwner={isOwner(me)} />
         </Card>

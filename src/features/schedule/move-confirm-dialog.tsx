@@ -58,11 +58,11 @@ export function MoveConfirmDialog({
 
   return (
     <Modal open={open} onClose={pending ? () => {} : onClose} title={recurring ? "定期の予定を移動" : "予定を移動しますか？"}>
-      <div className="mb-3 rounded-xl bg-surface-subtle p-3 text-sm">
-        <p className="flex items-center gap-1.5 font-bold text-ink">
+      <div className="mb-4 rounded-xl bg-surface-subtle p-3 text-[15px]">
+        <p className="flex flex-wrap items-center gap-1.5 text-base font-bold leading-snug text-ink">
           {o.ruleKind && <Repeat className="h-4 w-4 text-ink-muted" />}
           {o.title}
-          {o.ruleSummary && <span className="text-xs font-semibold text-ink-muted">（{o.ruleSummary}）</span>}
+          {o.ruleSummary && <span className="text-sm font-semibold text-ink-muted">（{o.ruleSummary}）</span>}
         </p>
         {dateChanged && (
           <p className="mt-1 flex items-center gap-1.5 text-ink-soft">
@@ -91,24 +91,24 @@ export function MoveConfirmDialog({
           </p>
         )}
         {o.assignees.length > 0 && dateChanged && (
-          <p className="mt-1 text-xs text-ink-muted">担当者（{o.assignees.map((a) => a.name).join("・")}）に通知されます</p>
+          <p className="mt-1.5 text-sm text-ink-muted">担当者（{o.assignees.map((a) => a.name).join("・")}）に通知されます</p>
         )}
       </div>
 
       {recurring && (
-        <div className="mb-3 space-y-2">
+        <div className="mb-4 space-y-2">
           {options.map((opt) => (
             <label
               key={opt.key}
               className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
+                "flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors",
                 scope === opt.key ? "border-brand-500 bg-brand-50" : "border-line hover:bg-surface-subtle",
               )}
             >
               <input type="radio" name="scope" checked={scope === opt.key} onChange={() => setScope(opt.key)} className="mt-1 h-4 w-4 text-brand-600" />
               <span>
-                <span className="block text-sm font-bold text-ink">{opt.title}</span>
-                <span className="block text-xs leading-relaxed text-ink-muted">{opt.desc}</span>
+                <span className="block text-[15px] font-bold text-ink">{opt.title}</span>
+                <span className="mt-0.5 block text-sm leading-relaxed text-ink-muted">{opt.desc}</span>
               </span>
             </label>
           ))}

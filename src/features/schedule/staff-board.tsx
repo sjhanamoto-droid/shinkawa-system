@@ -7,7 +7,9 @@ import { WORKER_KIND_LABEL, WORKER_KIND_OPTIONS, type WorkerKind } from "@/lib/c
 import { cn } from "@/lib/utils";
 import { cellDropId } from "./dnd";
 import { OccurrenceCard } from "./occurrence-card";
+import { holidayName } from "@/lib/holidays";
 import { shiftKey, weekStartOf, weekdayOfKey, WEEKDAY_JA } from "./filters";
+import { toneText } from "./day-heading";
 import type { OccurrenceView, WorkerOption } from "./types";
 
 function Cell({
@@ -103,8 +105,8 @@ export function StaffBoard({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="作業者を絞り込み（名前・タグ・会社）" className="h-9 min-w-[200px] rounded-lg border border-line-strong bg-surface px-3 text-xs" />
-        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} className="h-9 rounded-lg border border-line-strong bg-surface px-2 text-xs font-semibold text-ink-soft">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="作業者を絞り込み（名前・タグ・会社）" className="h-10 min-w-[220px] rounded-xl border border-line-strong bg-surface px-3 text-sm focus:border-brand-400 focus:outline-none" />
+        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} className="h-10 rounded-xl border border-line-strong bg-surface px-2.5 text-sm font-semibold text-ink-soft focus:border-brand-400 focus:outline-none">
           <option value="">区分：すべて</option>
           {WORKER_KIND_OPTIONS.map((k) => (
             <option key={k} value={k}>
@@ -112,21 +114,22 @@ export function StaffBoard({
             </option>
           ))}
         </select>
-        <span className="text-xs text-ink-muted">{rows.length}名</span>
+        <span className="text-sm tnum text-ink-muted">{rows.length}名</span>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+      <div className="card overflow-x-auto">
         <table className="w-full border-collapse text-xs">
           <thead className="sticky top-0 z-10 bg-surface">
             <tr>
-              <th className="w-44 border-b border-line p-2 text-left text-[11px] font-bold text-ink-faint">作業者</th>
+              <th className="w-44 border-b border-line p-2 text-left text-xs font-bold text-ink-muted">作業者</th>
               {days.map((k) => {
                 const dow = weekdayOfKey(k);
                 const count = items.filter((o) => o.date === k).length;
                 return (
                   <th key={k} className={cn("border-b border-l border-line p-2 text-left", k === todayKey && "bg-brand-50")}>
-                    <span className={cn("text-sm font-bold tnum", dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : "text-ink")}>{Number(k.slice(8, 10))}</span>
-                    <span className="ml-1 text-[11px] font-bold text-ink-muted">{WEEKDAY_JA[dow]}</span>
-                    <span className="ml-1 text-[10px] tnum text-ink-faint">{count}件</span>
+                    <span className={cn("text-base font-bold tnum", toneText(k, "text-ink"))}>{Number(k.slice(8, 10))}</span>
+                    <span className={cn("ml-1 text-xs font-bold", toneText(k, "text-ink-muted"))}>{WEEKDAY_JA[dow]}</span>
+                    <span className="ml-1 text-[11px] tnum text-ink-muted">{count}件</span>
+                    {holidayName(k) && <span className="block truncate text-[11px] font-bold text-red-500">{holidayName(k)}</span>}
                   </th>
                 );
               })}
@@ -142,7 +145,7 @@ export function StaffBoard({
             {groups.map((g) => (
               <>
                 <tr key={`h-${g.kind}`}>
-                  <td colSpan={8} className="border-b border-line bg-surface-subtle px-2 py-1 text-[11px] font-bold text-ink-faint">
+                  <td colSpan={8} className="border-b border-line bg-surface-subtle px-2 py-1.5 text-xs font-bold text-ink-muted">
                     {WORKER_KIND_LABEL[g.kind as WorkerKind]}
                   </td>
                 </tr>
@@ -155,7 +158,7 @@ export function StaffBoard({
                           <Avatar name={w.name} color={w.avatarColor} image={w.avatarUrl} size="sm" />
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-bold text-ink">{w.name}</span>
-                            <span className="block truncate text-[10px] text-ink-faint">
+                            <span className="block truncate text-[11px] text-ink-muted">
                               {w.partnerName ?? w.tags.slice(0, 2).join("・")}
                               {total > 0 && ` ・ 週${total}件`}
                             </span>

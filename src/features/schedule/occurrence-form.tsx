@@ -7,6 +7,8 @@ import { AlertCircle, Save, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { SectionTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { SearchSelect } from "@/components/ui/search-select";
 import {
   DEPARTMENT_LABEL,
@@ -17,6 +19,14 @@ import { AssigneePicker } from "./assignee-picker";
 import { VehiclePicker } from "./vehicle-picker";
 import { createOccurrence, updateOccurrence, getVehicleUsage } from "./actions";
 import type { ActionResult, CustomerOption, OccurrenceInput, OccurrenceView, PropertyOption, VehicleOption, VehicleUsage, WorkerOption } from "./types";
+
+// 日時の切り替え（押しやすい高さ 44px のチップ）
+function toggleClass(on: boolean): string {
+  return cn(
+    "flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border px-3.5 text-sm font-semibold transition-colors",
+    on ? "border-brand-400 bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300" : "border-line-strong bg-surface text-ink",
+  );
+}
 
 function numOrNull(v: string): number | null {
   const t = v.trim();
@@ -190,82 +200,91 @@ export function OccurrenceForm({
   }
 
   return (
-    <Modal open={open} onClose={pending ? () => {} : onClose} title={isEdit ? "予定を編集" : "予定を追加"} className="sm:max-w-2xl">
+    <Modal open={open} onClose={pending ? () => {} : onClose} title={isEdit ? "予定を編集" : "予定を追加"} className="bg-surface-subtle sm:max-w-2xl">
       <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="部門" htmlFor="of-dept">
-            <Select id="of-dept" value={department} onChange={(e) => setDepartment(e.target.value as Department)}>
-              {DEPARTMENT_OPTIONS.map((d) => (
-                <option key={d} value={d}>
-                  {DEPARTMENT_LABEL[d]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="種別" htmlFor="of-cat">
-            <Select id="of-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
-              {categoryOptions.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-
-        {!isPersonal && (
+        {/* ── 種別 ── */}
+        <section className="card space-y-4 p-4">
+          <SectionTitle size="sm" className="px-0">種別</SectionTitle>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="顧客" htmlFor="of-customer" hint="名前で検索">
-              <SearchSelect
-                id="of-customer"
-                value={customerId}
-                onChange={(v) => {
-                  setCustomerId(v);
-                  setPropertyId("");
-                }}
-                options={customers.map((c) => ({
-                  value: c.id,
-                  label: c.shortName ? `${c.shortName}（${c.name}）` : c.name,
-                  keywords: c.kana ?? null,
-                }))}
-                placeholder="顧客名で検索"
-                emptyLabel="未選択"
-              />
+            <Field label="部門" htmlFor="of-dept">
+              <Select id="of-dept" value={department} onChange={(e) => setDepartment(e.target.value as Department)}>
+                {DEPARTMENT_OPTIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {DEPARTMENT_LABEL[d]}
+                  </option>
+                ))}
+              </Select>
             </Field>
-            <Field label="物件" htmlFor="of-property" hint={customerId ? "名前で検索" : "顧客を選ぶと絞り込まれます"}>
-              <SearchSelect
-                id="of-property"
-                value={propertyId}
-                onChange={(pid) => {
-                  setPropertyId(pid);
-                  const p = properties.find((x) => x.id === pid);
-                  if (p) setCustomerId(p.customerId);
-                }}
-                options={propertyOptions.map((p) => ({ value: p.id, label: p.name, sub: p.address ?? null }))}
-                placeholder="物件名で検索"
-                emptyLabel="未選択"
-              />
+            <Field label="種別" htmlFor="of-cat">
+              <Select id="of-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
+                {categoryOptions.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
           </div>
-        )}
+        </section>
 
-        <Field label={isPersonal ? "件名" : "件名（顧客・物件が無いときの表示名）"} htmlFor="of-title" hint="任意">
-          <Input id="of-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isPersonal ? "例：休み" : "例：直井さん 1人"} maxLength={100} />
-        </Field>
+        {/* ── 顧客・物件 ── */}
+        <section className="card space-y-4 p-4">
+          <SectionTitle size="sm" className="px-0">{isPersonal ? "予定" : "顧客・物件"}</SectionTitle>
+          {!isPersonal && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="顧客" htmlFor="of-customer" hint="名前で検索">
+                <SearchSelect
+                  id="of-customer"
+                  value={customerId}
+                  onChange={(v) => {
+                    setCustomerId(v);
+                    setPropertyId("");
+                  }}
+                  options={customers.map((c) => ({
+                    value: c.id,
+                    label: c.shortName ? `${c.shortName}（${c.name}）` : c.name,
+                    keywords: c.kana ?? null,
+                  }))}
+                  placeholder="顧客名で検索"
+                  emptyLabel="未選択"
+                />
+              </Field>
+              <Field label="物件" htmlFor="of-property" hint={customerId ? "名前で検索" : "顧客を選ぶと絞り込まれます"}>
+                <SearchSelect
+                  id="of-property"
+                  value={propertyId}
+                  onChange={(pid) => {
+                    setPropertyId(pid);
+                    const p = properties.find((x) => x.id === pid);
+                    if (p) setCustomerId(p.customerId);
+                  }}
+                  options={propertyOptions.map((p) => ({ value: p.id, label: p.name, sub: p.address ?? null }))}
+                  placeholder="物件名で検索"
+                  emptyLabel="未選択"
+                />
+              </Field>
+            </div>
+          )}
+          <Field label={isPersonal ? "件名" : "件名（顧客・物件が無いときの表示名）"} htmlFor="of-title" hint="任意">
+            <Input id="of-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isPersonal ? "例：休み" : "例：直井さん 1人"} maxLength={100} />
+          </Field>
+        </section>
 
-        <div className="rounded-xl border border-line bg-surface-subtle p-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+        {/* ── 日時 ── */}
+        <section className="card space-y-4 p-4">
+          <SectionTitle size="sm" className="px-0">日時</SectionTitle>
+          <div className="flex flex-wrap gap-2">
+            <label className={toggleClass(undated)}>
               <input type="checkbox" checked={undated} onChange={(e) => setUndated(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
               日付未定（未割当レーンに置く）
             </label>
             {!undated && (
               <>
-                <label className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <label className={toggleClass(multiDay)}>
                   <input type="checkbox" checked={multiDay} onChange={(e) => setMultiDay(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
                   複数日
                 </label>
-                <label className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <label className={toggleClass(timed)}>
                   <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
                   時刻を指定
                 </label>
@@ -273,7 +292,7 @@ export function OccurrenceForm({
             )}
           </div>
           {!undated && (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label={multiDay ? "開始日" : "日付"} htmlFor="of-date" required>
                 <Input id="of-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </Field>
@@ -294,37 +313,53 @@ export function OccurrenceForm({
               )}
             </div>
           )}
-        </div>
+        </section>
 
-        {!isPersonal && (
-          <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="人数" htmlFor="of-head">
-                <Input id="of-head" type="number" inputMode="numeric" min={0} max={99} value={headcount} onChange={(e) => setHeadcount(e.target.value)} placeholder="例：2" />
+        {/* ── 作業の内容 ── */}
+        <section className="card space-y-4 p-4">
+          <SectionTitle size="sm" className="px-0">内容</SectionTitle>
+          {!isPersonal && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="人数" htmlFor="of-head">
+                  <Input id="of-head" type="number" inputMode="numeric" min={0} max={99} value={headcount} onChange={(e) => setHeadcount(e.target.value)} placeholder="例：2" />
+                </Field>
+                <Field label="部屋数・箇所" htmlFor="of-unit">
+                  <Input id="of-unit" type="number" inputMode="numeric" min={0} max={999} value={unitCount} onChange={(e) => setUnitCount(e.target.value)} placeholder="例：15" />
+                </Field>
+              </div>
+              <Field label="使用車両" hint={vehicleIds.length ? `${vehicleIds.length}台` : "当日までに選べばOK"}>
+                <VehiclePicker vehicles={vehicles} value={vehicleIds} onChange={setVehicleIds} department={department} current={occurrence?.vehicles ?? []} usage={usage} loadingUsage={loadingUsage} />
               </Field>
-              <Field label="部屋数・箇所" htmlFor="of-unit">
-                <Input id="of-unit" type="number" inputMode="numeric" min={0} max={999} value={unitCount} onChange={(e) => setUnitCount(e.target.value)} placeholder="例：15" />
-              </Field>
-            </div>
-            <Field label="使用車両" hint={vehicleIds.length ? `${vehicleIds.length}台` : "当日までに選べばOK"}>
-              <VehiclePicker vehicles={vehicles} value={vehicleIds} onChange={setVehicleIds} department={department} current={occurrence?.vehicles ?? []} usage={usage} loadingUsage={loadingUsage} />
+            </>
+          )}
+
+          {showAmount && !isPersonal && (
+            <Field label="金額（税抜・円）" htmlFor="of-amount" hint="最高管理者・事務経理のみ表示">
+              <Input id="of-amount" type="number" inputMode="numeric" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="例：25000" />
             </Field>
-          </>
-        )}
+          )}
 
-        {showAmount && !isPersonal && (
-          <Field label="金額（税抜・円）" htmlFor="of-amount" hint="最高管理者・事務経理のみ表示">
-            <Input id="of-amount" type="number" inputMode="numeric" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="例：25000" />
+          <Field label="メモ" htmlFor="of-note">
+            <Textarea id="of-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="連絡事項・注意点など" maxLength={2000} className="min-h-[72px]" />
           </Field>
-        )}
+        </section>
 
-        <Field label="メモ" htmlFor="of-note">
-          <Textarea id="of-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="連絡事項・注意点など" maxLength={2000} className="min-h-[72px]" />
-        </Field>
-
-        <Field label="担当者" hint={`${workerIds.length}名`}>
+        {/* ── 担当者 ── */}
+        <section className="card space-y-3 p-4">
+          <SectionTitle
+            size="sm"
+            className="px-0"
+            action={
+              workerIds.length > 0 ? (
+                <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-bold text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">{workerIds.length}名</span>
+              ) : undefined
+            }
+          >
+            担当者
+          </SectionTitle>
           <AssigneePicker workers={workers} value={workerIds} onChange={setWorkerIds} department={department} compact />
-        </Field>
+        </section>
 
         {error && (
           <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
@@ -333,7 +368,7 @@ export function OccurrenceForm({
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 pt-1">
           <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={pending}>
             キャンセル
           </Button>

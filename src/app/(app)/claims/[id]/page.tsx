@@ -59,26 +59,24 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
       <PageContainer size="narrow">
         <SearchParamToast />
         <div className="space-y-5">
-          <Card className="space-y-4 p-4">
+          <Card className="space-y-4 p-4 md:p-5">
             <ClaimBody claim={{ ...c, involved }} />
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-xs text-ink-muted">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-sm text-ink-muted">
               <span>
                 登録：{c.createdBy?.name ?? "—"}・{jstDateTimeLabel(c.createdAt)}
               </span>
               {manager && <span>共有先：{audienceLabel(c.audience)}</span>}
               {c.property && (
-                <Link href={`/properties/${c.property.id}`} className="inline-flex items-center gap-1 font-bold text-brand-600">
-                  現場を見る <ExternalLink className="h-3 w-3" />
+                <Link href={`/properties/${c.property.id}`} className="inline-flex min-h-[44px] items-center gap-1 font-bold text-brand-600">
+                  現場を見る <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               )}
             </div>
           </Card>
 
           {manager ? (
-            <section className="space-y-2">
-              <SectionTitle>
-                確認 {done.length} / {c.acks.length}名
-              </SectionTitle>
+            <section className="space-y-2.5">
+              <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{done.length} / {c.acks.length}名</span>}>確認</SectionTitle>
               <Card className="space-y-2 p-4 text-sm">
                 {c.acks.length === 0 ? (
                   <p className="text-ink-muted">共有した人はいません</p>
@@ -91,12 +89,12 @@ export default async function ClaimPage({ params }: { params: Promise<{ id: stri
                   </p>
                 )}
                 {done.length > 0 && (
-                  <p className="text-xs text-ink-muted">確認済み：{done.map((a) => a.user.name).join("、")}</p>
+                  <p className="text-sm text-ink-muted">確認済み：{done.map((a) => a.user.name).join("、")}</p>
                 )}
               </Card>
             </section>
           ) : (
-            c.acks[0]?.ackAt && <p className="text-center text-xs text-emerald-700">{jstDateTimeLabel(c.acks[0].ackAt)} に確認しました</p>
+            c.acks[0]?.ackAt && <p className="text-center text-sm text-emerald-700">{jstDateTimeLabel(c.acks[0].ackAt)} に確認しました</p>
           )}
         </div>
       </PageContainer>

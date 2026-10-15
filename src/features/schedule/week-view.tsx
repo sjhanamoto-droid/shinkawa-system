@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { dayDropId } from "./dnd";
 import { OccurrenceCard } from "./occurrence-card";
 import { UnassignedLane } from "./unassigned-lane";
+import { holidayName } from "@/lib/holidays";
 import { shiftKey, weekStartOf, weekdayOfKey, WEEKDAY_JA } from "./filters";
+import { toneText } from "./day-heading";
 import type { OccurrenceView } from "./types";
 
 function DayColumn({
@@ -30,38 +32,51 @@ function DayColumn({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dayDropId(dateKey), disabled: !dnd });
   const dow = weekdayOfKey(dateKey);
+  const holiday = holidayName(dateKey);
   const head = items.reduce((s, o) => s + (o.assignees.length || o.headcount || 0), 0);
   const noWorker = items.filter((o) => o.assignees.length === 0 && o.category !== "OFF" && o.status !== "DONE" && o.status !== "CANCELLED").length;
 
   return (
     <div
       ref={setNodeRef}
-      className={cn("flex min-h-[60vh] flex-col rounded-xl border transition-colors", isOver ? "border-brand-400 bg-brand-50" : "border-line bg-surface")}
+      className={cn("card flex flex-col overflow-hidden transition-colors md:min-h-[60vh]", isOver && "border-brand-400 bg-brand-50")}
     >
-      <div className={cn("rounded-t-xl border-b border-line px-2 py-1.5", isToday && "bg-brand-50")}>
+      <div className={cn("border-b border-line py-1.5 pl-2 pr-1", isToday && "bg-brand-50 dark:bg-brand-950/30")}>
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => onOpenDay(dateKey)} className="flex items-baseline gap-1 rounded hover:bg-surface-sunken">
-            <span className={cn("text-base font-bold tnum", dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : "text-ink")}>{Number(dateKey.slice(8, 10))}</span>
-            <span className={cn("text-[11px] font-bold", dow === 0 ? "text-red-400" : dow === 6 ? "text-blue-400" : "text-ink-muted")}>{WEEKDAY_JA[dow]}</span>
+          <button type="button" onClick={() => onOpenDay(dateKey)} className="flex min-h-[2.5rem] items-center gap-1.5 rounded-lg pr-1 hover:bg-surface-sunken" title="この日を開く">
+            <span
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold tnum",
+                isToday ? "bg-brand-600 text-white" : toneText(dateKey, "text-ink"),
+              )}
+            >
+              {Number(dateKey.slice(8, 10))}
+            </span>
+            <span className={cn("text-xs font-bold", toneText(dateKey, "text-ink-soft"))}>{WEEKDAY_JA[dow]}</span>
           </button>
-          <span className="whitespace-nowrap text-[11px] tnum text-ink-faint">
+          <span className="whitespace-nowrap text-xs tnum text-ink-muted">
             {items.length}件{head > 0 && `/${head}名`}
           </span>
           {canEdit && (
-            <button type="button" onClick={() => onAdd(dateKey)} aria-label="予定を追加" className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-faint hover:bg-surface-sunken hover:text-ink-soft">
-              <Plus className="h-4 w-4" />
+            <button type="button" onClick={() => onAdd(dateKey)} aria-label="予定を追加" className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand-600 active:bg-brand-100 md:h-7 md:w-7 md:hover:bg-brand-100">
+              <Plus className="h-5 w-5 md:h-4 md:w-4" />
             </button>
           )}
         </div>
-        {noWorker > 0 && (
-          <span className="mt-0.5 inline-block whitespace-nowrap rounded bg-red-100 px-1.5 text-[10px] font-bold text-red-600">担当未定 {noWorker}</span>
+        {(holiday || noWorker > 0) && (
+          <div className="flex flex-wrap items-center gap-1 pb-0.5">
+            {holiday && <span className="text-[11px] font-bold text-red-500">{holiday}</span>}
+            {noWorker > 0 && (
+              <span className="inline-block whitespace-nowrap rounded-md bg-red-100 px-1.5 text-[11px] font-bold text-red-600">担当未定 {noWorker}</span>
+            )}
+          </div>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-1.5">
+      <div className="flex flex-1 flex-col gap-1.5 p-1.5">
         {items.map((o) => (
           <OccurrenceCard key={o.id} occurrence={o} variant="chip" draggable={dnd} onClick={onSelect} />
         ))}
-        {items.length === 0 && <p className="py-4 text-center text-[11px] text-ink-faint">予定なし</p>}
+        {items.length === 0 && <p className="py-4 text-center text-sm text-ink-faint md:text-xs">予定なし</p>}
       </div>
     </div>
   );

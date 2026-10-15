@@ -8,20 +8,21 @@ import { PageContainer } from "@/components/app-shell/page-container";
 import { SectionTitle } from "@/components/ui/card";
 import { APP_NAME } from "@/lib/brand";
 
+// タップで開く設定の行。1つの card の中に divide-y で並べる
 function SettingRow({ href, icon, title, desc, badge = 0 }: { href: string; icon: React.ReactNode; title: string; desc: string; badge?: number }) {
   return (
-    <Link href={href} className="card tap-row flex items-center gap-3.5 p-4 transition-all hover:border-line-strong hover:shadow-float">
+    <Link href={href} className="tap-row flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-surface-subtle">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">{icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-bold text-ink">{title}</p>
-        <p className="truncate text-xs text-ink-muted">{desc}</p>
+        <p className="text-base font-bold text-ink">{title}</p>
+        <p className="truncate text-sm text-ink-muted">{desc}</p>
       </div>
       {badge > 0 && (
         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-danger px-1.5 text-[11px] font-bold text-white">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
-      <ChevronRight className="h-5 w-5 shrink-0 text-ink-faint" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
     </Link>
   );
 }
@@ -41,7 +42,7 @@ export default async function SettingsPage() {
           {manager && (
             <section className="space-y-2.5">
               <SectionTitle>管理メニュー</SectionTitle>
-              <div className="space-y-2.5">
+              <div className="card divide-y divide-line overflow-hidden">
                 <SettingRow
                   href="/workers"
                   icon={<Users2 className="h-5 w-5" />}
@@ -78,17 +79,21 @@ export default async function SettingsPage() {
 
           <section className="space-y-2.5">
             <SectionTitle>アカウント</SectionTitle>
-            <SettingRow
-              href="/settings/account"
-              icon={<UserCog className="h-5 w-5" />}
-              title="アカウント設定"
-              desc="氏名・アバター・パスワードの変更"
-            />
+            <div className="card overflow-hidden">
+              <SettingRow
+                href="/settings/account"
+                icon={<UserCog className="h-5 w-5" />}
+                title="アカウント設定"
+                desc="氏名・アバター・パスワードの変更"
+              />
+            </div>
           </section>
 
           <section className="space-y-2.5">
             <SectionTitle>使い方</SectionTitle>
-            <SettingRow href="/help" icon={<Lightbulb className="h-5 w-5" />} title="使い方・ヒント" desc="画面ごとの操作のコツ" />
+            <div className="card overflow-hidden">
+              <SettingRow href="/help" icon={<Lightbulb className="h-5 w-5" />} title="使い方・ヒント" desc="画面ごとの操作のコツ" />
+            </div>
           </section>
 
           <section className="space-y-2.5">
@@ -97,9 +102,9 @@ export default async function SettingsPage() {
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-muted">
                 <Info className="h-5 w-5" />
               </span>
-              <div className="text-sm">
-                <p className="font-bold text-ink">{APP_NAME} スケジュール</p>
-                <p className="text-xs text-ink-muted">清掃・工事の予定管理 ・ バージョン 0.1</p>
+              <div>
+                <p className="text-base font-bold text-ink">{APP_NAME} スケジュール</p>
+                <p className="text-sm text-ink-muted">清掃・工事の予定管理 ・ バージョン 0.1</p>
               </div>
             </div>
           </section>

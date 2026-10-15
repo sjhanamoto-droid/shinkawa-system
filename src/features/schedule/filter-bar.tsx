@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import type { CustomerOption, FilterState, WorkerOption } from "./types";
 
 const selectClass =
-  "h-9 min-w-0 rounded-lg border border-line-strong bg-surface px-2 text-xs font-semibold text-ink-soft focus:border-brand-400 focus:outline-none";
+  "h-10 min-w-0 rounded-xl border border-line-strong bg-surface px-2.5 text-sm font-semibold text-ink-soft focus:border-brand-400 focus:outline-none";
 
 export function FilterBar({
   filters,
@@ -40,14 +40,14 @@ export function FilterBar({
     <div className="space-y-2">
       {/* 部門タブ */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-full bg-surface-sunken p-0.5">
+        <div className="flex rounded-full bg-surface-sunken p-1">
           {(["ALL", "CLEANING", "CONSTRUCTION"] as const).map((d) => (
             <button
               key={d}
               type="button"
               onClick={() => onChange({ dept: d })}
               className={cn(
-                "h-8 rounded-full px-3 text-xs font-bold transition-colors",
+                "h-9 rounded-full px-3.5 text-sm font-bold transition-colors",
                 filters.dept === d ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink-soft",
               )}
             >
@@ -56,29 +56,29 @@ export function FilterBar({
           ))}
         </div>
         {showMine && (
-          <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3 text-xs font-bold text-ink-soft">
+          <label className="flex h-11 cursor-pointer items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-sm font-bold text-ink-soft">
             <input
               type="checkbox"
               checked={filters.mine}
               onChange={(e) => onChange({ mine: e.target.checked })}
-              className="h-3.5 w-3.5 rounded border-line-strong text-brand-600"
+              className="h-4 w-4 rounded border-line-strong text-brand-600"
             />
             自分の予定
           </label>
         )}
         <form
-          className="flex h-8 flex-1 items-center gap-1 rounded-full border border-line-strong bg-surface px-2.5 sm:max-w-xs"
+          className="flex h-11 min-w-[12rem] flex-1 items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 focus-within:border-brand-400 sm:max-w-xs"
           onSubmit={(e) => {
             e.preventDefault();
             onChange({ q: q.trim() });
           }}
         >
-          <Search className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+          <Search className="h-4 w-4 shrink-0 text-ink-faint" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="顧客名・物件名で検索"
-            className="h-full min-w-0 flex-1 bg-transparent text-xs text-ink placeholder:text-ink-faint focus:outline-none"
+            className="h-full min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
           />
           {q && (
             <button
@@ -88,16 +88,16 @@ export function FilterBar({
                 setQ("");
                 onChange({ q: "" });
               }}
-              className="text-ink-faint hover:text-ink-soft"
+              className="-mr-1.5 flex h-9 w-9 items-center justify-center rounded-full text-ink-faint hover:text-ink-soft"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </form>
       </div>
 
       {/* 絞り込み */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         <select className={selectClass} value={filters.worker ?? ""} onChange={(e) => onChange({ worker: e.target.value || null })} aria-label="担当者">
           <option value="">担当者：すべて</option>
           {kinds.map((k) => (
@@ -144,7 +144,7 @@ export function FilterBar({
               setQ("");
               onChange({ worker: null, category: null, customer: null, status: null, q: "" });
             }}
-            className="h-9 rounded-lg px-2 text-xs font-semibold text-ink-muted hover:bg-surface-sunken"
+            className="h-10 rounded-xl px-3 text-sm font-semibold text-brand-600 hover:bg-surface-sunken"
           >
             絞り込みを解除
           </button>

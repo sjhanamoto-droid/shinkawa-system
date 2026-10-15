@@ -66,10 +66,10 @@ export default async function ClaimsPage() {
               const mine = c.acks[0];
               return (
                 <li key={c.id}>
-                  <Link href={`/claims/${c.id}`} className="tap-row flex items-center gap-3 p-4 active:bg-surface-sunken">
+                  <Link href={`/claims/${c.id}`} className="tap-row flex items-center gap-3 px-4 py-3.5 active:bg-surface-sunken">
                     <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-faint">
-                        <span>{fmtKeyShort(c.occurredOn ?? jstDateKey(c.createdAt))}</span>
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
+                        <span className="font-semibold tnum">{fmtKeyShort(c.occurredOn ?? jstDateKey(c.createdAt))}</span>
                         {mine && !mine.ackAt && <Badge tone="danger">未確認</Badge>}
                         {manager && (
                           <Badge tone={c._count.acks >= c.recipientCount ? "active" : "warn"}>
@@ -78,11 +78,11 @@ export default async function ClaimsPage() {
                         )}
                         {c._count.photos > 0 && <span>写真{c._count.photos}</span>}
                       </div>
-                      <p className="truncate text-[15px] font-bold text-ink">{c.title}</p>
-                      <p className="flex items-center gap-1 truncate text-xs text-ink-muted">
+                      <p className="truncate text-base font-bold text-ink">{c.title}</p>
+                      <p className="flex items-center gap-1 truncate text-sm text-ink-muted">
                         {c.property && (
                           <>
-                            <Building className="h-3.5 w-3.5 shrink-0" />
+                            <Building className="h-4 w-4 shrink-0" />
                             <span className="truncate">{c.property.name}</span>
                             <span className="text-ink-faint">・</span>
                           </>
@@ -90,7 +90,7 @@ export default async function ClaimsPage() {
                         {c.createdBy?.name ?? "—"}
                       </p>
                     </div>
-                    <ChevronRight className="h-5 w-5 shrink-0 text-ink-faint" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
                   </Link>
                 </li>
               );

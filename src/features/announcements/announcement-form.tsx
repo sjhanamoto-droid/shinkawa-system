@@ -3,7 +3,7 @@
 import { useActionState, useCallback, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertCircle, Send } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { SectionTitle } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { buttonClass } from "@/components/ui/button";
 import type { Role } from "@/lib/constants";
@@ -39,10 +39,17 @@ export function AnnouncementForm({ roleCounts }: { roleCounts: Record<Role, numb
 
   return (
     <form action={formAction} className="space-y-4">
-      <Card className="space-y-4 p-4">
+      {/* ── 送る相手 ── */}
+      <section className="card space-y-4 p-4">
+        <SectionTitle className="px-0">宛先</SectionTitle>
         <Field label="送る相手" required hint="選んだ役割の、ログインできる社員・アルバイト全員に通知が届きます（協力会社・下請には届きません）">
           <AudiencePicker roleCounts={roleCounts} onChange={onAudience} />
         </Field>
+      </section>
+
+      {/* ── 内容 ── */}
+      <section className="card space-y-4 p-4">
+        <SectionTitle className="px-0">内容</SectionTitle>
 
         <Field label="種類" required>
           <div className="flex flex-wrap gap-2">
@@ -74,7 +81,7 @@ export function AnnouncementForm({ roleCounts }: { roleCounts: Record<Role, numb
         <Field label="本文" required htmlFor="an-body">
           <Textarea id="an-body" name="body" required value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[200px]" maxLength={4000} />
         </Field>
-      </Card>
+      </section>
 
       {state.error && (
         <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">

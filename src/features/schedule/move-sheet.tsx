@@ -66,14 +66,14 @@ export function MoveSheet({
 
   return (
     <Modal open={open} onClose={pending ? () => {} : onClose} title="予定を移動" className="sm:max-w-lg">
-      <p className="mb-3 text-sm font-bold text-ink">
-        {occurrence.title}
-        <span className="ml-2 text-xs font-semibold text-ink-muted">現在：{occurrence.date ? fmtKeyShort(occurrence.date) : "日付未定"}</span>
-      </p>
+      <div className="mb-4 rounded-xl bg-surface-subtle p-3">
+        <p className="break-words text-base font-bold leading-snug text-ink">{occurrence.title}</p>
+        <p className="mt-0.5 text-sm text-ink-muted">現在：{occurrence.date ? fmtKeyShort(occurrence.date) : "日付未定"}</p>
+      </div>
 
       <div className="space-y-4">
         <div>
-          <div className="mb-1.5 flex flex-wrap gap-1.5">
+          <div className="mb-3 flex flex-wrap gap-2">
             {quick.map((q) => (
               <button
                 key={q.label}
@@ -83,23 +83,23 @@ export function MoveSheet({
                   setDate(q.key);
                 }}
                 className={cn(
-                  "h-9 rounded-full border px-3 text-xs font-bold",
+                  "h-11 rounded-full border px-3.5 text-sm font-bold",
                   !unassign && date === q.key ? "border-brand-600 bg-brand-50 text-brand-700" : "border-line-strong bg-surface text-ink-soft",
                 )}
               >
                 {q.label}
-                <span className="ml-1 font-normal text-ink-faint">{q.key.slice(5).replace("-", "/")}</span>
+                <span className="ml-1 text-xs font-normal tnum text-ink-muted">{q.key.slice(5).replace("-", "/")}</span>
               </button>
             ))}
             <button
               type="button"
               onClick={() => setUnassign((v) => !v)}
               className={cn(
-                "flex h-9 items-center gap-1 rounded-full border px-3 text-xs font-bold",
+                "flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-sm font-bold",
                 unassign ? "border-amber-500 bg-amber-50 text-amber-700" : "border-line-strong bg-surface text-ink-soft",
               )}
             >
-              <Inbox className="h-3.5 w-3.5" />
+              <Inbox className="h-4 w-4" />
               未割当へ戻す
             </button>
           </div>
@@ -122,7 +122,7 @@ export function MoveSheet({
         </Field>
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-5 flex gap-2">
         <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={pending}>
           キャンセル
         </Button>

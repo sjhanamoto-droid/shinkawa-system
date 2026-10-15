@@ -42,13 +42,13 @@ export function StaffRowActions({
           onClick={onToggle}
           disabled={pending}
           className={cn(
-            "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50",
+            "flex min-h-[44px] items-center gap-1 rounded-xl px-3 text-sm font-semibold transition-colors disabled:opacity-50",
             active
               ? "text-ink-muted hover:bg-surface-sunken"
               : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
           )}
         >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Power className="h-3.5 w-3.5" />}
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
           {active ? "無効化" : "有効化"}
         </button>
         {canDelete && (
@@ -57,13 +57,13 @@ export function StaffRowActions({
             onClick={onDelete}
             disabled={pending}
             aria-label="完全に削除"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-red-50 hover:text-status-danger disabled:opacity-50"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-ink-faint transition-colors hover:bg-red-50 hover:text-status-danger disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
           </button>
         )}
       </div>
-      {err && <p className="max-w-[200px] text-right text-[11px] font-medium text-status-danger">{err}</p>}
+      {err && <p className="max-w-[200px] text-right text-xs font-medium text-status-danger">{err}</p>}
     </div>
   );
 }

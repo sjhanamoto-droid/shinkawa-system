@@ -58,15 +58,15 @@ export default async function AnnouncementsPage() {
               const isUnread = unread.has(a.id);
               return (
                 <li key={a.id}>
-                  <Link href={`/announcements/${a.id}`} className={cn("tap-row flex items-center gap-3 p-4 active:bg-surface-sunken", isUnread && "bg-brand-50/50")}>
+                  <Link href={`/announcements/${a.id}`} className={cn("tap-row flex items-center gap-3 px-4 py-3.5 active:bg-surface-sunken", isUnread && "bg-brand-50/50 dark:bg-brand-950/20")}>
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {isUnread && <span className="h-2 w-2 rounded-full bg-status-danger" aria-label="未読" />}
                         <AnnouncementCategoryBadge category={a.category} />
-                        <span className="text-[11px] text-ink-faint">{jstDateTimeLabel(a.createdAt)}</span>
+                        <span className="text-xs text-ink-faint">{jstDateTimeLabel(a.createdAt)}</span>
                       </div>
-                      <p className={cn("truncate text-[15px] text-ink", isUnread ? "font-black" : "font-bold")}>{a.title}</p>
-                      <p className="truncate text-xs text-ink-muted">
+                      <p className={cn("break-words text-base leading-snug text-ink", isUnread ? "font-bold" : "font-semibold")}>{a.title}</p>
+                      <p className="break-words text-sm text-ink-muted">
                         {a.createdBy?.name ?? "—"}
                         {canSend && ` → ${audienceLabel(a.audience)}`}
                       </p>

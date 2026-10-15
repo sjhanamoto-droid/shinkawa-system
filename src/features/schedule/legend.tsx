@@ -5,7 +5,7 @@ import { useCategories } from "@/components/category-provider";
 export function Legend() {
   const categories = useCategories().filter((c) => c.active);
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-ink-muted">
+    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-1 text-xs text-ink-muted">
       {categories.map((c) => (
         <span key={c.key} className="flex items-center gap-1">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: c.color }} />

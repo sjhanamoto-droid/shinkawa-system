@@ -6,6 +6,7 @@ import { dateFromKey, jstDateKey } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { Badge } from "@/components/ui/badge";
+import { SectionTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
 import { SearchParamToast } from "@/components/ui/toast";
@@ -40,30 +41,32 @@ export default async function VehiclesPage() {
   const row = (v: (typeof vehicles)[number]) => {
     const n = todayCount.get(v.id) ?? 0;
     return (
-      <div key={v.id} className={`card flex flex-wrap items-center gap-3 p-3.5 sm:flex-nowrap ${!v.active ? "opacity-60" : ""}`}>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ backgroundColor: v.color }}>
-          <Car className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate text-[15px] font-bold text-ink">{v.name}</span>
-            {v.vehicleType && <span className="text-xs text-ink-muted">{v.vehicleType}</span>}
-            {isDepartment(v.department) && <Badge tone="info">{DEPARTMENT_LABEL[v.department]}</Badge>}
-            {!v.active && <Badge tone="danger">無効</Badge>}
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
-            {v.plateNumber && <span className="tnum">{v.plateNumber}</span>}
-            {v.active && (
-              <Link href={`/schedule?view=day&d=${todayKey}`} className={`flex items-center gap-1 ${n > 0 ? "font-semibold text-brand-600" : ""}`}>
-                <CalendarDays className="h-3 w-3" />
-                今日 {n > 0 ? `${n}件で使用` : "空き"}
-              </Link>
-            )}
-            {v.memo && <span className="truncate">{v.memo}</span>}
+      <div key={v.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3.5 sm:flex-nowrap ${!v.active ? "opacity-60" : ""}`}>
+        <div className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ backgroundColor: v.color }}>
+            <Car className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="truncate text-base font-bold text-ink">{v.name}</span>
+              {v.vehicleType && <span className="text-sm text-ink-muted">{v.vehicleType}</span>}
+              {isDepartment(v.department) && <Badge tone="info">{DEPARTMENT_LABEL[v.department]}</Badge>}
+              {!v.active && <Badge tone="danger">無効</Badge>}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-sm text-ink-muted">
+              {v.plateNumber && <span className="tnum">{v.plateNumber}</span>}
+              {v.active && (
+                <Link href={`/schedule?view=day&d=${todayKey}`} className={`flex items-center gap-1 ${n > 0 ? "font-semibold text-brand-600" : ""}`}>
+                  <CalendarDays className="h-4 w-4" />
+                  今日 {n > 0 ? `${n}件で使用` : "空き"}
+                </Link>
+              )}
+              {v.memo && <span className="truncate">{v.memo}</span>}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Link href={`/vehicles/${v.id}/edit`} className="flex h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-brand-600 hover:bg-brand-50"><Pencil className="h-3.5 w-3.5" />編集</Link>
+        <div className="-my-1 ml-auto flex items-center gap-1.5">
+          <Link href={`/vehicles/${v.id}/edit`} className="flex h-11 items-center gap-1 rounded-xl px-3 text-sm font-semibold text-brand-600 hover:bg-brand-50"><Pencil className="h-4 w-4" />編集</Link>
           <VehicleRowActions id={v.id} active={v.active} canDelete={v._count.occurrences === 0 && v._count.jobs === 0} />
         </div>
       </div>
@@ -84,13 +87,17 @@ export default async function VehiclesPage() {
         ) : (
           <div className="space-y-6">
             <section className="space-y-2.5">
-              <h2 className="px-1 text-sm font-bold text-ink-soft">使用中 <span className="text-ink-faint">{active.length}台</span></h2>
-              {active.length === 0 ? <p className="card p-4 text-center text-sm text-ink-muted">有効な車両がありません</p> : active.map(row)}
+              <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{active.length}台</span>}>使用中</SectionTitle>
+              {active.length === 0 ? (
+                <p className="card p-4 text-center text-sm text-ink-muted">有効な車両がありません</p>
+              ) : (
+                <div className="card divide-y divide-line overflow-hidden">{active.map(row)}</div>
+              )}
             </section>
             {inactive.length > 0 && (
               <section className="space-y-2.5">
-                <h2 className="px-1 text-sm font-bold text-ink-soft">無効 <span className="text-ink-faint">{inactive.length}台</span></h2>
-                {inactive.map(row)}
+                <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{inactive.length}台</span>}>無効</SectionTitle>
+                <div className="card divide-y divide-line overflow-hidden">{inactive.map(row)}</div>
               </section>
             )}
           </div>

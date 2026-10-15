@@ -27,7 +27,7 @@ export function DeleteClaimButton({ id }: { id: string }) {
         });
       }}
       className={cn(
-        "flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold disabled:opacity-50",
+        "flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold disabled:opacity-50",
         confirm ? "bg-red-600 text-white" : "text-ink-muted hover:bg-red-50 hover:text-status-danger",
       )}
     >

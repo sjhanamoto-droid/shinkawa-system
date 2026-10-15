@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Plus, Building, MapPin, KeyRound, Repeat, ChevronRight, ChevronDown } from "lucide-react";
+import { Search, Plus, Building, Building2, MapPin, KeyRound, Repeat, ChevronRight, ChevronDown } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
@@ -102,19 +102,23 @@ export default async function PropertiesPage({
         {/* 自分でタブを選んだときだけ覚える（既定の部門で開いただけでは書き込まない） */}
         {pick(sp.dept) && <RememberDeptTab value={tab} />}
         {/* 部門タブ（クリーニング／工事を分けて見る） */}
-        <div className="mb-3 flex gap-1 rounded-xl bg-surface-sunken p-1">
+        {/* 下線型：開いている部門は下線で示す */}
+        <div className="mb-3 flex border-b border-line">
           {(["CLEANING", "CONSTRUCTION", "ALL"] as const).map((t) => (
             <Link
               key={t}
               href={href({ dept: t, freq: undefined, unset: undefined, page: undefined })}
+              aria-current={tab === t ? "page" : undefined}
               className={cn(
-                "flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-bold transition-colors",
-                tab === t ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink",
+                "relative flex min-h-[48px] flex-1 items-center justify-center gap-1.5 px-1 text-[15px] transition-colors",
+                tab === t
+                  ? "font-bold text-brand-700 after:absolute after:inset-x-2 after:bottom-0 after:h-[3px] after:rounded-full after:bg-brand-600 dark:text-brand-300"
+                  : "font-medium text-ink-muted hover:text-ink-soft",
               )}
             >
-              {t !== "ALL" && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: DEPARTMENT_COLOR[t] }} />}
-              {t === "ALL" ? "すべて" : DEPARTMENT_LABEL[t]}
-              <span className="text-xs font-semibold tnum text-ink-faint">{tabCount[t]}</span>
+              {t !== "ALL" && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: DEPARTMENT_COLOR[t] }} />}
+              <span className="truncate">{t === "ALL" ? "すべて" : DEPARTMENT_LABEL[t]}</span>
+              <span className="shrink-0 text-sm font-semibold tnum text-ink-faint">{tabCount[t]}</span>
             </Link>
           ))}
         </div>
@@ -161,52 +165,76 @@ export default async function PropertiesPage({
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {properties.map((p) => (
-                <CardLink key={p.id} href={`/properties/${p.id}`} className="h-full p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge tone="brand">{p.customer.shortName ?? p.customer.name}</Badge>
-                        {p.status !== "ACTIVE" && <Badge tone="past">{PROPERTY_STATUS_LABEL[p.status as PropertyStatus] ?? p.status}</Badge>}
-                        {p._count.handovers > 0 && <Badge tone="warn">引き継ぎ {p._count.handovers}</Badge>}
+              {properties.map((p) => {
+                const j = p.jobs[0];
+                return (
+                  <CardLink key={p.id} href={`/properties/${p.id}`} className="flex h-full flex-col p-4">
+                    {/* 1行目：部門・種別（軽く）と状態。引き継ぎがあれば目立たせる */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        {j ? (
+                          <>
+                            {isDepartment(j.department) && (
+                              <span className="flex items-center gap-1 text-sm font-semibold text-ink-muted">
+                                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: DEPARTMENT_COLOR[j.department] }} />
+                                {DEPARTMENT_LABEL[j.department]}
+                              </span>
+                            )}
+                            <CategoryBadge category={j.category} short />
+                          </>
+                        ) : (
+                          <span className="text-sm font-semibold text-ink-faint">作業内容：未設定</span>
+                        )}
                       </div>
-                      <h3 className="mt-1 truncate text-[15px] font-bold leading-snug text-ink">{p.name}</h3>
-                      {p.building && <p className="truncate text-xs text-ink-soft">{p.building}</p>}
-                      {p.address && (
-                        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-muted">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          <span className="min-w-0 truncate">{p.address}</span>
-                        </p>
-                      )}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {p._count.handovers > 0 && <Badge tone="warn" className="font-bold">引き継ぎ {p._count.handovers}</Badge>}
+                        {p.status !== "ACTIVE" && <Badge tone="past" className="px-3 py-1 text-sm font-bold">{PROPERTY_STATUS_LABEL[p.status as PropertyStatus] ?? p.status}</Badge>}
+                      </div>
                     </div>
-                    <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-ink-faint" />
-                  </div>
-                  {p.jobs[0] ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {isDepartment(p.jobs[0].department) && <Badge tone="info">{DEPARTMENT_LABEL[p.jobs[0].department]}</Badge>}
-                      <CategoryBadge category={p.jobs[0].category} short />
-                      {isRuleKind(p.jobs[0].ruleKind) ? (
-                        <span className="flex min-w-0 items-center gap-1 text-xs font-semibold text-ink-soft">
-                          <Repeat className="h-3 w-3 shrink-0 text-ink-faint" />
-                          <span className="truncate">{describeRule(p.jobs[0].ruleKind, (p.jobs[0].ruleParams ?? {}) as RuleParams)}</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs font-semibold text-ink-soft">{isContractType(p.jobs[0].contractType) ? CONTRACT_TYPE_LABEL[p.jobs[0].contractType] : ""}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-ink-faint">作業内容：未設定</p>
-                  )}
-                  <div className="mt-3 flex items-center gap-4 border-t border-line pt-2.5 text-xs font-medium text-ink-muted">
-                    {p.unitCount != null && <span>{p.unitCount}件</span>}
-                    <span className="flex items-center gap-1">
-                      <KeyRound className="h-3.5 w-3.5" />
-                      {p.keyboxStatus === "HAS" ? "キーBOXあり" : p.keyboxStatus === "NONE" ? "キーBOXなし" : "未確認"}
-                    </span>
 
-                  </div>
-                </CardLink>
-              ))}
+                    {/* 現場名を一番大きく */}
+                    <div className="mt-1.5 flex items-start justify-between gap-2">
+                      <h3 className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-bold leading-snug text-ink [text-wrap:pretty]">{p.name}</h3>
+                      <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
+                    </div>
+                    {p.building && <p className="break-words text-sm text-ink-soft">{p.building}</p>}
+
+                    {/* メタ行：顧客・住所・周期 */}
+                    <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-soft">
+                      <Building2 className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+                      <span className="truncate">{p.customer.shortName ?? p.customer.name}</span>
+                    </p>
+                    {p.address && (
+                      <p className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-ink-soft">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+                        <span className="min-w-0 break-words">{p.address}</span>
+                      </p>
+                    )}
+                    {j && (isRuleKind(j.ruleKind) || isContractType(j.contractType)) && (
+                      <p className="mt-1 flex min-w-0 items-start gap-1.5 text-sm font-semibold text-ink-soft">
+                        <Repeat className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+                        <span className="min-w-0 break-words">
+                          {isRuleKind(j.ruleKind)
+                            ? describeRule(j.ruleKind, (j.ruleParams ?? {}) as RuleParams)
+                            : isContractType(j.contractType)
+                              ? CONTRACT_TYPE_LABEL[j.contractType]
+                              : ""}
+                        </span>
+                      </p>
+                    )}
+
+                    <div className="mt-auto pt-3">
+                      <div className="flex items-center gap-4 border-t border-line pt-2.5 text-sm font-medium text-ink-muted">
+                        {p.unitCount != null && <span className="tnum">{p.unitCount}件</span>}
+                        <span className="flex items-center gap-1">
+                          <KeyRound className="h-4 w-4" />
+                          {p.keyboxStatus === "HAS" ? "キーBOXあり" : p.keyboxStatus === "NONE" ? "キーBOXなし" : "未確認"}
+                        </span>
+                      </div>
+                    </div>
+                  </CardLink>
+                );
+              })}
             </div>
             {hasMore && (
               <LinkButton href={href({ page: pageNum + 1 })} variant="outline" size="md" className="mt-4 w-full" scroll={false}>

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Loader2, Plus, CalendarDays } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { Button } from "@/components/ui/button";
 import { isPlanner, can, type Actor } from "@/lib/permissions";
 import { NON_WORK_CATEGORIES, type Department, hasFixedDates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -25,6 +24,7 @@ import { MoveConfirmDialog } from "./move-confirm-dialog";
 import { FilterBar } from "./filter-bar";
 import { QuickEntry } from "./quick-entry";
 import { Legend } from "./legend";
+import { DayHeading } from "./day-heading";
 import type { FilterState, MoveInput, OccurrenceView, PersonRef, ScheduleData, VehicleRef, ViewMode } from "./types";
 
 const POLL_MS = 30_000;
@@ -322,32 +322,38 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
 
   return (
     <DndContext id="schedule-dnd" sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => { draggingRef.current = false; setDragging(null); }}>
-      <div className="space-y-3">
+      <div className="space-y-4">
         {/* ヘッダ：期間ナビ・ビュー切替・追加 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => navigate({ date: stepDate(filters, -1) })} aria-label="前へ" className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-sunken">
-              <ChevronLeft className="h-5 w-5" />
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+          <div className="flex min-w-0 items-center gap-1">
+            <button type="button" onClick={() => navigate({ date: stepDate(filters, -1) })} aria-label="前へ" disabled={navPending} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-surface-sunken active:bg-surface-sunken disabled:opacity-40">
+              <ChevronLeft className="h-6 w-6" />
             </button>
-            <button type="button" onClick={() => navigate({ date: today })} className="flex h-9 items-center gap-1 rounded-full border border-line-strong bg-surface px-3 text-xs font-bold text-ink-soft hover:bg-surface-subtle">
-              <CalendarDays className="h-3.5 w-3.5" />
+            <button type="button" onClick={() => navigate({ date: today })} className="flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-line-strong bg-surface px-4 text-sm font-bold text-ink-soft hover:bg-surface-subtle">
+              <CalendarDays className="h-4 w-4" />
               今日
             </button>
-            <button type="button" onClick={() => navigate({ date: stepDate(filters, 1) })} aria-label="次へ" className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-sunken">
-              <ChevronRight className="h-5 w-5" />
+            <button type="button" onClick={() => navigate({ date: stepDate(filters, 1) })} aria-label="次へ" disabled={navPending} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-surface-sunken active:bg-surface-sunken disabled:opacity-40">
+              <ChevronRight className="h-6 w-6" />
             </button>
           </div>
-          <h2 className="text-base font-bold text-ink md:text-lg">{title}</h2>
+          <h2 className="ml-1 min-w-0">
+            {filters.view === "day" ? (
+              <DayHeading dateKey={filters.date} isToday={filters.date === today} />
+            ) : (
+              <span className="text-xl font-bold tnum text-ink">{title}</span>
+            )}
+          </h2>
           {navPending && <Loader2 className="h-4 w-4 animate-spin text-brand-600" />}
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex rounded-full bg-surface-sunken p-0.5">
+            <div className="flex rounded-full bg-surface-sunken p-1">
               {views.map((v) => (
                 <button
                   key={v.key}
                   type="button"
                   onClick={() => navigate({ view: v.key })}
                   className={cn(
-                    "h-8 items-center justify-center rounded-full px-3 text-xs font-bold transition-colors",
+                    "h-9 min-w-[2.75rem] items-center justify-center rounded-full px-3.5 text-sm font-bold transition-colors",
                     v.className ?? "flex",
                     filters.view === v.key ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink-soft",
                   )}
@@ -357,9 +363,13 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
               ))}
             </div>
             {canEdit && (
-              <Button type="button" size="sm" onClick={() => openAdd(filters.view === "month" ? today : filters.date)}>
+              <button
+                type="button"
+                onClick={() => openAdd(filters.view === "month" ? today : filters.date)}
+                className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-brand-600 px-4 text-sm font-bold text-white shadow-card active:scale-95 md:hover:bg-brand-700"
+              >
                 <Plus className="h-4 w-4" /> 予定
-              </Button>
+              </button>
             )}
           </div>
         </div>
@@ -398,12 +408,12 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         </div>
 
         <Legend />
-        {coarse && canEdit && <p className="px-1 text-[11px] text-ink-faint">タッチ端末では予定を開いて「移動」から日付・担当を変更できます。</p>}
+        {coarse && canEdit && <p className="px-1 text-xs text-ink-muted">タッチ端末では予定を開いて「移動」から日付・担当を変更できます。</p>}
       </div>
 
       <DragOverlay dropAnimation={null}>
         {dragging && (
-          <div className="w-56 rotate-1 shadow-float">
+          <div className="w-60 rotate-1 rounded-md shadow-float">
             <OccurrenceCard occurrence={dragging} variant="chip" />
           </div>
         )}

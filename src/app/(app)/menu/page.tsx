@@ -38,12 +38,12 @@ export default async function MenuPage() {
       <PageHeader title="メニュー" />
       <PageContainer size="narrow">
         <div className="space-y-5">
-          <div className="card flex items-center gap-3.5 p-4">
+          <div className="card flex items-center gap-3.5 p-4 md:p-5">
             <Avatar name={user.name} color={user.avatarColor} image={user.avatarUrl} size="lg" />
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-bold text-ink">{user.name}</p>
-              {user.email && <p className="truncate text-xs text-ink-muted">{user.email}</p>}
-              <p className="mt-0.5 text-xs font-semibold text-brand-600">
+              <p className="truncate text-xl font-bold leading-tight text-ink">{user.name}</p>
+              {user.email && <p className="mt-0.5 truncate text-sm text-ink-muted">{user.email}</p>}
+              <p className="mt-1 text-sm font-semibold text-brand-600">
                 {ROLE_LABEL[user.role as Role] ?? user.role}
                 {isDepartment(user.department) && ` ・ ${DEPARTMENT_LABEL[user.department]}`}
               </p>

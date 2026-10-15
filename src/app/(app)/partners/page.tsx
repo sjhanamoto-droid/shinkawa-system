@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { PeopleTabs } from "@/components/app-shell/section-tab-sets";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { Badge } from "@/components/ui/badge";
+import { SectionTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
 import { SearchParamToast } from "@/components/ui/toast";
@@ -37,27 +38,31 @@ export default async function PartnersPage() {
           <div className="space-y-6">
             {groups.map((g) => (
               <section key={g.kind} className="space-y-2.5">
-                <h2 className="px-1 text-sm font-bold text-ink-soft">{PARTNER_KIND_LABEL[g.kind as PartnerKind]} <span className="text-ink-faint">{g.items.length}社</span></h2>
-                {g.items.map((p) => (
-                  <div key={p.id} className={`card flex flex-wrap items-center gap-3 p-3.5 sm:flex-nowrap ${!p.active ? "opacity-60" : ""}`}>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="truncate text-[15px] font-bold text-ink">{p.name}</span>
-                        {isDepartment(p.department) && <Badge tone="info">{DEPARTMENT_LABEL[p.department]}</Badge>}
-                        {!p.active && <Badge tone="danger">無効</Badge>}
+                <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{g.items.length}社</span>}>
+                  {PARTNER_KIND_LABEL[g.kind as PartnerKind]}
+                </SectionTitle>
+                <div className="card divide-y divide-line overflow-hidden">
+                  {g.items.map((p) => (
+                    <div key={p.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3.5 sm:flex-nowrap ${!p.active ? "opacity-60" : ""}`}>
+                      <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="truncate text-base font-bold text-ink">{p.name}</span>
+                          {isDepartment(p.department) && <Badge tone="info">{DEPARTMENT_LABEL[p.department]}</Badge>}
+                          {!p.active && <Badge tone="danger">無効</Badge>}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+                          {p.contactName && <span>{p.contactName}</span>}
+                          {p.phone && <span className="flex items-center gap-1.5 tnum"><Phone className="h-4 w-4" />{p.phone}</span>}
+                          <Link href={`/workers?q=${encodeURIComponent(p.name)}`} className="flex items-center gap-1.5 font-semibold text-brand-600"><Users className="h-4 w-4" />作業者 {p._count.workers}名</Link>
+                        </div>
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
-                        {p.contactName && <span>{p.contactName}</span>}
-                        {p.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{p.phone}</span>}
-                        <Link href={`/workers?q=${encodeURIComponent(p.name)}`} className="flex items-center gap-1 text-brand-600"><Users className="h-3 w-3" />作業者 {p._count.workers}名</Link>
+                      <div className="-my-1 ml-auto flex items-center gap-1.5">
+                        <Link href={`/partners/${p.id}/edit`} className="flex h-11 items-center gap-1 rounded-xl px-3 text-sm font-semibold text-brand-600 hover:bg-brand-50"><Pencil className="h-4 w-4" />編集</Link>
+                        <PartnerRowActions id={p.id} active={p.active} canDelete={p._count.workers === 0} />
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Link href={`/partners/${p.id}/edit`} className="flex h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-brand-600 hover:bg-brand-50"><Pencil className="h-3.5 w-3.5" />編集</Link>
-                      <PartnerRowActions id={p.id} active={p.active} canDelete={p._count.workers === 0} />
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </section>
             ))}
           </div>

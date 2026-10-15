@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, Building, ChevronDown, Plus, CalendarDays, UserRound, MapPin, KeyRound } from "lucide-react";
+import { Pencil, Building, ChevronDown, ChevronRight, Plus, CalendarDays, MapPin, KeyRound } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { can, canViewAmounts } from "@/lib/permissions";
@@ -27,7 +27,8 @@ import {
 } from "@/lib/constants";
 import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
 import { getCategories } from "@/lib/categories-server";
-import { fmtDate, fmtYen } from "@/lib/utils";
+import { cn, fmtDate, fmtYen, mapSearchUrl } from "@/lib/utils";
+import { ClampedText } from "@/features/properties/handover-panel";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const categories = await getCategories();
@@ -67,7 +68,6 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     <div>
       <PageHeader
         title={customer.name}
-        subtitle={[customer.shortName, labelOf(REGISTRATION_TYPE_LABEL, customer.registrationType), labelOf(TRADE_STATUS_LABEL, customer.tradeStatus)].filter(Boolean).join(" ・ ")}
         backHref="/customers"
         right={
           canManage ? (
@@ -81,28 +81,57 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
       <PageContainer>
         <SearchParamToast />
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <div className="space-y-5">
-            {customer.memo && (
-              <section className="space-y-2.5">
-                <SectionTitle>メモ</SectionTitle>
-                <Card className="p-4">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{customer.memo}</p>
-                </Card>
-              </section>
+        {/* 概要カード（現場詳細と同じ調子）：現場数・取引状態・顧客名・区分・メモ・本社住所 */}
+        <Card className="mb-6 p-4 md:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-lg font-bold tnum text-ink">現場 {customer.properties.length}件</p>
+            {customer.tradeStatus && (
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1 text-sm font-bold",
+                customer.tradeStatus === "SUSPENDED" ? "bg-surface-sunken text-ink-muted" : "bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300",
+              )}
+            >
+              {labelOf(TRADE_STATUS_LABEL, customer.tradeStatus)}
+            </span>
             )}
+          </div>
+          <h2 className={cn("mt-1.5 break-words font-bold leading-tight text-ink", customer.name.length > 10 ? "text-2xl" : "text-[1.875rem]")}>
+            {customer.name}
+          </h2>
+          <p className="mt-1.5 text-sm text-ink-muted">
+            {[customer.shortName, labelOf(REGISTRATION_TYPE_LABEL, customer.registrationType)].filter(Boolean).join(" ・ ")}
+          </p>
+          {customer.memo && (
+            <ClampedText text={customer.memo} className="mt-2 text-[15px] leading-relaxed text-ink-soft" toggleClassName="text-brand-600" />
+          )}
+          {customer.headOfficeAddress && (
+            <a
+              href={mapSearchUrl(customer.headOfficeAddress)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex min-w-0 items-start gap-1.5 text-sm font-medium text-brand-600"
+            >
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span className="break-words">{customer.headOfficeAddress}</span>
+            </a>
+          )}
+        </Card>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="space-y-6">
 
             {/* 物件 */}
             <section className="space-y-2.5">
               <SectionTitle
                 action={
                   can(user, "property.manage") ? (
-                    <Link href={`/properties/new?customerId=${id}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
+                    <Link href={`/properties/new?customerId=${id}`} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
                       <Plus className="h-3.5 w-3.5" />
                       現場を追加
                     </Link>
                   ) : (
-                    <span className="text-xs font-semibold text-ink-muted">{customer.properties.length} 件</span>
+                    <span className="text-sm font-semibold text-ink-muted tnum">{customer.properties.length}件</span>
                   )
                 }
               >
@@ -111,31 +140,32 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               {customer.properties.length === 0 ? (
                 <EmptyState icon={<Building className="h-6 w-6" />} title="現場がありません" description="この顧客の現場はまだ登録されていません" />
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {customer.properties.map((p) => (
-                    <CardLink key={p.id} href={`/properties/${p.id}`} className="flex items-center gap-3 p-3.5">
+                    <CardLink key={p.id} href={`/properties/${p.id}`} className="flex items-center gap-3 p-4">
                       <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-1.5 truncate text-sm font-bold text-ink">
-                          {p.name}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="min-w-0 break-words text-base font-bold leading-snug text-ink">{p.name}</p>
                           {p.status !== "ACTIVE" && <Badge tone="past">{PROPERTY_STATUS_LABEL[p.status as PropertyStatus] ?? p.status}</Badge>}
-                        </p>
-                        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
-                          {p.address && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {p.address}
-                            </span>
-                          )}
+                        </div>
+                        {p.address && (
+                          <p className="mt-1 flex items-start gap-1.5 text-sm text-ink-soft">
+                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+                            <span className="min-w-0 break-words">{p.address}</span>
+                          </p>
+                        )}
+                        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-ink-muted">
+                          {p.jobs[0] ? <span className="font-semibold text-ink-soft">{describeWork(p.jobs[0], categories)}</span> : <span className="text-ink-faint">作業内容：未設定</span>}
                           {p.keyboxStatus === "HAS" && (
                             <span className="flex items-center gap-1">
-                              <KeyRound className="h-3 w-3" />
+                              <KeyRound className="h-4 w-4" />
                               キーBOXあり
                             </span>
                           )}
-                          {p.jobs[0] ? <span>{describeWork(p.jobs[0], categories)}</span> : <span className="text-ink-faint">作業内容：未設定</span>}
                           {showAmount && p.jobs[0] && "amount" in p.jobs[0] && p.jobs[0].amount != null && <span className="font-bold tnum text-emerald-700">{fmtYen(p.jobs[0].amount)}</span>}
                         </p>
                       </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
                     </CardLink>
                   ))}
                 </div>
@@ -146,27 +176,30 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             <section className="space-y-2.5">
               <SectionTitle
                 action={
-                  <Link href={`/schedule?view=month&d=${today}&customer=${id}`} className="flex items-center gap-1 text-xs font-bold text-brand-600">
+                  <Link href={`/schedule?view=month&d=${today}&customer=${id}`} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
                     <CalendarDays className="h-3.5 w-3.5" />
                     カレンダーで見る
                   </Link>
                 }
               >
-                今後30日の予定 <span className="text-ink-faint">{customer.occurrences.length}件</span>
+                <span className="flex items-baseline gap-2">
+                  今後30日の予定
+                  <span className="text-sm font-normal text-ink-muted tnum">{customer.occurrences.length}件</span>
+                </span>
               </SectionTitle>
               {customer.occurrences.length === 0 ? (
-                <p className="card p-4 text-center text-sm text-ink-muted">予定はありません</p>
+                <p className="rounded-2xl border border-dashed border-line-strong px-4 py-5 text-center text-sm font-medium text-ink-muted">予定はありません</p>
               ) : (
-                <Card className="divide-y divide-line">
+                <Card className="divide-y divide-line overflow-hidden">
                   {customer.occurrences.map((o) => {
                     const key = o.date ? storedDateKey(o.date) : null;
                     return (
-                      <Link key={o.id} href={key ? `/schedule?view=day&d=${key}` : "/schedule"} className="flex items-center gap-2.5 px-3.5 py-2 text-sm hover:bg-surface-subtle">
-                        <span className="w-20 shrink-0 tnum font-semibold text-ink-soft">{key ? fmtKeyShort(key) : "未定"}</span>
-                        {o.startTime && <span className="w-12 shrink-0 tnum text-xs text-ink-muted">{o.startTime}</span>}
+                      <Link key={o.id} href={key ? `/schedule?view=day&d=${key}` : "/schedule"} className="flex min-h-[52px] items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-surface-subtle">
+                        <span className="w-20 shrink-0 tnum font-bold text-ink">{key ? fmtKeyShort(key) : "未定"}</span>
+                        {o.startTime && <span className="w-12 shrink-0 tnum text-sm text-ink-muted">{o.startTime}</span>}
                         <CategoryBadge category={o.category} short />
-                        <span className="min-w-0 flex-1 truncate font-semibold text-ink">{o.title ?? o.property?.name ?? customer.shortName ?? customer.name}</span>
-                        <span className="hidden truncate text-xs text-ink-muted sm:block">{o.assignments.map((a) => a.user.name).join("・")}</span>
+                        <span className="min-w-0 flex-1 break-words font-semibold text-ink">{o.title ?? o.property?.name ?? customer.shortName ?? customer.name}</span>
+                        <span className="hidden truncate text-sm text-ink-muted sm:block">{o.assignments.map((a) => a.user.name).join("・")}</span>
                         <OccurrenceStatusBadge status={o.status} />
                       </Link>
                     );
@@ -176,38 +209,35 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </section>
           </div>
 
-          <aside className="space-y-5">
+          <aside className="space-y-6">
             {/* 担当者 */}
             <section className="space-y-2.5">
-              <SectionTitle>
-                <span className="flex items-center gap-1.5">
-                  <UserRound className="h-4 w-4" />
-                  先方の担当者
-                </span>
-              </SectionTitle>
+              <SectionTitle>先方の担当者</SectionTitle>
               {activeContacts.length === 0 ? (
-                <p className="card p-4 text-center text-xs text-ink-muted">担当者は登録されていません</p>
+                <p className="rounded-2xl border border-dashed border-line-strong px-4 py-5 text-center text-sm font-medium text-ink-muted">担当者は登録されていません</p>
               ) : (
-                <Card className="divide-y divide-line">
+                <Card className="divide-y divide-line overflow-hidden">
                   {activeContacts.map((c) => (
-                    <div key={c.id} className="flex items-start gap-2 px-3.5 py-2.5">
+                    <div key={c.id} className="flex items-start gap-2 px-4 py-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-ink">
+                        <p className="break-words text-[15px] font-bold text-ink">
                           {c.name}
                           <span className="ml-1.5 text-xs font-semibold text-ink-muted">{CONTACT_TYPE_LABEL[c.contactType as ContactType] ?? c.contactType}</span>
                         </p>
-                        <p className="text-xs text-ink-muted">{[c.department, c.position].filter(Boolean).join(" ")}</p>
-                        <p className="text-xs text-ink-soft">
-                          {c.mobile && <a href={`tel:${c.mobile}`} className="mr-2 text-brand-600">{c.mobile}</a>}
-                          {c.phone && <a href={`tel:${c.phone}`} className="mr-2 text-brand-600">{c.phone}</a>}
-                          {c.email && <span>{c.email}</span>}
-                        </p>
-                        {c.note && <p className="text-xs text-ink-muted">{c.note}</p>}
+                        {(c.department || c.position) && <p className="mt-0.5 text-sm text-ink-muted">{[c.department, c.position].filter(Boolean).join(" ")}</p>}
+                        {(c.mobile || c.phone || c.email) && (
+                          <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-sm text-ink-soft">
+                            {c.mobile && <a href={`tel:${c.mobile}`} className="inline-flex min-h-[36px] items-center font-medium text-brand-600 tnum">{c.mobile}</a>}
+                            {c.phone && <a href={`tel:${c.phone}`} className="inline-flex min-h-[36px] items-center font-medium text-brand-600 tnum">{c.phone}</a>}
+                            {c.email && <span className="break-all">{c.email}</span>}
+                          </p>
+                        )}
+                        {c.note && <p className="mt-0.5 break-words text-sm text-ink-muted">{c.note}</p>}
                       </div>
                       {canManage && (
                         <form action={setContactInactive}>
                           <input type="hidden" name="id" value={c.id} />
-                          <button type="submit" className="text-[11px] font-semibold text-ink-faint hover:text-status-danger">異動・退任</button>
+                          <button type="submit" className="-my-1.5 flex min-h-[44px] items-center rounded-lg px-2.5 text-xs font-semibold text-ink-muted hover:bg-red-50 hover:text-status-danger">異動・退任</button>
                         </form>
                       )}
                     </div>
@@ -215,13 +245,15 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 </Card>
               )}
               {pastContacts.length > 0 && (
-                <details className="group rounded-xl border border-line bg-surface text-xs">
-                  <summary className="cursor-pointer list-none px-3 py-2 font-bold text-ink-muted [&::-webkit-details-marker]:hidden">
-                    過去の担当者（{pastContacts.length}）
+                <details className="card group overflow-hidden">
+                  <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-2 px-4 text-sm font-semibold text-ink-soft hover:bg-surface-subtle [&::-webkit-details-marker]:hidden">
+                    過去の担当者
+                    <span className="rounded-full bg-surface-sunken px-1.5 text-xs font-bold text-ink-muted tnum">{pastContacts.length}</span>
+                    <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" aria-hidden />
                   </summary>
                   <div className="divide-y divide-line border-t border-line">
                     {pastContacts.map((c) => (
-                      <p key={c.id} className="px-3 py-1.5 text-ink-muted">
+                      <p key={c.id} className="px-4 py-2.5 text-sm text-ink-muted">
                         {c.name}（{c.activeFrom ? fmtDate(c.activeFrom) : "?"} 〜 {c.activeTo ? fmtDate(c.activeTo) : "?"}）
                       </p>
                     ))}
@@ -230,13 +262,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               )}
               {canManage && (
                 <details className="group rounded-2xl border border-dashed border-line-strong bg-surface">
-                  <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-3 text-sm font-bold text-ink-soft [&::-webkit-details-marker]:hidden">
+                  <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-1.5 px-4 py-3 text-sm font-bold text-brand-600 [&::-webkit-details-marker]:hidden">
                     <Plus className="h-4 w-4" />
                     担当者を追加
                   </summary>
-                  <form action={addContact} className="space-y-3 border-t border-line p-4">
+                  <form action={addContact} className="space-y-4 border-t border-line p-4">
                     <input type="hidden" name="customerId" value={id} />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                       <Field label="氏名" htmlFor="ct-name" required className="col-span-2">
                         <Input id="ct-name" name="name" required />
                       </Field>
@@ -270,8 +302,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </section>
 
             {hasDetails && (
-              <details className="group rounded-2xl border border-line bg-surface" open>
-                <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-bold text-ink-soft [&::-webkit-details-marker]:hidden">
+              <details className="card group" open>
+                <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-lg font-bold text-ink [&::-webkit-details-marker]:hidden">
                   連絡先・取引条件
                   <ChevronDown className="h-5 w-5 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
                 </summary>

@@ -5,9 +5,9 @@ import { requireUser } from "@/lib/session";
 import { canViewAllReports, isReportStatus, REPORT_STATUS_LABEL } from "@/lib/reports";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
-import { Card } from "@/components/ui/card";
+import { Card, SectionTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/form";
-import { LinkButton } from "@/components/ui/button";
+import { LinkButton, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
 import { fmtKeyLong } from "@/features/schedule/filters";
 import { loadReportList, type ReportListItem } from "@/features/reports/queries";
@@ -85,11 +85,11 @@ export default async function AllReportsPage({ searchParams }: { searchParams: P
             <span className="text-sm text-ink-muted">〜</span>
             <Input name="to" type="date" defaultValue={sp.to ?? ""} aria-label="終了日" className="h-11 w-auto" />
             {sp.property && <input type="hidden" name="property" value={sp.property} />}
-            <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">
+            <button type="submit" className={buttonClass({ className: "shrink-0 px-5" })}>
               検索
             </button>
             {(sp.q || sp.user || sp.status || sp.from || sp.to || sp.property) && (
-              <LinkButton href="/reports/all" variant="ghost" size="sm">
+              <LinkButton href="/reports/all" variant="ghost">
                 絞り込みを解除
               </LinkButton>
             )}
@@ -100,13 +100,13 @@ export default async function AllReportsPage({ searchParams }: { searchParams: P
         {groups.length === 0 ? (
           <EmptyState title="日報がありません" description="条件を変えて検索してください" />
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {groups.map((g) => (
-              <section key={g.date} className="space-y-2">
-                <h2 className="px-1 text-sm font-bold text-ink-soft">
-                  {fmtKeyLong(g.date)} <span className="text-ink-faint">{g.items.length}件</span>
-                </h2>
-                <Card className="divide-y divide-line">
+              <section key={g.date} className="space-y-2.5">
+                <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{g.items.length}件</span>}>
+                  <span className="tnum">{fmtKeyLong(g.date)}</span>
+                </SectionTitle>
+                <Card className="divide-y divide-line overflow-hidden">
                   {g.items.map((r) => (
                     <ReportListRow key={r.id} r={r} showDate={false} />
                   ))}

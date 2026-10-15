@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export const chipClass = (on: boolean) =>
   cn(
-    "flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-bold transition-colors",
+    "flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-bold transition-colors",
     on ? "border-brand-600 bg-brand-600 text-white" : "border-line bg-surface text-ink-soft hover:bg-surface-subtle",
   );
 

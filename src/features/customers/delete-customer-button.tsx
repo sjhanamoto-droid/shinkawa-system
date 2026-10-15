@@ -11,9 +11,9 @@ export function DeleteCustomerButton({ customerId, customerName }: { customerId:
   const [open, setOpen] = useState(false);
   const toast = useToast();
   return (
-    <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4">
-      <p className="text-sm font-bold text-red-700">危険な操作</p>
-      <p className="mt-1 text-xs leading-relaxed text-red-600/90">物件や予定が紐づいている顧客は削除できません（取引停止にしてください）。</p>
+    <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4 dark:border-red-900 dark:bg-red-950/30">
+      <p className="text-sm font-bold text-red-700 dark:text-red-300">危険な操作</p>
+      <p className="mt-1 text-xs leading-relaxed text-red-600/90 dark:text-red-300/80">物件や予定が紐づいている顧客は削除できません（取引停止にしてください）。</p>
       <Button type="button" variant="danger" size="md" className="mt-3 w-full" onClick={() => setOpen(true)}>
         <Trash2 className="h-4 w-4" />
         この顧客を削除

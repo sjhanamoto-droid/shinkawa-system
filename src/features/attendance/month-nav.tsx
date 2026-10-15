@@ -11,11 +11,15 @@ export function MonthNav({ ym, hrefFor }: { ym: string; hrefFor: (ym: string) =>
       <Link href={hrefFor(addMonthsKey(ym, -1))} aria-label="前月" className={buttonClass({ variant: "outline", size: "icon" })}>
         <ChevronLeft className="h-5 w-5" />
       </Link>
-      <div className="text-center leading-tight">
-        <p className="text-base font-bold text-ink tnum md:text-lg">
+      <div className="flex items-center gap-2">
+        <p className="text-xl font-bold text-ink tnum">
           {y}年{m}月
         </p>
-        {ym === jstMonthKey() && <p className="text-[11px] font-semibold text-brand-600">今月</p>}
+        {ym === jstMonthKey() && (
+          <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-bold text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+            今月
+          </span>
+        )}
       </div>
       <Link href={hrefFor(addMonthsKey(ym, 1))} aria-label="翌月" className={buttonClass({ variant: "outline", size: "icon" })}>
         <ChevronRight className="h-5 w-5" />

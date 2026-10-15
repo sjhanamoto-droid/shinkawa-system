@@ -288,7 +288,7 @@ export function ExpenseEditor({
             {r.message && (
               <p
                 className={cn(
-                  "flex items-center gap-1.5 text-xs font-semibold",
+                  "flex items-center gap-1.5 text-sm font-semibold",
                   r.status === "working" ? "text-ink-muted" : r.status === "read" ? "text-emerald-700" : "text-amber-700",
                 )}
               >
@@ -303,8 +303,8 @@ export function ExpenseEditor({
               </p>
             )}
             {preview && r.status !== "working" && (
-              <button type="button" onClick={() => patch(r.key, { receipt: null })} className="flex items-center gap-1 text-xs font-semibold text-ink-muted hover:text-ink-soft">
-                <X className="h-3.5 w-3.5" />
+              <button type="button" onClick={() => patch(r.key, { receipt: null })} className="-ml-1 flex h-10 items-center gap-1 rounded-xl px-1 text-sm font-semibold text-ink-muted hover:text-ink-soft">
+                <X className="h-4 w-4" />
                 写真を外す
               </button>
             )}
@@ -332,13 +332,13 @@ export function ExpenseEditor({
           手入力で追加
         </button>
       </div>
-      <p className="text-xs text-ink-muted">
+      <p className="text-sm text-ink-muted">
         {ocrEnabled
           ? "領収書を撮影（または写真を選択）すると、科目・金額・店名を自動で入れます。内容を確認して、違っていれば直してください。"
           : "領収書の写真を付けて、科目と金額を入力してください。"}
         カメラが使えないときや写真がないときは「手入力で追加」から入れられます。
       </p>
-      {error && <p className="text-xs font-semibold text-status-danger">{error}</p>}
+      {error && <p className="text-sm font-semibold text-status-danger">{error}</p>}
     </div>
   );
 }

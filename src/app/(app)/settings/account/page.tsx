@@ -35,7 +35,7 @@ export default async function AccountSettingsPage() {
           <section className="space-y-2.5">
             <SectionTitle>この端末の通知</SectionTitle>
             <PushSubscribe />
-            <p className="px-1 text-xs text-ink-muted">予定の移動・確定のお知らせを受け取るため、通知はオンのままを推奨します。</p>
+            <p className="px-1 text-sm text-ink-muted">予定の移動・確定のお知らせを受け取るため、通知はオンのままを推奨します。</p>
           </section>
         </div>
       </PageContainer>

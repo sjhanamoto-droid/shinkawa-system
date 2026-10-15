@@ -52,12 +52,12 @@ export function CustomerForm({ customer }: { customer?: CustomerFormValues }) {
   const [state, formAction] = useActionState<CustomerFormState, FormData>(action, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-5">
       {isEdit && <input type="hidden" name="id" value={customer?.id} />}
 
       <section className="space-y-3">
         <SectionTitle>基本情報</SectionTitle>
-        <Card className="space-y-3 p-4">
+        <Card className="space-y-4 p-4">
           <Field label="顧客名" required htmlFor="name">
             <Input id="name" name="name" defaultValue={customer?.name ?? ""} placeholder="株式会社○○不動産" required />
           </Field>
@@ -70,8 +70,8 @@ export function CustomerForm({ customer }: { customer?: CustomerFormValues }) {
         </Card>
       </section>
 
-      <details className="group rounded-2xl border border-line bg-surface">
-        <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-bold text-ink-soft [&::-webkit-details-marker]:hidden">
+      <details className="card group">
+        <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-lg font-bold text-ink [&::-webkit-details-marker]:hidden">
           詳細情報（任意）
           <ChevronDown className="h-5 w-5 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
         </summary>
@@ -129,7 +129,7 @@ export function CustomerForm({ customer }: { customer?: CustomerFormValues }) {
       </details>
 
       {state.error && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600">
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3.5 py-3 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {state.error}
         </div>

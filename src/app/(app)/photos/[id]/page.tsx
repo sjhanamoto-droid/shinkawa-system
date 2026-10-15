@@ -74,7 +74,7 @@ export default async function PhotoViewerPage({
         <PdfViewer photoId={photo.id} />
         <p
           data-print-hide
-          className="mt-4 px-1 text-center text-[11px] text-ink-faint"
+          className="mt-4 px-1 text-center text-xs text-ink-muted"
         >
           右上の「印刷」でPDFをそのまま印刷、「共有・保存」でファイルへの保存・共有ができます。ピンチで拡大できます。
         </p>

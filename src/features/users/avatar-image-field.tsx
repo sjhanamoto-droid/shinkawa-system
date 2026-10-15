@@ -96,7 +96,7 @@ export function AvatarImageField({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={busy}
-            className="flex items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-xs font-bold text-ink-soft active:scale-95 disabled:opacity-60"
+            className="flex h-11 items-center gap-1.5 rounded-xl border border-line-strong bg-surface px-3.5 text-sm font-bold text-ink-soft active:scale-95 disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4 text-brand-600" />}
             {image ? "画像を変更" : "画像を選ぶ"}
@@ -106,17 +106,17 @@ export function AvatarImageField({
               type="button"
               onClick={() => setImage(null)}
               disabled={busy}
-              className="flex items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-xs font-bold text-status-danger active:scale-95 disabled:opacity-60"
+              className="flex h-11 items-center gap-1.5 rounded-xl border border-line-strong bg-surface px-3.5 text-sm font-bold text-status-danger active:scale-95 disabled:opacity-60"
             >
               <Trash2 className="h-4 w-4" />
               削除
             </button>
           )}
         </div>
-        <p className="mt-1.5 text-[11px] text-ink-faint">
+        <p className="mt-2 text-xs text-ink-muted">
           任意。未設定なら色＋イニシャルで表示します。選んだ画像は自動で軽量化（最大{MAX_DIM}px）します。
         </p>
-        {error && <p className="mt-1 text-[11px] font-medium text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-sm font-medium text-red-600">{error}</p>}
       </div>
       <input
         ref={inputRef}

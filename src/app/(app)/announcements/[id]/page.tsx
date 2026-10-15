@@ -53,22 +53,22 @@ export default async function AnnouncementPage({ params }: { params: Promise<{ i
         <SearchParamToast />
         <MarkAnnouncementRead id={a.id} />
         <div className="space-y-5">
-          <Card className="space-y-3 p-4">
+          <Card className="space-y-3 p-5">
             <div className="flex flex-wrap items-center gap-2">
               <AnnouncementCategoryBadge category={a.category} />
-              <span className="text-xs text-ink-faint">{jstDateTimeLabel(a.createdAt)}</span>
+              <span className="text-sm text-ink-muted tnum">{jstDateTimeLabel(a.createdAt)}</span>
             </div>
-            <h1 className="text-lg font-black leading-snug text-ink">{a.title}</h1>
+            <h1 className="break-words text-xl font-bold leading-snug text-ink [text-wrap:pretty]">{a.title}</h1>
             <div className="flex items-center gap-2 text-sm text-ink-soft">
               {a.createdBy && <Avatar name={a.createdBy.name} color={a.createdBy.avatarColor} image={avatarUrlFor(a.createdBy)} size="sm" />}
               <span className="font-semibold">{a.createdBy?.name ?? "—"}</span>
               <span className="text-ink-faint">→ {audienceLabel(a.audience)}</span>
             </div>
-            <p className="whitespace-pre-wrap border-t border-line pt-3 text-[15px] leading-relaxed text-ink">{a.body}</p>
+            <p className="whitespace-pre-wrap break-words border-t border-line pt-4 text-[15px] leading-relaxed text-ink">{a.body}</p>
           </Card>
 
           {canSend && (
-            <section className="space-y-2">
+            <section className="space-y-2.5">
               <SectionTitle>
                 既読 {readCount} / {receipts.length}名
               </SectionTitle>
