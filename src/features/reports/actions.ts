@@ -324,7 +324,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         await tx.handover.delete({ where: { id: prevHandover.id } });
       }
 
-      // 担当者全員の最終日の日報がそろったら、実施回を完了にする。
+      // 担当者のうち1人でも最終日の日報を提出したら、実施回を完了にする。
       // 初めて提出したときだけ判定する（完了を手で戻した予定を、日報の修正で勝手に完了にしない）
       let done = false;
       if (firstSubmit && occ?.date) {
@@ -361,7 +361,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
                     field: "status",
                     fromValue: current.status,
                     toValue: "DONE",
-                    reason: "担当者全員の日報が提出されたため自動で完了",
+                    reason: "担当者の日報が提出されたため自動で完了",
                   },
                 });
                 done = true;
@@ -395,7 +395,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
   revalidatePath("/reports");
   revalidatePath("/schedule");
   if (propertyId) revalidatePath(`/properties/${propertyId}`);
-  const toast = submit ? (completed ? "日報を提出しました。担当者全員の日報がそろったので予定を完了にしました" : "日報を提出しました") : "下書きを保存しました";
+  const toast = submit ? (completed ? "日報を提出しました。予定を完了にしました" : "日報を提出しました") : "下書きを保存しました";
   redirect(`/reports/${savedId}?toast=${encodeURIComponent(toast)}`);
 }
 

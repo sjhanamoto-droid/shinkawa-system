@@ -496,7 +496,7 @@ export function ReportForm(props: ReportFormProps) {
 
       <SubmitButtons submitted={submitted} uploading={uploading} />
       <p className="text-center text-sm text-ink-muted">
-        {submitted ? "提出済みの日報を修正して、もう一度提出します。" : "提出すると管理者が内容を確認できるようになります。担当者全員の日報がそろうと、予定は自動で「完了」になります。"}
+        {submitted ? "提出済みの日報を修正して、もう一度提出します。" : "提出すると管理者が内容を確認できるようになります。提出すると、予定は自動で「完了」になります。"}
       </p>
     </form>
   );

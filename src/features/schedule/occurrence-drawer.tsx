@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import {
-  X, Building, MapPin, KeyRound, Clock, Users, Car, Repeat, Pencil, ArrowRightLeft, CheckCircle2, Trash2, History, Loader2, Inbox, DoorOpen, StickyNote, ExternalLink,
+  X, Building, MapPin, KeyRound, Clock, Users, Car, Repeat, Pencil, ArrowRightLeft, Trash2, History, Loader2, Inbox, DoorOpen, StickyNote, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -179,7 +179,6 @@ export function OccurrenceDrawer({
   const canEdit = can(me, "occurrence.edit", { department: o.department });
   const canMove = can(me, "occurrence.move", { department: o.department }) && o.status !== "DONE" && o.status !== "CANCELLED";
   const canDelete = can(me, "occurrence.delete", { department: o.department });
-  const canDone = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "DONE" }) && o.status !== "DONE" && o.status !== "CANCELLED";
   const canReopen = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "CONFIRMED" }) && (o.status === "DONE" || o.status === "CANCELLED");
   const t = timeLabel(o);
   const label = occurrenceLabels(o);
@@ -440,11 +439,7 @@ export function OccurrenceDrawer({
                   <Pencil className="h-4 w-4" /> 編集
                 </Button>
               )}
-              {canDone && (
-                <Button type="button" variant="accent" onClick={() => onStatus(o, "DONE")} disabled={busy}>
-                  <CheckCircle2 className="h-4 w-4" /> 完了
-                </Button>
-              )}
+              {/* 完了のボタンは置かない：担当者の日報がそろうと自動で完了になる */}
               {canReopen && (
                 <Button type="button" variant="outline" onClick={() => onStatus(o, o.date ? "CONFIRMED" : "UNASSIGNED")} disabled={busy}>
                   <Inbox className="h-4 w-4" /> 戻す

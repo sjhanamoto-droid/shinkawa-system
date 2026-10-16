@@ -4,7 +4,7 @@
 // - 書くのは担当者本人。ログインしない作業者の分などは最高管理者・事務が代理で書ける。
 // - 見られるのは本人・入力者・予定を扱う役割（最高管理者・事務・手配）。
 //   経費は本人・入力者・最高管理者・事務だけ（手配担当には見せない）。
-// - 担当者全員の「最終日」の日報が提出されたら、実施回を自動で完了にする。
+// - 担当者のうち1人でも「最終日」の日報を提出したら、実施回を自動で完了にする（完了ボタンは置かない）。
 
 import { isManager, isPlanner, type Actor } from "./permissions";
 import { NON_WORK_CATEGORIES } from "./constants";
@@ -83,7 +83,7 @@ export function isReportDue(o: { date: string | null; status: string; category: 
 }
 
 /**
- * 自動で完了にするか。担当者が1人以上いて、全員の最終日の日報が提出済みで、
+ * 自動で完了にするか。担当者が1人以上いて、そのうち1人でも最終日の日報を提出済みで、
  * まだ完了・中止になっていないとき true。
  */
 export function shouldAutoComplete(input: {
@@ -94,7 +94,7 @@ export function shouldAutoComplete(input: {
   if (input.status === "DONE" || input.status === "CANCELLED") return false;
   if (input.assigneeIds.length === 0) return false;
   const submitted = new Set(input.submittedOnLastDay);
-  return input.assigneeIds.every((id) => submitted.has(id));
+  return input.assigneeIds.some((id) => submitted.has(id));
 }
 
 /** 'HH:mm' 同士の差（分）。終了が開始より前なら 0 */

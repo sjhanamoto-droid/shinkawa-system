@@ -51,8 +51,12 @@ describe("reports: 自動完了", () => {
   it("全員提出で完了", () => {
     expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["b", "a"] })).toBe(true);
   });
-  it("1人でも未提出なら完了しない", () => {
-    expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["a"] })).toBe(false);
+  it("担当者のうち1人でも提出すれば完了", () => {
+    expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["a"] })).toBe(true);
+  });
+  it("担当者以外の提出だけでは完了しない", () => {
+    expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["c"] })).toBe(false);
+    expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: [] })).toBe(false);
   });
   it("担当者なし・完了済み・中止は対象外", () => {
     expect(shouldAutoComplete({ status: "TENTATIVE", assigneeIds: [], submittedOnLastDay: [] })).toBe(false);

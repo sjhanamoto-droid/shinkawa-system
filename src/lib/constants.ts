@@ -15,7 +15,7 @@ export const ROLE_DESCRIPTION: Record<Role, string> = {
   OWNER: "全機能。ユーザー・権限・設定の管理。金額の閲覧",
   OFFICE: "予定の登録・移動・確定、マスタ管理、金額の閲覧・集計",
   SCHEDULER: "担当部門の予定の登録・移動・配員（金額は非表示）",
-  STAFF: "自分の予定の閲覧、完了報告（金額は非表示）",
+  STAFF: "自分の予定の閲覧、日報の提出（金額は非表示）",
 };
 export function isRole(v: string): v is Role {
   return (ROLE_OPTIONS as string[]).includes(v);
