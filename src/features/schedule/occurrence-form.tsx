@@ -356,7 +356,7 @@ export function OccurrenceForm({
               ) : undefined
             }
           >
-            担当者
+            {isPersonal ? "休む人" : "担当者"}
           </SectionTitle>
           <AssigneePicker workers={workers} value={workerIds} onChange={setWorkerIds} department={department} compact />
         </section>

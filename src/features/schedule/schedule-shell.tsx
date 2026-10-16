@@ -17,6 +17,7 @@ import { WeekView } from "./week-view";
 import { DayView } from "./day-view";
 import { StaffBoard } from "./staff-board";
 import { OccurrenceCard } from "./occurrence-card";
+import { isOffOccurrence } from "./labels";
 import { OccurrenceDrawer } from "./occurrence-drawer";
 import { OccurrenceForm } from "./occurrence-form";
 import { MoveSheet } from "./move-sheet";
@@ -83,6 +84,10 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     }
     for (const arr of map.values()) {
       arr.sort((a, b) => {
+        // 休みはその日の先頭に
+        const offA = isOffOccurrence(a) ? 0 : 1;
+        const offB = isOffOccurrence(b) ? 0 : 1;
+        if (offA !== offB) return offA - offB;
         const ta = a.startTime ?? "99:99";
         const tb = b.startTime ?? "99:99";
         if (ta !== tb) return ta < tb ? -1 : 1;

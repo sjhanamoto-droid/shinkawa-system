@@ -10,7 +10,7 @@ import { useCategories } from "@/components/category-provider";
 import { cn, mapSearchUrl } from "@/lib/utils";
 import { dragId, type DragData } from "./dnd";
 import type { OccurrenceView } from "./types";
-import { occurrenceLabels, timeLabel } from "./labels";
+import { isOffOccurrence, occurrenceLabels, timeLabel } from "./labels";
 
 export { occurrenceLabels, timeLabel };
 
@@ -19,6 +19,7 @@ export function statusClass(o: OccurrenceView): string {
   if (o.status === "CANCELLED") return "opacity-50 line-through";
   if (o.status === "DONE") return "opacity-60";
   if (o.status === "UNASSIGNED") return o.date ? "border-red-300 bg-red-50/60" : "border-amber-300 bg-amber-50/60";
+  if (isOffOccurrence(o)) return "border-line bg-surface"; // 休みは仮・確定の区別をしない
   if (o.status === "TENTATIVE") return "border-dashed border-amber-400 bg-surface";
   return "border-line bg-surface";
 }
@@ -65,10 +66,12 @@ export function OccurrenceCard({
   const color = catColor(useCategories(), o.category);
   const t = timeLabel(o);
   const label = occurrenceLabels(o);
+  const off = isOffOccurrence(o); // 休みは名前が1行目に出るので、担当の行は出さない
 
   if (variant === "chip") {
     const noWorker = o.assignees.length === 0 && !!o.date && o.status !== "DONE" && o.status !== "CANCELLED" && o.category !== "OFF";
-    const hasMeta = !!o.unitCount || !!o.ruleKind || noWorker || o.assignees.length > 0 || o.vehicles.length > 0;
+    const showAssignees = o.assignees.length > 0 && !off;
+    const hasMeta = !!o.unitCount || !!o.ruleKind || noWorker || showAssignees || o.vehicles.length > 0;
     return (
       <button
         ref={setNodeRef}
@@ -89,7 +92,7 @@ export function OccurrenceCard({
       >
         {/* 1段目：種別・時刻・顧客名（隠さない。長ければ折り返す） */}
         <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
-          <CategoryBadge category={o.category} short className="px-1 py-px text-[9px]" />
+          <CategoryBadge category={o.category} short={!off} className="px-1 py-px text-[9px]" />
           {o.startTime && <span className="shrink-0 tnum font-semibold text-ink-muted">{o.startTime}</span>}
           <span className="min-w-[4rem] flex-1 break-words font-semibold text-ink">
             {label.primary}
@@ -118,7 +121,7 @@ export function OccurrenceCard({
             )}
             {noWorker && <span className="rounded bg-red-100 px-1 text-[10px] font-bold text-red-600">担当未定</span>}
             {/* 担当：アイコン＋全員の名前（省略せず折り返す） */}
-            {o.assignees.length > 0 && (
+            {showAssignees && (
               <span className="flex min-w-0 flex-1 items-center gap-1">
                 <AvatarStack people={o.assignees} max={3} />
                 <span className="min-w-0 break-words text-[10px] text-ink-soft">{o.assignees.map((a) => a.name).join("・")}</span>
@@ -152,7 +155,7 @@ export function OccurrenceCard({
           <span className="min-w-0 flex-1 break-words font-semibold text-ink">{label.primary}</span>
         </span>
         {label.site && <span className="break-words text-[10px] text-ink-soft">{label.site}</span>}
-        {o.assignees.length > 1 && (
+        {o.assignees.length > 1 && !off && (
           <span className="break-words text-[10px] text-ink-muted">{o.assignees.map((a) => a.name).join("・")}</span>
         )}
       </button>
@@ -196,7 +199,7 @@ export function OccurrenceCard({
               {o.property.keyboxPlace && <span>（{o.property.keyboxPlace}）</span>}
             </span>
           )}
-          {o.assignees.length > 0 ? (
+          {off ? null : o.assignees.length > 0 ? (
             <span className="mt-3 flex min-w-0 items-center gap-3">
               <AvatarStack people={o.assignees} max={3} size="md" />
               <span className="min-w-0 break-words text-[15px] text-ink-soft">{o.assignees.map((a) => a.name).join(" ・ ")}</span>
