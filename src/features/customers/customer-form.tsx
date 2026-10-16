@@ -19,7 +19,6 @@ import {
 export type CustomerFormValues = {
   id?: string;
   name?: string | null;
-  shortName?: string | null;
   kana?: string | null;
   registrationType?: string | null;
   tradeStatus?: string | null;
@@ -44,7 +43,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 }
 
 /**
- * 顧客フォーム。表に出すのは「顧客名」「短縮名」「メモ」。他は「詳細情報（任意）」に畳む。
+ * 顧客フォーム。表に出すのは「顧客名」「メモ」。他は「詳細情報（任意）」に畳む。
  */
 export function CustomerForm({ customer }: { customer?: CustomerFormValues }) {
   const isEdit = Boolean(customer?.id);
@@ -60,9 +59,6 @@ export function CustomerForm({ customer }: { customer?: CustomerFormValues }) {
         <Card className="space-y-4 p-4">
           <Field label="顧客名" required htmlFor="name">
             <Input id="name" name="name" defaultValue={customer?.name ?? ""} placeholder="株式会社○○不動産" required />
-          </Field>
-          <Field label="短縮名" htmlFor="shortName" hint="カレンダーのチップに表示（例：グリーンランド）">
-            <Input id="shortName" name="shortName" defaultValue={customer?.shortName ?? ""} placeholder="グリーンランド" maxLength={20} />
           </Field>
           <Field label="メモ" htmlFor="memo">
             <Textarea id="memo" name="memo" defaultValue={customer?.memo ?? ""} placeholder="担当者の連絡先・特記事項など" />

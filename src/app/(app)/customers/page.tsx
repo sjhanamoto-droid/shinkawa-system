@@ -40,12 +40,12 @@ export default async function CustomersPage({
 
   const raw = await db.customer.findMany({
     where: {
-      ...(query ? { OR: [{ name: { contains: query } }, { shortName: { contains: query } }, { kana: { contains: query } }] } : {}),
+      ...(query ? { OR: [{ name: { contains: query } }, { kana: { contains: query } }] } : {}),
       ...(statusFilter ? { tradeStatus: statusFilter } : {}),
     },
     orderBy: [{ kana: "asc" }, { name: "asc" }],
     select: {
-      id: true, name: true, shortName: true, kana: true, tradeStatus: true, phone: true, headOfficeAddress: true, memo: true,
+      id: true, name: true, kana: true, tradeStatus: true, phone: true, headOfficeAddress: true, memo: true,
       _count: { select: { properties: true } },
     },
     take: shown + 1,
@@ -71,7 +71,7 @@ export default async function CustomersPage({
           <div className="flex gap-2">
             <div className="relative min-w-0 flex-1 sm:max-w-md">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-              <Input name="q" type="search" defaultValue={query} placeholder="顧客名・短縮名で検索" className="h-11 pl-10" />
+              <Input name="q" type="search" defaultValue={query} placeholder="顧客名で検索" className="h-11 pl-10" />
             </div>
             {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
             <button type="submit" className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand-600 px-5 text-sm font-bold text-white">検索</button>
@@ -104,7 +104,6 @@ export default async function CustomersPage({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <h3 className="min-w-0 break-words text-base font-bold leading-snug text-ink">{c.name}</h3>
-                      {c.shortName && <Badge tone="brand">{c.shortName}</Badge>}
                       {c.tradeStatus !== "CONTINUING" && <Badge tone={c.tradeStatus === "NEW" ? "info" : "past"}>{TRADE_STATUS_LABEL[c.tradeStatus as TradeStatus] ?? c.tradeStatus}</Badge>}
                     </div>
                     {c.headOfficeAddress && (

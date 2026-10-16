@@ -88,10 +88,9 @@ export function decodeCsvBuffer(buf: ArrayBuffer): { text: string; encoding: "ut
 }
 
 // ── 顧客CSVの列マッピング ──
-export type CustomerCsvField = "name" | "shortName" | "kana" | "phone" | "fax" | "email" | "headOfficeAddress" | "memo" | "cybozuId";
+export type CustomerCsvField = "name" | "kana" | "phone" | "fax" | "email" | "headOfficeAddress" | "memo" | "cybozuId";
 export const CUSTOMER_CSV_FIELDS: { key: CustomerCsvField; label: string; required?: boolean }[] = [
   { key: "name", label: "顧客名（会社名）", required: true },
-  { key: "shortName", label: "短縮名" },
   { key: "kana", label: "ふりがな" },
   { key: "phone", label: "電話番号" },
   { key: "fax", label: "FAX" },
@@ -104,7 +103,6 @@ export type CustomerCsvMapping = Partial<Record<CustomerCsvField, string | null>
 
 const HEADER_HINTS: Record<CustomerCsvField, string[]> = {
   name: ["会社名", "顧客名", "名前", "氏名", "取引先", "会社", "name"],
-  shortName: ["略称", "短縮", "表示名"],
   kana: ["よみ", "ヨミ", "ふりがな", "フリガナ", "カナ", "かな"],
   phone: ["tel", "電話", "phone"],
   fax: ["fax", "ファックス"],

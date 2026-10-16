@@ -44,7 +44,7 @@ export async function userMonthAttendance(userId: string, ym: string) {
         startTime: true,
         endTime: true,
         property: { select: { name: true } },
-        occurrence: { select: { title: true, category: true, customerNameRaw: true, customer: { select: { name: true, shortName: true } }, property: { select: { name: true } } } },
+        occurrence: { select: { title: true, category: true, customerNameRaw: true, customer: { select: { name: true } }, property: { select: { name: true } } } },
       },
       orderBy: [{ workDate: "asc" }, { startTime: "asc" }],
     }),

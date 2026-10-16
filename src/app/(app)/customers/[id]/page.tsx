@@ -100,7 +100,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             {customer.name}
           </h2>
           <p className="mt-1.5 text-sm text-ink-muted">
-            {[customer.shortName, labelOf(REGISTRATION_TYPE_LABEL, customer.registrationType)].filter(Boolean).join(" ・ ")}
+            {[labelOf(REGISTRATION_TYPE_LABEL, customer.registrationType)].filter(Boolean).join(" ・ ")}
           </p>
           {customer.memo && (
             <ClampedText text={customer.memo} className="mt-2 text-[15px] leading-relaxed text-ink-soft" toggleClassName="text-brand-600" />
@@ -198,7 +198,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                         <span className="w-20 shrink-0 tnum font-bold text-ink">{key ? fmtKeyShort(key) : "未定"}</span>
                         {o.startTime && <span className="w-12 shrink-0 tnum text-sm text-ink-muted">{o.startTime}</span>}
                         <CategoryBadge category={o.category} short />
-                        <span className="min-w-0 flex-1 break-words font-semibold text-ink">{o.title ?? o.property?.name ?? customer.shortName ?? customer.name}</span>
+                        <span className="min-w-0 flex-1 break-words font-semibold text-ink">{o.title ?? o.property?.name ?? customer.name}</span>
                         <span className="hidden truncate text-sm text-ink-muted sm:block">{o.assignments.map((a) => a.user.name).join("・")}</span>
                         <OccurrenceStatusBadge status={o.status} />
                       </Link>

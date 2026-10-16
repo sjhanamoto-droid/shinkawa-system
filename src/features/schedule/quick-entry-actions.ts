@@ -139,11 +139,11 @@ export async function quickEntry(text: string): Promise<
   if (name) {
     customer =
       (await db.customer.findFirst({
-        where: { OR: [{ shortName: name }, { name }, { kana: name }] },
+        where: { OR: [{ name }, { kana: name }] },
         select: { id: true, name: true },
       })) ??
       (await db.customer.findFirst({
-        where: { OR: [{ shortName: { contains: name } }, { name: { contains: name } }, { kana: { contains: name } }] },
+        where: { OR: [{ name: { contains: name } }, { kana: { contains: name } }] },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }));

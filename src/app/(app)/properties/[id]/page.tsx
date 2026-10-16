@@ -40,7 +40,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const property = await db.property.findUnique({
     where: { id },
     include: {
-      customer: { select: { id: true, name: true, shortName: true, phone: true } },
+      customer: { select: { id: true, name: true, phone: true } },
       photos: { select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
       memos: { orderBy: { createdAt: "desc" }, take: MEMO_LIMIT },
       _count: { select: { memos: true } },
@@ -440,7 +440,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           {/* 顧客（タップで顧客情報へ） */}
           <Link href={`/customers/${property.customer.id}`} className="flex min-h-[32px] min-w-0 items-center gap-1.5 text-sm font-semibold text-ink-soft active:opacity-70">
             <Building2 className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
-            <span className="truncate">{property.customer.shortName ?? property.customer.name}</span>
+            <span className="truncate">{property.customer.name}</span>
             <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
           </Link>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
@@ -505,7 +505,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     <div>
       <PageHeader
         title="現場詳細"
-        subtitle={property.customer.shortName ?? property.customer.name}
+        subtitle={property.customer.name}
         backHref="/properties"
         right={
           canManage ? (

@@ -80,13 +80,13 @@ export default async function PropertiesPage({
       orderBy: [{ kana: "asc" }, { name: "asc" }],
       select: {
         id: true, name: true, address: true, building: true, unitCount: true, keyboxStatus: true, status: true,
-        customer: { select: { id: true, name: true, shortName: true } },
+        customer: { select: { id: true, name: true } },
         _count: { select: { handovers: true } },
         jobs: { orderBy: PRIMARY_JOB_ORDER, take: 1, select: { department: true, category: true, contractType: true, ruleKind: true, ruleParams: true } },
       },
       take: shown + 1,
     }),
-    db.customer.findMany({ select: { id: true, name: true, shortName: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    db.customer.findMany({ select: { id: true, name: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
     db.property.count({ where: { ...countBase, jobs: { some: { department: "CLEANING" } } } }),
     db.property.count({ where: { ...countBase, jobs: { some: { department: "CONSTRUCTION" } } } }),
     db.property.count({ where: countBase }),
@@ -131,7 +131,7 @@ export default async function PropertiesPage({
             <Select name="customer" defaultValue={customer ?? ""} className="h-11" wrapperClassName="sm:w-60 sm:shrink-0">
               <option value="">顧客：すべて</option>
               {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.shortName ?? c.name}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </Select>
             {status && <input type="hidden" name="status" value={status} />}
@@ -202,7 +202,7 @@ export default async function PropertiesPage({
                     {/* メタ行：顧客・住所・周期 */}
                     <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-soft">
                       <Building2 className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
-                      <span className="truncate">{p.customer.shortName ?? p.customer.name}</span>
+                      <span className="truncate">{p.customer.name}</span>
                     </p>
                     {p.address && (
                       <p className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-ink-soft">

@@ -46,7 +46,7 @@ const dueOccurrenceSelect = {
   startTime: true,
   endTime: true,
   customerNameRaw: true,
-  customer: { select: { name: true, shortName: true } },
+  customer: { select: { name: true } },
   property: { select: { name: true } },
   assignments: { select: { userId: true, user: { select: { name: true, canLogin: true, active: true } } } },
 } satisfies Prisma.OccurrenceSelect;
@@ -253,7 +253,7 @@ export async function loadReport(id: string, actor: Actor) {
           date: true,
           endDate: true,
           customerNameRaw: true,
-          customer: { select: { name: true, shortName: true } },
+          customer: { select: { name: true } },
           property: { select: { name: true } },
           vehicles: { select: { vehicle: { select: { id: true, name: true, color: true } } }, orderBy: { createdAt: "asc" } },
         },
@@ -331,7 +331,7 @@ const listSelect = {
   createdBy: { select: { id: true, name: true } },
   property: { select: { id: true, name: true } },
   occurrence: {
-    select: { id: true, title: true, category: true, customerNameRaw: true, customer: { select: { name: true, shortName: true } }, property: { select: { name: true } } },
+    select: { id: true, title: true, category: true, customerNameRaw: true, customer: { select: { name: true } }, property: { select: { name: true } } },
   },
   _count: { select: { photos: { where: { kind: { not: "RECEIPT" } } }, comments: true } },
 } satisfies Prisma.DailyReportSelect;
@@ -399,7 +399,7 @@ export async function loadReportList(opts: {
             { user: { name: { contains: opts.q } } },
             { property: { name: { contains: opts.q } } },
             { occurrence: { title: { contains: opts.q } } },
-            { occurrence: { customer: { OR: [{ name: { contains: opts.q } }, { shortName: { contains: opts.q } }] } } },
+            { occurrence: { customer: { name: { contains: opts.q } } } },
           ],
         }
       : {}),

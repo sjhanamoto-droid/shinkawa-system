@@ -29,7 +29,7 @@ export type OccurrenceView = {
   jobId: string | null;
   ruleKind: string | null; // 定期由来なら Job.ruleKind
   ruleSummary: string | null; // describeRule の結果（定期のときのみ）
-  title: string; // 表示名（title ?? 顧客短縮名 ?? 物件名）
+  title: string; // 表示名（title ?? 顧客名 ?? 物件名）
   department: string;
   category: string;
   status: string; // OccurrenceStatus
@@ -42,7 +42,7 @@ export type OccurrenceView = {
   windowLabel: string | null; // "前半" / "後半" など
   startTime: string | null;
   endTime: string | null;
-  customer: { id: string; name: string; shortName: string | null } | null;
+  customer: { id: string; name: string } | null;
   property: {
     id: string;
     name: string;
@@ -86,7 +86,7 @@ export type WorkerOption = PersonRef & {
   partnerName: string | null;
 };
 
-export type CustomerOption = { id: string; name: string; shortName: string | null; kana?: string | null };
+export type CustomerOption = { id: string; name: string; kana?: string | null };
 export type PropertyOption = { id: string; name: string; customerId: string; address: string | null };
 
 export type ChangeLogView = {

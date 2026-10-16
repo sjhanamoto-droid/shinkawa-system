@@ -125,7 +125,7 @@ export function FilterBar({
           <option value="">顧客：すべて</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.shortName ?? c.name}
+              {c.name}
             </option>
           ))}
         </select>

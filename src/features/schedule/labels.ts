@@ -7,9 +7,9 @@ export function timeLabel(o: OccurrenceView): string | null {
   return o.endTime ? `${o.startTime}–${o.endTime}` : o.startTime;
 }
 
-/** 顧客名（短縮名を優先）。顧客が無い予定（休み等）は null */
+/** 顧客名。顧客が無い予定（休み等）は null */
 export function customerLabelOf(o: OccurrenceView): string | null {
-  return o.customer?.shortName ?? o.customer?.name ?? o.customerNameRaw ?? null;
+  return o.customer?.name ?? o.customerNameRaw ?? null;
 }
 
 /** カレンダーに出す名前：1行目＝顧客名（無ければ件名）、2行目＝現場名。顧客がいて現場が無ければ「現場未設定」 */

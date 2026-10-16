@@ -45,7 +45,7 @@ export function occurrenceSelect(showAmount: boolean) {
     note: true,
     customerNameRaw: true,
     amount: showAmount,
-    customer: { select: { id: true, name: true, shortName: true } },
+    customer: { select: { id: true, name: true } },
     property: {
       select: {
         id: true, name: true, address: true, keyboxNumber: true, keyboxPlace: true, accessNote: true, contactName: true, contactPhone: true,
@@ -58,14 +58,14 @@ export function occurrenceSelect(showAmount: boolean) {
   } satisfies Prisma.OccurrenceSelect;
 }
 
-/** 表示名（title ?? 顧客短縮名 ?? 顧客名 ?? 物件名 ?? 生文字列） */
+/** 表示名（title ?? 顧客名 ?? 物件名 ?? 生文字列） */
 export function occurrenceTitle(row: {
   title: string | null;
-  customer: { name: string; shortName: string | null } | null;
+  customer: { name: string } | null;
   property: { name: string } | null;
   customerNameRaw: string | null;
 }): string {
-  return row.title ?? row.customer?.shortName ?? row.customer?.name ?? row.property?.name ?? row.customerNameRaw ?? "予定";
+  return row.title ?? row.customer?.name ?? row.property?.name ?? row.customerNameRaw ?? "予定";
 }
 
 export type OccurrenceRow = Prisma.OccurrenceGetPayload<{ select: ReturnType<typeof occurrenceSelect> }>;
@@ -172,7 +172,7 @@ function textFilter(q: string): Prisma.OccurrenceWhereInput | null {
     OR: [
       { title: { contains: q } },
       { customerNameRaw: { contains: q } },
-      { customer: { OR: [{ name: { contains: q } }, { shortName: { contains: q } }, { kana: { contains: q } }] } },
+      { customer: { OR: [{ name: { contains: q } }, { kana: { contains: q } }] } },
       { property: { OR: [{ name: { contains: q } }, { kana: { contains: q } }, { address: { contains: q } }] } },
     ],
   };
@@ -226,7 +226,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
       orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
     }),
     loadVehicleOptions(),
-    db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    db.customer.findMany({ select: { id: true, name: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
     db.property.findMany({
       where: { status: { not: "INACTIVE" } }, // 休止中の現場も候補に出す（終了だけ外す）
       select: { id: true, name: true, customerId: true, address: true },
@@ -286,7 +286,7 @@ export async function loadVehicleUsage(dateKey: string, excludeOccurrenceId?: st
       title: true,
       startTime: true,
       customerNameRaw: true,
-      customer: { select: { name: true, shortName: true } },
+      customer: { select: { name: true } },
       property: { select: { name: true } },
       vehicles: { select: { vehicleId: true } },
     },

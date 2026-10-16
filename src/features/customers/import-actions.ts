@@ -84,7 +84,6 @@ export async function importCustomersCsv(input: {
       const v = pick(row, input.mapping, f.key);
       if (v !== null) data[f.key] = v.slice(0, f.key === "memo" ? 2000 : f.key === "headOfficeAddress" ? 300 : 100);
     }
-    if (data.shortName && data.shortName.length > 20) data.shortName = data.shortName.slice(0, 20);
 
     const existingId = (cybozuId && byCybozu.get(cybozuId)) || byName.get(name) || null;
     if (existingId) {

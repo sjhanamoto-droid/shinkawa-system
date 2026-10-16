@@ -242,7 +242,7 @@ export function OccurrenceForm({
                   }}
                   options={customers.map((c) => ({
                     value: c.id,
-                    label: c.shortName ? `${c.shortName}（${c.name}）` : c.name,
+                    label: c.name,
                     keywords: c.kana ?? null,
                   }))}
                   placeholder="顧客名で検索"

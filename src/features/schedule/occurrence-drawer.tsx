@@ -56,7 +56,7 @@ function PropertyLinker({
             value={propertyId}
             onChange={setPropertyId}
             options={candidates.map((p) => ({ value: p.id, label: p.name, sub: p.address ?? null }))}
-            placeholder={o.customer ? `${o.customer.shortName ?? o.customer.name} の現場から選ぶ` : "現場名で検索"}
+            placeholder={o.customer ? `${o.customer.name} の現場から選ぶ` : "現場名で検索"}
             emptyLabel="選択を解除"
           />
           {o.customer && (

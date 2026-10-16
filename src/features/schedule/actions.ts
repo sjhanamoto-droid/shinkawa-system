@@ -121,7 +121,7 @@ async function loadForMutation(tx: Tx, id: string) {
       unitCount: true,
       note: true,
       amount: true,
-      customer: { select: { shortName: true, name: true } },
+      customer: { select: { name: true } },
       property: { select: { name: true } },
       job: { select: { ruleKind: true, ruleParams: true } },
       assignments: { select: { userId: true } },
@@ -172,7 +172,7 @@ async function syncVehicles(
 }
 
 function labelOfOcc(occ: Loaded): string {
-  return occ.title ?? occ.customer?.shortName ?? occ.customer?.name ?? occ.property?.name ?? "予定";
+  return occ.title ?? occ.customer?.name ?? occ.property?.name ?? "予定";
 }
 
 async function bump(tx: Tx, occ: Loaded, expectedVersion: number, data: Prisma.OccurrenceUncheckedUpdateManyInput) {

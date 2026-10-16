@@ -63,7 +63,7 @@ export type WorkFormValues = {
   occurrenceCount?: number;
 };
 
-export type CustomerChoice = { id: string; name: string; shortName: string | null; kana?: string | null };
+export type CustomerChoice = { id: string; name: string; kana?: string | null };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -189,7 +189,7 @@ export function PropertyForm({
               onChange={(v) => setCustomerId(v)}
               options={customers.map((c) => ({
                 value: c.id,
-                label: c.shortName ? `${c.shortName}（${c.name}）` : c.name,
+                label: c.name,
                 keywords: c.kana ?? null,
               }))}
               placeholder="顧客名を入力して検索"

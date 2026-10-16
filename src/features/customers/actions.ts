@@ -21,7 +21,7 @@ function forbidden(e: unknown): CustomerFormState | null {
 
 const customerSchema = z.object({
   name: z.string().trim().min(1, "顧客名を入力してください").max(100),
-  shortName: z.string().trim().max(20, "短縮名は20文字以内").nullable(),
+  shortName: z.string().trim().max(20, "短縮名は20文字以内").nullable().optional(),
   kana: z.string().trim().max(100).nullable().optional(),
   registrationType: z.enum(REGISTRATION_TYPE_OPTIONS),
   tradeStatus: z.enum(["NEW", "CONTINUING", "SUSPENDED"]),
@@ -40,8 +40,8 @@ function parseCustomer(formData: FormData) {
   const pm = nz(formData.get("paymentMethod"));
   return customerSchema.safeParse({
     name: formData.get("name") ?? "",
-    shortName: nz(formData.get("shortName")),
-    // ふりがなは画面から外した。送られてこなければ触らない（CSV取込などで入っている既存のふりがなは残す）
+    // 短縮名・ふりがなは画面から外した。送られてこなければ触らない（CSV取込などで入っている既存の値は残す）
+    shortName: formData.has("shortName") ? nz(formData.get("shortName")) : undefined,
     kana: formData.has("kana") ? nz(formData.get("kana")) : undefined,
     registrationType: formData.get("registrationType") || "PRIME",
     tradeStatus: formData.get("tradeStatus") || "CONTINUING",

@@ -26,12 +26,12 @@ export function canViewClaim(me: Viewer, audience: string[]): boolean {
 export async function claimPropertyOptions() {
   const rows = await db.property.findMany({
     orderBy: [{ kana: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, kana: true, customer: { select: { name: true, shortName: true } } },
+    select: { id: true, name: true, kana: true, customer: { select: { name: true } } },
   });
   return rows.map((p) => ({
     value: p.id,
     label: p.name,
-    sub: p.customer.shortName ?? p.customer.name,
+    sub: p.customer.name,
     keywords: [p.kana, p.customer.name].filter(Boolean).join(" "),
   }));
 }

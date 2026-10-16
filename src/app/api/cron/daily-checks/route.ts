@@ -35,7 +35,7 @@ async function handle(req: NextRequest) {
       title: true,
       category: true,
       startTime: true,
-      customer: { select: { shortName: true, name: true } },
+      customer: { select: { name: true } },
       property: { select: { name: true } },
       assignments: { select: { userId: true } },
     },
@@ -47,7 +47,7 @@ async function handle(req: NextRequest) {
     const label = [
       o.startTime,
       catShort(categories, o.category),
-      o.title ?? o.customer?.shortName ?? o.customer?.name ?? o.property?.name ?? "予定",
+      o.title ?? o.customer?.name ?? o.property?.name ?? "予定",
     ]
       .filter(Boolean)
       .join(" ");
