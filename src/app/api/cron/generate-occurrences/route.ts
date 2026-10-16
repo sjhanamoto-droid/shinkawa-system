@@ -1,13 +1,12 @@
-// GET/POST /api/cron/generate-occurrences — 定期契約から翌月分の実施回を生成する。
+// GET/POST /api/cron/generate-occurrences — 定期契約から、今月〜翌々月の実施回を未割当に入れる。
 //
-// Vercel Cron から毎日 00:00 UTC（09:00 JST）に呼ばれ、AppSetting.generateDay と今日(JST)が一致する日だけ実行する。
-// 生成は seriesKey で冪等なので、手動ボタンと重なっても二重には作られない。
+// Vercel Cron から毎日 00:00 UTC（09:00 JST）に呼ばれる。何もしなくても、定期の回が常に先の月まで入っている状態にする。
+// その月の回が1件でもある案件は飛ばす（手で削除した回を復活させない）。生成は seriesKey で冪等。
 
 import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { jstDateKey, jstMonthKey, addMonthsKey } from "@/lib/date";
-import { getAppSettings } from "@/lib/settings";
-import { generateOccurrencesForMonth } from "@/lib/generate-occurrences";
+import { generateOccurrencesForMonth, GENERATE_AHEAD_MONTHS } from "@/lib/generate-occurrences";
 import { createNotificationForUsers } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
@@ -21,35 +20,36 @@ async function handle(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const settings = await getAppSettings();
-  const today = jstDateKey();
-  const force = req.nextUrl.searchParams.get("force") === "1";
-  const day = Number(today.slice(8, 10));
-  if (!force && day !== settings.generateDay) {
-    return NextResponse.json({ ok: true, skipped: true, reason: `generateDay=${settings.generateDay}, today=${today}` });
+  const first = jstMonthKey();
+  const months = Array.from({ length: GENERATE_AHEAD_MONTHS + 1 }, (_, i) => addMonthsKey(first, i));
+  const results: { month: string; created: number; skipped: number; jobs: number }[] = [];
+  for (const month of months) {
+    // 今月は今日より前の日付の回を作らない
+    const r = await generateOccurrencesForMonth({ month, skipJobsWithMonth: true, notBefore: month === first ? jstDateKey() : undefined });
+    results.push({ month, ...r });
   }
 
-  const month = addMonthsKey(jstMonthKey(), 1);
-  const result = await generateOccurrencesForMonth({ month });
-
-  if (result.created > 0) {
+  const createdMonths = results.filter((r) => r.created > 0);
+  if (createdMonths.length > 0) {
     const managers = await db.user.findMany({
       where: { role: { in: ["OWNER", "OFFICE"] }, active: true, canLogin: true },
       select: { id: true },
     });
-    await createNotificationForUsers(
-      managers.map((u) => u.id),
-      {
-        type: "GENERATED",
-        title: `${month.replace("-", "年")}月分の定期を生成しました`,
-        body: `${result.created}件を未割当に追加しました。カレンダーの「＋」から予定を追加するときに選んで日付を決めてください`,
-        href: `/schedule?view=week&d=${month}-01`,
-        dedupeKey: `generated-${month}`,
-      },
-    );
+    for (const r of createdMonths) {
+      await createNotificationForUsers(
+        managers.map((u) => u.id),
+        {
+          type: "GENERATED",
+          title: `${r.month.replace("-", "年")}月分の定期を未割当に入れました`,
+          body: `${r.created}件を未割当に追加しました。カレンダーの「＋」から予定を追加するときに選んで日付を決めてください`,
+          href: `/schedule?view=week&d=${r.month}-01`,
+          dedupeKey: `generated-${r.month}`,
+        },
+      );
+    }
   }
 
-  return NextResponse.json({ ok: true, month, ...result });
+  return NextResponse.json({ ok: true, results });
 }
 
 export const GET = handle;

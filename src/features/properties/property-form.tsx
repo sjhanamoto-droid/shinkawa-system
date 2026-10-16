@@ -164,8 +164,8 @@ export function PropertyForm({
 
   const calendarLabel =
     contractType === "REGULAR"
-      ? `${isEdit ? "保存" : "登録"}と同時に、今月と来月の未割当に入れる（その先は毎月自動で入ります）`
-      : "カレンダーに予定を1件入れる（日付が未定なら「未割当」に入ります）";
+      ? "保存と同時に、今月〜翌々月の足りない回を未割当に入れる（回数を増やしたとき用。ふだんは毎日自動で入ります）"
+      : "カレンダーに予定を1件入れる";
 
   return (
     <form action={formAction} className="space-y-5">
@@ -284,7 +284,13 @@ export function PropertyForm({
                   </div>
                 )}
 
-                {contractType && (
+                {contractType === "REGULAR" && !isEdit && (
+                  <p className="flex items-start gap-1.5 rounded-xl bg-surface-sunken p-3.5 text-xs leading-relaxed text-ink-muted">
+                    <Repeat className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    登録すると、今月〜翌々月の分が未割当に入ります。その先も毎月自動で入るので、何もしなくて大丈夫です。
+                  </p>
+                )}
+                {contractType && !(contractType === "REGULAR" && !isEdit) && (
                   <div className="space-y-3 rounded-xl bg-surface-sunken p-3.5">
                     <label className="flex min-h-[44px] cursor-pointer items-start gap-2.5 text-sm font-semibold text-ink">
                       <input type="checkbox" name="addToCalendar" value="1" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />

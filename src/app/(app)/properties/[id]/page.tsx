@@ -19,7 +19,6 @@ import { HandoverPanel, ClampedText } from "@/features/properties/handover-panel
 import { describeRule, type RuleParams } from "@/lib/recurrence";
 import { fmtKeyShort } from "@/features/schedule/filters";
 import { CONTRACT_TYPE_LABEL, DEPARTMENT_LABEL, PROPERTY_STATUS_LABEL, isDepartment, isRuleKind, type ContractType, type PropertyStatus } from "@/lib/constants";
-import { GenerateButton } from "@/features/jobs/generate-button";
 import { MoveJobButton } from "@/features/properties/move-job-button";
 import { ChangeCustomerButton } from "@/features/properties/change-customer-button";
 import { loadCustomerChoices, OTHER_CUSTOMER_NAME } from "@/features/properties/customer-choices";
@@ -104,13 +103,12 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const openHandovers = property.handovers.filter((h) => !h.resolvedAt);
   const [job, ...otherJobs] = property.jobs;
   const rule = job && isRuleKind(job.ruleKind) ? { kind: job.ruleKind, params: (job.ruleParams ?? {}) as RuleParams } : null;
-  const canEditWork = job ? canEditDepartment(user, job.department) : false;
   const thisMonth = jstMonthKey();
   const categories = await getCategories();
-  // 定期（月◯回）：今月・来月それぞれ、何回のうち何回の日付が決まったか
+  // 定期（月◯回）：今月〜翌々月それぞれ、何回のうち何回の日付が決まったか
   const monthCounts = job && job.contractType === "REGULAR"
     ? await Promise.all(
-        [thisMonth, addMonthsKey(thisMonth, 1)].map(async (ym) => {
+        [0, 1, 2].map((i) => addMonthsKey(thisMonth, i)).map(async (ym) => {
           const rows = await db.occurrence.findMany({ where: { jobId: job.id, targetMonth: ym, status: { not: "CANCELLED" } }, select: { date: true } });
           return { ym, total: rows.length, placed: rows.filter((r) => r.date).length };
         }),
@@ -288,12 +286,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <ClampedText text={job.note} className="text-sm leading-relaxed text-ink-soft" toggleClassName="text-brand-600" />
               </div>
             )}
-            {rule && canEditWork && job.status === "ACTIVE" && (
-              <div className="mt-4 space-y-2 border-t border-line pt-3">
-                <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Repeat className="h-4 w-4 text-ink-muted" />未割当に入れる</p>
-                <GenerateButton jobId={job.id} months={[0, 1, 2].map((i) => ({ ym: addMonthsKey(thisMonth, i), label: i === 0 ? "今月分" : i === 1 ? "翌月分" : "翌々月分" }))} />
-                <p className="text-xs text-ink-faint">毎月の設定日に翌月分が自動で未割当に入ります。入れ済みの回は重複しません。日付はカレンダーの「＋」から予定を追加するときに、未割当の現場を選んで決めます。</p>
-              </div>
+            {rule && job.status === "ACTIVE" && (
+              <p className="mt-4 flex items-start gap-1.5 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
+                <Repeat className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-muted" />
+                今月〜翌々月の分が毎日自動で未割当に入ります（何もしなくて大丈夫です）。日付はカレンダーの「＋」から予定を追加するときに、未割当の現場を選んで決めます。
+              </p>
             )}
           </Card>
         )}

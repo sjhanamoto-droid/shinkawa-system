@@ -43,7 +43,7 @@ export async function updateAppSettings(_prev: SettingsState, formData: FormData
     invoiceNumber: nz(formData.get("invoiceNumber")),
     defaultStartTime: formData.get("defaultStartTime") || "09:00",
     defaultEndTime: formData.get("defaultEndTime") || "17:00",
-    generateDay: formData.get("generateDay") || "25",
+    generateDay: formData.get("generateDay") || "25", // 画面からは外した（毎日自動生成）。値は使っていない
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const d = parsed.data;

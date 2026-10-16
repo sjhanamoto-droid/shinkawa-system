@@ -68,11 +68,8 @@ export function AppSettingsForm({ settings }: { settings: Settings }) {
 
       <section className="space-y-2.5">
         <SectionTitle>定期契約の自動生成</SectionTitle>
-        <div className="card space-y-4 p-4 sm:p-5">
-          <p className="text-sm text-ink-muted">毎月この日に、翌月分の実施回を「未割当」として自動生成します（1〜28）。</p>
-          <Field label="生成日" htmlFor="generateDay">
-            <Input id="generateDay" name="generateDay" type="number" min={1} max={28} defaultValue={settings.generateDay} className="max-w-[8rem]" />
-          </Field>
+        <div className="card p-4 sm:p-5">
+          <p className="text-sm text-ink-muted">定期の回は、毎日自動で今月〜翌々月の分が「未割当」に入ります。設定は不要です。</p>
         </div>
       </section>
 

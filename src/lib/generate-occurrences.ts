@@ -7,7 +7,10 @@ import { slotsForMonth, seriesKey, type RuleParams } from "@/lib/recurrence";
 
 // 定期契約（Job）から、指定月の実施回（Occurrence）を「未割当」で生成する。
 // seriesKey（jobId:YYYY-MM:slotIndex）を冪等キーにし、再実行しても重複しない（skipDuplicates）。
-// 日付が決まっているスロットは date 付き、決まっていない（window のみ）スロットは date=null で未割当レーンへ。
+// 日付が決まっているスロットは date 付き、決まっていない（window のみ）スロットは date=null で未割当へ。
+
+/** 定期の回を自動で入れておく範囲（今月＋この月数先まで）。毎日の自動生成と、現場の登録直後に使う */
+export const GENERATE_AHEAD_MONTHS = 2;
 
 export type GenerateInput = {
   month: string; // "YYYY-MM"
@@ -15,6 +18,8 @@ export type GenerateInput = {
   department?: string;
   actorId?: string | null;
   notBefore?: string; // "YYYY-MM-DD"。これより前の日付の回は作らない（登録直後の自動生成用）
+  /** その月の回が1件でもある案件は飛ばす（毎日の自動生成用。手で削除した回を翌日に復活させない） */
+  skipJobsWithMonth?: boolean;
 };
 
 export type GenerateResult = { created: number; skipped: number; jobs: number };
@@ -55,10 +60,17 @@ export async function generateOccurrencesForMonth(input: GenerateInput): Promise
     },
   });
 
+  const done = input.skipJobsWithMonth
+    ? new Set(
+        (await db.occurrence.findMany({ where: { targetMonth: month, jobId: { in: jobs.map((j) => j.id) } }, select: { jobId: true }, distinct: ["jobId"] })).map((o) => o.jobId),
+      )
+    : null;
+
   const rows: Prisma.OccurrenceCreateManyInput[] = [];
   const vehicleBySeriesKey = new Map<string, string>(); // 既定の車両を持つ案件の回 → vehicleId
   for (const job of jobs) {
     if (!isRuleKind(job.ruleKind)) continue;
+    if (done?.has(job.id)) continue;
     const params = (job.ruleParams ?? {}) as RuleParams;
     const slots = slotsForMonth(job.ruleKind, params, month);
     for (const slot of slots) {

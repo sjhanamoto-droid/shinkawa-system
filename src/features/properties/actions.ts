@@ -17,7 +17,7 @@ import {
   type PropertyStatus,
 } from "@/lib/constants";
 import { validateRule, type RuleParams } from "@/lib/recurrence";
-import { generateOccurrencesForMonth } from "@/lib/generate-occurrences";
+import { generateOccurrencesForMonth, GENERATE_AHEAD_MONTHS } from "@/lib/generate-occurrences";
 import { PRIMARY_JOB_ORDER } from "./work";
 import { getCategories } from "@/lib/categories-server";
 import type { Cat } from "@/lib/categories";
@@ -184,11 +184,12 @@ async function createSingleOccurrence(
   if (job.vehicleId) await tx.occurrenceVehicle.create({ data: { occurrenceId: occ.id, vehicleId: job.vehicleId, createdById: actorId } });
 }
 
-/** 定期：今月と来月の分を未割当に入れる（その先は毎月の自動生成） */
+/** 定期：今月〜翌々月の分を未割当に入れる（その先は毎日の自動生成で入る） */
 async function generateFirstMonths(jobId: string, actorId: string): Promise<number> {
   const first = jstMonthKey();
   let created = 0;
-  for (const month of [first, addMonthsKey(first, 1)]) {
+  for (let i = 0; i <= GENERATE_AHEAD_MONTHS; i++) {
+    const month = addMonthsKey(first, i);
     const r = await generateOccurrencesForMonth({ month, jobId, actorId, notBefore: jstDateKey() });
     created += r.created;
   }
@@ -286,7 +287,7 @@ const JOB_RESULT_SELECT = { id: true, propertyId: true, customerId: true, depart
 async function generateAfterSave(jobId: string, w: Work, status: PropertyStatus, actorId: string, done: string): Promise<string> {
   if (status !== "ACTIVE") return `${done}（休止・終了中のため予定は作っていません）`;
   const n = await generateFirstMonths(jobId, actorId).catch(() => -1);
-  return n < 0 ? `${done}（予定の作成に失敗しました。「予定を作る」から作り直せます）` : `${done}。未割当に${n}件入れました`;
+  return n < 0 ? `${done}（予定の作成に失敗しました。翌日の自動生成で入ります）` : `${done}。未割当に${n}件入れました`;
 }
 
 export async function createProperty(_prev: PropertyFormState, formData: FormData): Promise<PropertyFormState> {
@@ -340,7 +341,8 @@ export async function createProperty(_prev: PropertyFormState, formData: FormDat
   }
 
   let toast = "現場を登録しました";
-  if (w.addToCalendar) {
+  // 定期は登録したら必ず未割当に入れる（その先は毎日の自動生成）
+  if (w.addToCalendar || w.contractType === "REGULAR") {
     toast = w.contractType === "REGULAR" ? await generateAfterSave(ids.jobId, w, d.status, me.id, toast) : "現場を登録し、カレンダーに予定を入れました";
   }
   revalidateProperty(ids.propertyId, d.customerId);
