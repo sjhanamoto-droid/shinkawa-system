@@ -21,6 +21,8 @@ import { fmtKeyShort } from "@/features/schedule/filters";
 import { CONTRACT_TYPE_LABEL, DEPARTMENT_LABEL, PROPERTY_STATUS_LABEL, isDepartment, isRuleKind, type ContractType, type PropertyStatus } from "@/lib/constants";
 import { GenerateButton } from "@/features/jobs/generate-button";
 import { MoveJobButton } from "@/features/properties/move-job-button";
+import { ChangeCustomerButton } from "@/features/properties/change-customer-button";
+import { loadCustomerChoices, OTHER_CUSTOMER_NAME } from "@/features/properties/customer-choices";
 import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
 import { getCategories } from "@/lib/categories-server";
 import { cn, mapSearchUrl } from "@/lib/utils";
@@ -65,6 +67,12 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     },
   });
   if (!property) notFound();
+
+  // 顧客が「その他」の現場は、詳細から別の顧客に振り分けられる
+  const customerChoices =
+    canManage && property.customer.name === OTHER_CUSTOMER_NAME
+      ? (await loadCustomerChoices()).filter((c) => c.id !== property.customerId)
+      : null;
 
   // 関連物件（双方向）と候補（同じ顧客の他物件）
   const related = [
@@ -167,7 +175,15 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </div>
 
           <DataList>
-            <DataRow label="顧客" value={<Link href={`/customers/${property.customer.id}`} className="font-medium text-brand-600">{property.customer.name}</Link>} />
+            <DataRow
+              label="顧客"
+              value={
+                <span className="flex flex-wrap items-center gap-2">
+                  <Link href={`/customers/${property.customer.id}`} className="font-medium text-brand-600">{property.customer.name}</Link>
+                  {customerChoices && <ChangeCustomerButton propertyId={id} customers={customerChoices} />}
+                </span>
+              }
+            />
             <DataRow
               label="住所"
               value={

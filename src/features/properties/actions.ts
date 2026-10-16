@@ -568,3 +568,43 @@ export async function removePropertyRelation(relationId: string, propertyId: str
   revalidatePath(`/properties/${propertyId}`);
   return {};
 }
+
+/** 「その他」で登録した現場を、既存の顧客か新しく登録する顧客に振り分ける（作業・予定の顧客も追従） */
+export async function changePropertyCustomer(
+  propertyId: string,
+  to: { customerId: string } | { newName: string },
+): Promise<{ error?: string; customerName?: string }> {
+  const me = await requireUser();
+  try {
+    assertCan(me, "property.manage");
+  } catch (e) {
+    return forbidden(e) ?? { error: "エラーが発生しました" };
+  }
+  const property = await db.property.findUnique({ where: { id: propertyId }, select: { customerId: true } });
+  if (!property) return { error: "現場が見つかりません" };
+
+  let customer: { id: string; name: string } | null;
+  if ("newName" in to) {
+    const name = to.newName.trim();
+    if (!name) return { error: "顧客名を入力してください" };
+    if (name.length > 100) return { error: "顧客名は100文字以内で入力してください" };
+    // 同じ名前の顧客が既にあればそちらに入れる（二重登録を防ぐ）
+    customer =
+      (await db.customer.findFirst({ where: { name }, select: { id: true, name: true } })) ??
+      (await db.customer.create({ data: { name }, select: { id: true, name: true } }));
+  } else {
+    customer = await db.customer.findUnique({ where: { id: to.customerId }, select: { id: true, name: true } });
+    if (!customer) return { error: "顧客が見つかりません" };
+  }
+  if (customer.id === property.customerId) return { error: "今と同じ顧客です" };
+
+  await db.$transaction([
+    db.property.update({ where: { id: propertyId }, data: { customerId: customer.id } }),
+    db.job.updateMany({ where: { propertyId }, data: { customerId: customer.id } }),
+    db.occurrence.updateMany({ where: { propertyId }, data: { customerId: customer.id } }),
+  ]);
+  revalidateProperty(propertyId, customer.id);
+  revalidatePath(`/customers/${property.customerId}`);
+  revalidatePath("/customers");
+  return { customerName: customer.name };
+}
