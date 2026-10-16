@@ -81,11 +81,13 @@ export const CATEGORY_OPTIONS = Object.keys(CATEGORY) as CategoryKey[];
 export const NON_WORK_CATEGORIES: CategoryKey[] = ["OFF"];
 
 // ── 実施回の状態 ──
+// 仮・確定の区別はしない：日付が入った時点で CONFIRMED（画面では状態を出さない）。中止はボタンを置かず、削除で外す。
+// TENTATIVE・CANCELLED は旧データ用に型だけ残す。
 export type OccurrenceStatus = "UNASSIGNED" | "TENTATIVE" | "CONFIRMED" | "DONE" | "CANCELLED";
 export const OCCURRENCE_STATUS_LABEL: Record<OccurrenceStatus, string> = {
   UNASSIGNED: "未割当",
   TENTATIVE: "仮",
-  CONFIRMED: "確定",
+  CONFIRMED: "予定",
   DONE: "完了",
   CANCELLED: "中止",
 };
@@ -96,6 +98,8 @@ export const OCCURRENCE_STATUS_OPTIONS: OccurrenceStatus[] = [
   "DONE",
   "CANCELLED",
 ];
+/** カレンダーの「状態」で絞り込める状態 */
+export const OCCURRENCE_STATUS_FILTER_OPTIONS: OccurrenceStatus[] = ["CONFIRMED", "DONE"];
 export type Tone = "survey" | "active" | "past" | "warn" | "danger" | "info";
 export const OCCURRENCE_STATUS_TONE: Record<OccurrenceStatus, Tone> = {
   UNASSIGNED: "past",
@@ -373,7 +377,7 @@ export function labelOf<T extends string>(
 
 // ── 使い方のヒント ──
 export const USAGE_TIPS = [
-  "週ビューの左「未割当」から日付へドラッグすると予定が入ります",
+  "「＋」から予定を追加し、定期清掃を選ぶと未割当の現場から選べます",
   "スマホでは予定を開いて「移動」から日付・担当を変えられます",
-  "上の1行入力に「9/24 直井さん 1人」と書くと仮予定になります",
+  "上の1行入力に「9/24 直井さん 1人」と書くと予定が入ります",
 ];

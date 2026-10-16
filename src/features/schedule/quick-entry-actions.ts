@@ -14,7 +14,7 @@ import { fetchOccurrenceView } from "./query";
 import { ymOf } from "./filters";
 import type { ActionResult, OccurrenceView } from "./types";
 
-// 電話の速報メモ「9/24 直井さん 1人」→ 仮予定。
+// 電話の速報メモ「9/24 直井さん 1人」→ 予定。
 // Claude API が設定されていれば構造化抽出、無ければ正規表現で同じ形にする。
 
 // 種別は種別マスタ（使う設定のもの）のキーから選ばせる
@@ -190,7 +190,7 @@ export async function quickEntry(text: string): Promise<
       startTime,
       headcount: parsed.headcount,
       note: [parsed.note, `速報メモ: ${input}`].filter(Boolean).join("\n"),
-      status: date ? "TENTATIVE" : "UNASSIGNED",
+      status: "CONFIRMED",
       source: "QUICK",
       createdById: me.id,
       changeLogs: { create: { actorId: me.id, action: "CREATE", toValue: date ?? "日付未定", reason: "クイック登録" } },

@@ -423,7 +423,7 @@ export async function updateProperty(_prev: PropertyFormState, formData: FormDat
       // 部門・種別を変えたら、まだ確定していない予定にも反映する
       if (existingJob.category !== w.category || existingJob.department !== w.department) {
         await tx.occurrence.updateMany({
-          where: { jobId: existingJob.id, status: { in: ["UNASSIGNED", "TENTATIVE"] } },
+          where: { jobId: existingJob.id, status: { notIn: ["DONE", "CANCELLED"] } },
           data: { department: w.department, category: w.category },
         });
       }

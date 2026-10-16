@@ -81,14 +81,12 @@ async function run<T>(fn: (me: CurrentUser) => Promise<T>): Promise<ActionResult
   }
 }
 
-/** 状態の自動判定（担当の有無・日付の有無から） */
-function computeStatus(current: string, dateKey: string | null, assigneeCount: number, category: string): OccurrenceStatus {
+/** 状態の自動判定：日付が入っていれば予定（CONFIRMED）、無ければ未割当。仮・確定の区別はしない（担当未定は担当の有無で見る） */
+function computeStatus(current: string, dateKey: string | null, _assigneeCount?: number, _category?: string): OccurrenceStatus {
+  void _assigneeCount;
+  void _category;
   if (current === "DONE" || current === "CANCELLED") return current;
-  if (!dateKey) return "UNASSIGNED";
-  const nonWork = (NON_WORK_CATEGORIES as string[]).includes(category);
-  if (assigneeCount === 0 && !nonWork) return "UNASSIGNED";
-  if (current === "UNASSIGNED") return "TENTATIVE";
-  return isOccurrenceStatus(current) ? current : "TENTATIVE";
+  return dateKey ? "CONFIRMED" : "UNASSIGNED";
 }
 
 function revalidateAll(propertyId?: string | null) {
@@ -452,7 +450,7 @@ export async function moveOccurrence(
             jobId: occ.jobId,
             id: { not: id },
             seriesKey: { not: null },
-            status: { in: ["UNASSIGNED", "TENTATIVE"] },
+            status: { notIn: ["DONE", "CANCELLED"] },
             targetMonth: { gte: occ.targetMonth },
           },
           select: { id: true, seriesKey: true, targetMonth: true, date: true, status: true, assignments: { select: { userId: true } } },
@@ -678,7 +676,7 @@ export async function deleteOccurrence(id: string, scope: "ONE" | "FOLLOWING"): 
             jobId: occ.jobId,
             id: { not: id },
             seriesKey: { not: null },
-            status: { in: ["UNASSIGNED", "TENTATIVE"] },
+            status: { notIn: ["DONE", "CANCELLED"] },
             targetMonth: { gte: occ.targetMonth },
           },
           select: { id: true, date: true, targetMonth: true },

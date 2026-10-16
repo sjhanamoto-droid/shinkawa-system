@@ -6,7 +6,7 @@ import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from 
 import { ChevronLeft, ChevronRight, Loader2, Plus, CalendarDays } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { isPlanner, can, type Actor } from "@/lib/permissions";
-import { NON_WORK_CATEGORIES, type Department, hasFixedDates } from "@/lib/constants";
+import { type Department, hasFixedDates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useOccurrenceStore } from "./use-occurrence-store";
 import { useIsCoarsePointer, useScheduleSensors, parseDropId, type DragData } from "./dnd";
@@ -29,12 +29,11 @@ import { DayHeading } from "./day-heading";
 import type { FilterState, MoveInput, OccurrenceView, PersonRef, ScheduleData, VehicleRef, ViewMode } from "./types";
 
 
-function nextStatusClient(o: OccurrenceView, date: string | null, assigneeCount: number): string {
+// サーバーの computeStatus と同じ：日付があれば予定（CONFIRMED）、無ければ未割当
+function nextStatusClient(o: OccurrenceView, date: string | null, _assigneeCount?: number): string {
+  void _assigneeCount;
   if (o.status === "DONE" || o.status === "CANCELLED") return o.status;
-  if (!date) return "UNASSIGNED";
-  if (assigneeCount === 0 && !(NON_WORK_CATEGORIES as string[]).includes(o.category)) return "UNASSIGNED";
-  if (o.status === "UNASSIGNED") return "TENTATIVE";
-  return o.status;
+  return date ? "CONFIRMED" : "UNASSIGNED";
 }
 
 export function ScheduleShell({ data }: { data: ScheduleData }) {

@@ -13,12 +13,6 @@ export function Legend() {
         </span>
       ))}
       <span className="ml-2 flex items-center gap-1">
-        <span className="h-3 w-5 rounded border border-dashed border-amber-400" />仮
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="h-3 w-5 rounded border border-amber-300 bg-amber-50" />未割当
-      </span>
-      <span className="flex items-center gap-1">
         <span className="h-3 w-5 rounded border border-red-300 bg-red-50" />担当未定
       </span>
     </div>

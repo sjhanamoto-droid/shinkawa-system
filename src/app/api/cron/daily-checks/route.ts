@@ -1,6 +1,6 @@
 // GET/POST /api/cron/daily-checks — 日次チェック（毎日 18:00 JST 想定）。
 //
-// (A) 明日の予定リマインド: 明日の確定・仮の実施回に配員されている作業者へ「明日の予定」を通知する。
+// (A) 明日の予定リマインド: 明日の実施回に配員されている作業者へ「明日の予定」を通知する。
 // (B) 参照されていない Blob の掃除（動画を選んだあと保存せず離脱すると Blob だけが残るため）。
 
 import { type NextRequest, NextResponse } from "next/server";

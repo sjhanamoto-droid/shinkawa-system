@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Inbox, AlertTriangle, Clock3, UserCheck } from "lucide-react";
+import { CalendarDays, ChevronRight, Inbox, AlertTriangle, UserCheck } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { canViewAmounts, isManager, isPlanner } from "@/lib/permissions";
@@ -87,7 +87,7 @@ export default async function HomePage() {
     loadMyReportTodo(user.id),
     isManager(user) ? loadProxyTodo() : Promise.resolve([]),
   ]);
-  const [todayRows, tomorrowRows, people, unassignedCount, tentativeCount, noWorkerCount] = await Promise.all([
+  const [todayRows, tomorrowRows, people, unassignedCount, noWorkerCount] = await Promise.all([
     db.occurrence.findMany({
       where: { date: dayRangeForKey(today), status: { notIn: ["CANCELLED"] }, ...mineWhere },
       select,
@@ -101,9 +101,8 @@ export default async function HomePage() {
     }),
     loadPersonMap(),
     planner ? db.occurrence.count({ where: { date: null, targetMonth: { lte: month }, status: "UNASSIGNED" } }) : Promise.resolve(0),
-    planner ? db.occurrence.count({ where: { targetMonth: month, status: "TENTATIVE" } }) : Promise.resolve(0),
     planner
-      ? db.occurrence.count({ where: { date: { gte: dayRangeForKey(today).gte }, status: { in: ["UNASSIGNED", "TENTATIVE", "CONFIRMED"] }, category: { not: "OFF" }, assignments: { none: {} } } })
+      ? db.occurrence.count({ where: { date: { gte: dayRangeForKey(today).gte }, status: { notIn: ["DONE", "CANCELLED"] }, category: { not: "OFF" }, assignments: { none: {} } } })
       : Promise.resolve(0),
   ]);
 
@@ -136,10 +135,9 @@ export default async function HomePage() {
           </Link>
 
           {planner && (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               <StatCard href={`/schedule?view=day&d=${today}`} label="今日の予定" value={todayItems.length} tone="brand" icon={<CalendarDays className="h-5 w-5" />} />
               <StatCard href={`/schedule?view=week&d=${today}`} label="未割当" sub="今月まで" value={unassignedCount} tone="amber" icon={<Inbox className="h-5 w-5" />} />
-              <StatCard href={`/schedule?view=week&d=${today}&status=TENTATIVE`} label="仮の予定" sub="今月" value={tentativeCount} tone="sky" icon={<Clock3 className="h-5 w-5" />} />
               <StatCard href={`/schedule?view=board&d=${today}`} label="担当未定" sub="今日以降" value={noWorkerCount} tone="rose" icon={<AlertTriangle className="h-5 w-5" />} />
             </div>
           )}

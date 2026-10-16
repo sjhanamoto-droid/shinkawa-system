@@ -14,13 +14,12 @@ import { isOffOccurrence, occurrenceLabels, timeLabel } from "./labels";
 
 export { occurrenceLabels, timeLabel };
 
-// 状態ごとの枠線：仮＝点線、未割当＝黄、担当未定（日付あり・担当なし）＝赤、完了＝薄く、中止＝打ち消し
+// 枠線：担当未定（日付あり・担当なし）＝赤、未割当（日付なし）＝黄、完了＝薄く、中止（旧データ）＝打ち消し。仮・確定の区別はしない
 export function statusClass(o: OccurrenceView): string {
   if (o.status === "CANCELLED") return "opacity-50 line-through";
   if (o.status === "DONE") return "opacity-60";
-  if (o.status === "UNASSIGNED") return o.date ? "border-red-300 bg-red-50/60" : "border-amber-300 bg-amber-50/60";
-  if (isOffOccurrence(o)) return "border-line bg-surface"; // 休みは仮・確定の区別をしない
-  if (o.status === "TENTATIVE") return "border-dashed border-amber-400 bg-surface";
+  if (!o.date) return "border-amber-300 bg-amber-50/60";
+  if (o.assignees.length === 0 && !isOffOccurrence(o)) return "border-red-300 bg-red-50/60";
   return "border-line bg-surface";
 }
 

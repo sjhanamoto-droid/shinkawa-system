@@ -6,7 +6,7 @@ import { Search, X } from "lucide-react";
 import {
   DEPARTMENT_LABEL,
   OCCURRENCE_STATUS_LABEL,
-  OCCURRENCE_STATUS_OPTIONS,
+  OCCURRENCE_STATUS_FILTER_OPTIONS,
   WORKER_KIND_LABEL,
   type WorkerKind,
 } from "@/lib/constants";
@@ -131,7 +131,7 @@ export function FilterBar({
         </select>
         <select className={selectClass} value={filters.status ?? ""} onChange={(e) => onChange({ status: e.target.value || null })} aria-label="状態">
           <option value="">状態：すべて</option>
-          {OCCURRENCE_STATUS_OPTIONS.map((s) => (
+          {OCCURRENCE_STATUS_FILTER_OPTIONS.map((s) => (
             <option key={s} value={s}>
               {OCCURRENCE_STATUS_LABEL[s]}
             </option>

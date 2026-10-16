@@ -37,8 +37,9 @@ export function Badge({
   );
 }
 
-// 実施回の状態バッジ（ドット付き）
+// 実施回の状態バッジ（ドット付き）。仮・確定の区別はしないので、日付が入った予定（CONFIRMED・旧データの TENTATIVE）は出さない
 export function OccurrenceStatusBadge({ status, className }: { status: string; className?: string }) {
+  if (status === "CONFIRMED" || status === "TENTATIVE") return null;
   const tone = isOccurrenceStatus(status) ? OCCURRENCE_STATUS_TONE[status] : "past";
   const color = STATUS_TOKEN[tone];
   return (

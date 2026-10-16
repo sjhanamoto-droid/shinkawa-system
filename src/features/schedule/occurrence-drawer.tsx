@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import {
-  X, Building, MapPin, KeyRound, Clock, Users, Car, Repeat, Pencil, ArrowRightLeft, CheckCircle2, Ban, Trash2, History, Loader2, Inbox, DoorOpen, StickyNote, ExternalLink,
+  X, Building, MapPin, KeyRound, Clock, Users, Car, Repeat, Pencil, ArrowRightLeft, CheckCircle2, Trash2, History, Loader2, Inbox, DoorOpen, StickyNote, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -125,9 +125,8 @@ export function OccurrenceDrawer({
   const [vehicleIds, setVehicleIds] = useState<string[]>([]);
   const [usage, setUsage] = useState<VehicleUsage | null>(null);
   const [loadingUsage, startUsage] = useTransition();
-  const [confirm, setConfirm] = useState<null | "cancel" | "delete">(null);
+  const [confirm, setConfirm] = useState<null | "delete">(null);
   const [deleteScope, setDeleteScope] = useState<"ONE" | "FOLLOWING">("ONE");
-  const [cancelReason, setCancelReason] = useState("");
 
   const categories = useCategories();
   const open = !!o;
@@ -180,10 +179,8 @@ export function OccurrenceDrawer({
   const canEdit = can(me, "occurrence.edit", { department: o.department });
   const canMove = can(me, "occurrence.move", { department: o.department }) && o.status !== "DONE" && o.status !== "CANCELLED";
   const canDelete = can(me, "occurrence.delete", { department: o.department });
-  const canConfirm = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "CONFIRMED" }) && o.status !== "CONFIRMED" && o.status !== "DONE" && o.status !== "CANCELLED";
   const canDone = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "DONE" }) && o.status !== "DONE" && o.status !== "CANCELLED";
-  const canCancel = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "CANCELLED" }) && o.status !== "CANCELLED" && o.status !== "DONE";
-  const canReopen = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "TENTATIVE" }) && (o.status === "DONE" || o.status === "CANCELLED");
+  const canReopen = can(me, "occurrence.status", { department: o.department, assigneeIds, nextStatus: "CONFIRMED" }) && (o.status === "DONE" || o.status === "CANCELLED");
   const t = timeLabel(o);
   const label = occurrenceLabels(o);
   const color = catColor(categories, o.category);
@@ -443,24 +440,14 @@ export function OccurrenceDrawer({
                   <Pencil className="h-4 w-4" /> 編集
                 </Button>
               )}
-              {canConfirm && (
-                <Button type="button" onClick={() => onStatus(o, "CONFIRMED")} disabled={busy || !o.date}>
-                  <CheckCircle2 className="h-4 w-4" /> 確定
-                </Button>
-              )}
               {canDone && (
                 <Button type="button" variant="accent" onClick={() => onStatus(o, "DONE")} disabled={busy}>
                   <CheckCircle2 className="h-4 w-4" /> 完了
                 </Button>
               )}
               {canReopen && (
-                <Button type="button" variant="outline" onClick={() => onStatus(o, o.assignees.length ? "TENTATIVE" : "UNASSIGNED")} disabled={busy}>
+                <Button type="button" variant="outline" onClick={() => onStatus(o, o.date ? "CONFIRMED" : "UNASSIGNED")} disabled={busy}>
                   <Inbox className="h-4 w-4" /> 戻す
-                </Button>
-              )}
-              {canCancel && (
-                <Button type="button" variant="ghost" onClick={() => setConfirm("cancel")} disabled={busy}>
-                  <Ban className="h-4 w-4" /> 中止
                 </Button>
               )}
               {canDelete && (
@@ -511,35 +498,6 @@ export function OccurrenceDrawer({
             }}
           >
             保存する
-          </Button>
-        </div>
-      </Modal>
-
-      {/* 中止 */}
-      <Modal open={confirm === "cancel"} onClose={() => setConfirm(null)} title="予定を中止">
-        <p className="mb-3 text-[15px] text-ink-soft">「{o.title}」を中止にします。担当者に通知されます。</p>
-        <input
-          value={cancelReason}
-          onChange={(e) => setCancelReason(e.target.value)}
-          placeholder="理由（任意）"
-          className="mb-4 h-11 w-full rounded-xl border border-line-strong px-3 text-sm"
-          maxLength={200}
-        />
-        <div className="flex gap-2">
-          <Button type="button" variant="secondary" className="flex-1" onClick={() => setConfirm(null)}>
-            戻る
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            className="flex-1"
-            onClick={async () => {
-              await onStatus(o, "CANCELLED", cancelReason.trim() || undefined);
-              setConfirm(null);
-              setCancelReason("");
-            }}
-          >
-            中止にする
           </Button>
         </div>
       </Modal>

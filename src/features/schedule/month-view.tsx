@@ -40,7 +40,6 @@ function DayCell({
   const holiday = holidayName(dateKey);
   const dayNum = Number(dateKey.slice(8, 10));
   const unassigned = items.filter((o) => o.status === "UNASSIGNED").length;
-  const tentative = items.filter((o) => o.status === "TENTATIVE").length;
   const noWorker = items.filter((o) => o.assignees.length === 0 && o.category !== "OFF" && o.status !== "DONE" && o.status !== "CANCELLED").length;
 
   const numberEl = (
@@ -96,7 +95,6 @@ function DayCell({
         </button>
         {items.length > 0 && <span className="text-xs tnum text-ink-muted">{items.length}件</span>}
         {noWorker > 0 && <span className="rounded-md bg-red-100 px-1 text-[11px] font-bold text-red-600">担当未定{noWorker}</span>}
-        {tentative > 0 && <span className="rounded-md bg-amber-100 px-1 text-[11px] font-bold text-amber-700">仮{tentative}</span>}
         {canEdit && (
           <button
             type="button"
