@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Loader2, Plus, CalendarDays } from "lucide-react";
@@ -28,7 +28,6 @@ import { Legend } from "./legend";
 import { DayHeading } from "./day-heading";
 import type { FilterState, MoveInput, OccurrenceView, PersonRef, ScheduleData, VehicleRef, ViewMode } from "./types";
 
-const POLL_MS = 30_000;
 
 function nextStatusClient(o: OccurrenceView, date: string | null, assigneeCount: number): string {
   if (o.status === "DONE" || o.status === "CANCELLED") return o.status;
@@ -109,25 +108,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     [router, filters, me.role],
   );
 
-  // ── ポーリング（他の人の変更を取り込む） ──
-  const draggingRef = useRef(false);
-  useEffect(() => {
-    const tick = () => {
-      if (document.visibilityState !== "visible" || draggingRef.current || store.pendingCount > 0) return;
-      router.refresh();
-    };
-    const id = window.setInterval(tick, POLL_MS);
-    const onVis = () => {
-      if (document.visibilityState === "visible") tick();
-    };
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("focus", onVis);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("focus", onVis);
-    };
-  }, [router, store.pendingCount]);
+  // 他の人の変更は自動では取り込まない（ブラウザを再読み込みしたときに最新になる）
 
   // ── UI 状態 ──
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -191,13 +172,11 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   );
 
   function onDragStart(e: DragStartEvent) {
-    draggingRef.current = true;
     const d = e.active.data.current as DragData | undefined;
     setDragging(d?.occurrence ?? null);
   }
 
   function onDragEnd(e: DragEndEvent) {
-    draggingRef.current = false;
     setDragging(null);
     const d = e.active.data.current as DragData | undefined;
     const target = parseDropId(e.over?.id);
@@ -326,7 +305,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   const openDay = (date: string) => navigate({ view: "day", date });
 
   return (
-    <DndContext id="schedule-dnd" sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => { draggingRef.current = false; setDragging(null); }}>
+    <DndContext id="schedule-dnd" sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
       <div className="space-y-4">
         {/* ヘッダ：期間ナビ・ビュー切替・追加 */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
