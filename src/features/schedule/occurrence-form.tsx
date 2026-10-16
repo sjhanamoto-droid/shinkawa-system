@@ -88,6 +88,9 @@ export function OccurrenceForm({
   const [amount, setAmount] = useState("");
   const [workerIds, setWorkerIds] = useState<string[]>([]);
 
+  // 入力欄の初期化は「開いたとき」だけ。カレンダーは定期的・タブ復帰時に再取得していて、そのたびに
+  // defaultTimes などの props が作り直されるため、props を依存にすると入力中の内容が消えてしまう。
+  const openKey = open ? `${occurrence?.id ?? "new"}:${initialDate ?? ""}` : null;
   useEffect(() => {
     if (!open) return;
     setError(null);
@@ -130,7 +133,7 @@ export function OccurrenceForm({
       setAmount("");
       setWorkerIds([]);
     }
-  }, [open, occurrence, initialDate, defaultDepartment, defaultTimes]);
+  }, [openKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 日付が決まっていれば、同じ日の車両の使用状況を取りに行く（重複の注意表示用）
   const usageDate = open && !undated && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
