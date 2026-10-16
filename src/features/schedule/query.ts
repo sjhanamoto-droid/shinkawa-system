@@ -186,7 +186,8 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
   const months = monthsInRange(range);
 
   const common: Prisma.OccurrenceWhereInput[] = [];
-  if (filters.dept !== "ALL") common.push({ department: filters.dept });
+  // 休みは部門で絞り込んでも出す（誰が休みかはどの部門でも要るため）
+  if (filters.dept !== "ALL") common.push({ OR: [{ department: filters.dept }, { category: "OFF" }] });
   if (filters.category) common.push({ category: filters.category });
   if (filters.customer) common.push({ customerId: filters.customer });
   if (filters.status) common.push({ status: filters.status });

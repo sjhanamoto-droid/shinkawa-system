@@ -1,7 +1,7 @@
 "use client";
 
 import { useCategories } from "@/components/category-provider";
-import { catDepartment, selectableCategories } from "@/lib/categories";
+import { catDepartment, defaultCategoryFor, selectableCategories } from "@/lib/categories";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { AlertCircle, Save, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -156,8 +156,19 @@ export function OccurrenceForm({
     () => properties.filter((p) => !customerId || p.customerId === customerId),
     [properties, customerId],
   );
-  const categoryOptions = selectableCategories(categories, { department, current: occurrence?.category });
+  // 休みは部門の選択肢（クリーニング／工事／休み）で選ぶので、種別の選択肢からは外す
+  const categoryOptions = selectableCategories(categories, { department, current: occurrence?.category, excludeOff: true });
   const isPersonal = category === "OFF";
+
+  // 部門で「休み」を選んだら種別を休みに。部門の値は前のまま（休みにも部門の値が要るため）
+  function changeDepartment(v: string) {
+    if (v === "OFF") {
+      setCategory("OFF");
+      return;
+    }
+    setDepartment(v as Department);
+    if (isPersonal) setCategory(defaultCategoryFor(categories, v as Department));
+  }
 
   function submit() {
     setError(null);
@@ -207,23 +218,26 @@ export function OccurrenceForm({
           <SectionTitle size="sm" className="px-0">種別</SectionTitle>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="部門" htmlFor="of-dept">
-              <Select id="of-dept" value={department} onChange={(e) => setDepartment(e.target.value as Department)}>
+              <Select id="of-dept" value={isPersonal ? "OFF" : department} onChange={(e) => changeDepartment(e.target.value)}>
                 {DEPARTMENT_OPTIONS.map((d) => (
                   <option key={d} value={d}>
                     {DEPARTMENT_LABEL[d]}
                   </option>
                 ))}
+                <option value="OFF">休み</option>
               </Select>
             </Field>
-            <Field label="種別" htmlFor="of-cat">
-              <Select id="of-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
-                {categoryOptions.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {!isPersonal && (
+              <Field label="種別" htmlFor="of-cat">
+                <Select id="of-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
+                  {categoryOptions.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
           </div>
         </section>
 

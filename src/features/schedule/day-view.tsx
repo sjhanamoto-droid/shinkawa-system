@@ -33,10 +33,12 @@ export function DayView({
   onAdd: (date: string) => void;
 }) {
   const noWorker = items.filter((o) => o.assignees.length === 0 && o.category !== "OFF" && o.status !== "DONE" && o.status !== "CANCELLED");
-  const rest = items.filter((o) => !noWorker.includes(o));
+  const off = items.filter((o) => o.category === "OFF");
+  const rest = items.filter((o) => !noWorker.includes(o) && !off.includes(o));
 
-  // 部門 → 時間帯でグループ
+  // 休み（部門に関係なく先頭）→ 部門 → 時間帯でグループ
   const groups: { key: string; label: string; items: OccurrenceView[] }[] = [];
+  if (off.length) groups.push({ key: "off", label: "休み", items: off });
   for (const dept of ["CLEANING", "CONSTRUCTION"] as const) {
     for (const band of BAND_ORDER) {
       const list = rest.filter((o) => o.department === dept && bandOf(o) === band);

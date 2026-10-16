@@ -207,7 +207,7 @@ export function OccurrenceDrawer({
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <CategoryBadge category={o.category} />
                 <OccurrenceStatusBadge status={o.status} />
-                {isDepartment(o.department) && <span className="text-xs font-semibold text-ink-muted">{DEPARTMENT_LABEL[o.department]}</span>}
+                {isDepartment(o.department) && o.category !== "OFF" && <span className="text-xs font-semibold text-ink-muted">{DEPARTMENT_LABEL[o.department]}</span>}
               </div>
               <button type="button" onClick={onClose} aria-label="閉じる" className="-mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-surface-sunken active:bg-surface-sunken">
                 <X className="h-5 w-5" />
