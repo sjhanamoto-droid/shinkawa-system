@@ -3,12 +3,13 @@ import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { PropertyForm, type PropertyFormValues } from "@/features/properties/property-form";
+import { loadCustomerChoices } from "@/features/properties/customer-choices";
 
 export default async function NewPropertyPage({ searchParams }: { searchParams: Promise<{ customerId?: string; copyFrom?: string }> }) {
   const user = await requireCan("property.manage");
   const { customerId, copyFrom } = await searchParams;
   const [customers, source] = await Promise.all([
-    db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    loadCustomerChoices(),
     copyFrom ? db.property.findUnique({ where: { id: copyFrom } }) : null,
   ]);
 

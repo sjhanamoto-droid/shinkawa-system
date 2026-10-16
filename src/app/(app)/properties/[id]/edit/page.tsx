@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { PropertyForm } from "@/features/properties/property-form";
+import { loadCustomerChoices } from "@/features/properties/customer-choices";
 import { DeletePropertyButton } from "@/features/properties/delete-property-button";
 import { loadWorkForForm } from "@/features/properties/work";
 
@@ -17,7 +18,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
       where: { id },
       include: { photos: { where: { kind: { in: ["KEYBOX", "DRAWING", "SURVEY"] } }, select: { id: true, caption: true, isVideo: true, width: true, kind: true }, orderBy: { createdAt: "asc" } } },
     }),
-    db.customer.findMany({ select: { id: true, name: true, shortName: true, kana: true }, orderBy: [{ kana: "asc" }, { name: "asc" }] }),
+    loadCustomerChoices(),
     loadWorkForForm(id, showAmount),
     db.job.findMany({ where: { propertyId: id }, select: { department: true }, distinct: ["department"] }),
   ]);
