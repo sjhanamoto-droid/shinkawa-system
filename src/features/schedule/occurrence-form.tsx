@@ -15,7 +15,7 @@ import {
   DEPARTMENT_OPTIONS,
   type Department,
 } from "@/lib/constants";
-import { AssigneePicker } from "./assignee-picker";
+import { AssigneePicker, useWorkerUsage } from "./assignee-picker";
 import { VehiclePicker } from "./vehicle-picker";
 import { createOccurrence, updateOccurrence, getVehicleUsage, getUnassigned } from "./actions";
 import { jstDateKey } from "@/lib/date";
@@ -88,6 +88,7 @@ export function OccurrenceForm({
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState("");
   const [workerIds, setWorkerIds] = useState<string[]>([]);
+  const workerUsage = useWorkerUsage(open ? date : null, occurrence?.id ?? null);
   // 未割当（日付が決まっていない定期の回など）から選んだ回。保存するとその回に日付を入れる
   const [slotId, setSlotId] = useState("");
   const [slots, setSlots] = useState<OccurrenceView[] | null>(null);
@@ -448,7 +449,7 @@ export function OccurrenceForm({
           >
             {isPersonal ? "休む人" : "担当者"}
           </SectionTitle>
-          <AssigneePicker workers={workers} value={workerIds} onChange={setWorkerIds} department={department} compact />
+          <AssigneePicker workers={workers} value={workerIds} onChange={setWorkerIds} department={department} compact usage={workerUsage.usage} loadingUsage={workerUsage.loading} />
         </section>
 
         {error && (

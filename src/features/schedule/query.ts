@@ -16,6 +16,7 @@ import type {
   WorkerOption,
   VehicleOption,
   VehicleUsage,
+  WorkerUsage,
   CustomerOption,
   PropertyOption,
   ChangeLogView,
@@ -304,6 +305,37 @@ export async function loadVehicleUsage(dateKey: string, excludeOccurrenceId?: st
   for (const r of rows) {
     const entry = { id: r.id, title: occurrenceTitle(r), startTime: r.startTime };
     for (const v of r.vehicles) (usage[v.vehicleId] ??= []).push(entry);
+  }
+  return usage;
+}
+
+/** 同じ日に各作業者が入っている予定（休みも含む）。担当の選択で「すでに現場あり」を示す（ロックはしない） */
+export async function loadWorkerUsage(dateKey: string, excludeOccurrenceId?: string | null): Promise<WorkerUsage> {
+  const day = dateFromKey(dateKey);
+  const rows = await db.occurrence.findMany({
+    where: {
+      ...(excludeOccurrenceId ? { id: { not: excludeOccurrenceId } } : {}),
+      status: { not: "CANCELLED" },
+      assignments: { some: {} },
+      OR: [{ date: day }, { date: { lte: day }, endDate: { gte: day } }],
+    },
+    select: {
+      id: true,
+      title: true,
+      startTime: true,
+      category: true,
+      customerNameRaw: true,
+      customer: { select: { name: true } },
+      property: { select: { name: true } },
+      assignments: { select: { userId: true } },
+    },
+    orderBy: [{ startTime: "asc" }, { createdAt: "asc" }],
+  });
+  const usage: WorkerUsage = {};
+  for (const r of rows) {
+    const off = r.category === "OFF";
+    const entry = { id: r.id, title: off ? "休み" : occurrenceTitle(r), startTime: r.startTime, off };
+    for (const a of r.assignments) (usage[a.userId] ??= []).push(entry);
   }
   return usage;
 }

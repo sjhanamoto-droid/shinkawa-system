@@ -22,6 +22,8 @@ export type VehicleOption = VehicleRef & {
 
 /** 同じ日にその車両を使う他の予定（車両 id → 予定の一覧）。重複の警告に使う */
 export type VehicleUsage = Record<string, { id: string; title: string; startTime: string | null }[]>;
+/** 同じ日に入っている予定（作業者ごと）。off＝休み */
+export type WorkerUsage = Record<string, { id: string; title: string; startTime: string | null; off: boolean }[]>;
 
 export type OccurrenceView = {
   id: string;

@@ -14,7 +14,7 @@ import { can, type Actor } from "@/lib/permissions";
 import { cn, fmtYen, mapSearchUrl } from "@/lib/utils";
 import { catColor } from "@/lib/categories";
 import { useCategories } from "@/components/category-provider";
-import { AssigneePicker } from "./assignee-picker";
+import { AssigneePicker, useWorkerUsage } from "./assignee-picker";
 import { VehiclePicker } from "./vehicle-picker";
 import { getChangeLog, getVehicleUsage } from "./actions";
 import { OccurrenceReportPanel } from "@/features/reports/occurrence-report-panel";
@@ -120,6 +120,7 @@ export function OccurrenceDrawer({
   const [loadingLogs, startLogs] = useTransition();
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignIds, setAssignIds] = useState<string[]>([]);
+  const workerUsage = useWorkerUsage(assignOpen ? (o?.date ?? null) : null, o?.id ?? null);
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [vehicleIds, setVehicleIds] = useState<string[]>([]);
   const [usage, setUsage] = useState<VehicleUsage | null>(null);
@@ -474,7 +475,7 @@ export function OccurrenceDrawer({
 
       {/* 担当者変更 */}
       <Modal open={assignOpen} onClose={() => setAssignOpen(false)} title="担当者を変更">
-        <AssigneePicker workers={workers} value={assignIds} onChange={setAssignIds} department={o.department} />
+        <AssigneePicker workers={workers} value={assignIds} onChange={setAssignIds} department={o.department} usage={workerUsage.usage} loadingUsage={workerUsage.loading} />
         <div className="mt-4 flex gap-2">
           <Button type="button" variant="secondary" className="flex-1" onClick={() => setAssignOpen(false)}>
             キャンセル

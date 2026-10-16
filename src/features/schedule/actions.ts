@@ -21,9 +21,9 @@ import { catDepartment, catLabel } from "@/lib/categories";
 import { getCategories, isUsableCategory } from "@/lib/categories-server";
 import { createNotificationForUsers } from "@/lib/notifications";
 import type { NotificationType } from "@/lib/constants";
-import { fetchOccurrenceView, loadChangeLog, loadUnassigned, loadVehicleUsage } from "./query";
+import { fetchOccurrenceView, loadChangeLog, loadUnassigned, loadVehicleUsage, loadWorkerUsage } from "./query";
 import { fmtKeyShort, shiftKey, ymOf } from "./filters";
-import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage } from "./types";
+import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage, WorkerUsage } from "./types";
 
 // ─────────────────────────── 共通 ───────────────────────────
 
@@ -723,5 +723,13 @@ export async function getUnassigned(month: string): Promise<ActionResult<{ items
   return run(async (me) => {
     if (!/^\d{4}-\d{2}$/.test(month)) throw new ValidationError("月の形式が正しくありません");
     return { items: await loadUnassigned(month, me) };
+  });
+}
+
+/** その日に各作業者が入っている予定（担当の選択で印を付ける用） */
+export async function getWorkerUsage(dateKey: string, excludeOccurrenceId?: string | null): Promise<ActionResult<{ usage: WorkerUsage }>> {
+  return run(async () => {
+    if (!DATE_RE.test(dateKey)) throw new ValidationError("日付の形式が正しくありません");
+    return { usage: await loadWorkerUsage(dateKey, excludeOccurrenceId) };
   });
 }

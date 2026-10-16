@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
-import { AssigneePicker } from "./assignee-picker";
+import { AssigneePicker, useWorkerUsage } from "./assignee-picker";
 import { shiftKey, fmtKeyShort } from "./filters";
 import type { MoveInput, OccurrenceView, WorkerOption } from "./types";
 
@@ -32,6 +32,7 @@ export function MoveSheet({
   const [unassign, setUnassign] = useState(false);
   const [assignees, setAssignees] = useState<string[]>([]);
   const [reason, setReason] = useState("");
+  const workerUsage = useWorkerUsage(occurrence && !unassign ? date : null, occurrence?.id ?? null);
 
   useEffect(() => {
     if (!occurrence) return;
@@ -114,7 +115,7 @@ export function MoveSheet({
         </div>
 
         <Field label="担当者" hint={`${assignees.length}名`}>
-          <AssigneePicker workers={workers} value={assignees} onChange={setAssignees} department={occurrence.department} compact />
+          <AssigneePicker workers={workers} value={assignees} onChange={setAssignees} department={occurrence.department} compact usage={workerUsage.usage} loadingUsage={workerUsage.loading} />
         </Field>
 
         <Field label="理由" htmlFor="move-reason" hint="任意。履歴と通知に残ります">
