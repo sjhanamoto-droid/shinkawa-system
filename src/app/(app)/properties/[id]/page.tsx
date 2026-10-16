@@ -292,7 +292,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               <div className="mt-4 space-y-2 border-t border-line pt-3">
                 <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Repeat className="h-4 w-4 text-ink-muted" />未割当に入れる</p>
                 <GenerateButton jobId={job.id} months={[0, 1, 2].map((i) => ({ ym: addMonthsKey(thisMonth, i), label: i === 0 ? "今月分" : i === 1 ? "翌月分" : "翌々月分" }))} />
-                <p className="text-xs text-ink-faint">毎月の設定日に翌月分が自動で未割当に入ります。入れ済みの回は重複しません。日付はカレンダーで未割当からドラッグして決めます。</p>
+                <p className="text-xs text-ink-faint">毎月の設定日に翌月分が自動で未割当に入ります。入れ済みの回は重複しません。日付はカレンダーの「＋」から予定を追加するときに、未割当の現場を選んで決めます。</p>
               </div>
             )}
           </Card>

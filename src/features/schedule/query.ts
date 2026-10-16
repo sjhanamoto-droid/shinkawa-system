@@ -7,7 +7,7 @@ import { describeRule, type RuleParams } from "@/lib/recurrence";
 import { isRuleKind } from "@/lib/constants";
 import { getAppSettings } from "@/lib/settings";
 import { avatarUrlFor } from "@/lib/session";
-import { rangeFor, monthsInRange } from "./filters";
+import { rangeFor } from "./filters";
 import type {
   FilterState,
   OccurrenceView,
@@ -183,7 +183,6 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
   const range = rangeFor(filters);
   const start = dateFromKey(range.start);
   const end = dateFromKey(range.end);
-  const months = monthsInRange(range);
 
   const common: Prisma.OccurrenceWhereInput[] = [];
   // 休みは部門で絞り込んでも出す（誰が休みかはどの部門でも要るため）
@@ -198,7 +197,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
 
   const select = occurrenceSelect(showAmount);
 
-  const [rows, laneRows, people, workers, vehicles, customers, properties, settings] = await Promise.all([
+  const [rows, people, workers, vehicles, customers, properties, settings] = await Promise.all([
     db.occurrence.findMany({
       where: {
         AND: [
@@ -214,11 +213,6 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
       },
       select,
       orderBy: [{ date: "asc" }, { startTime: "asc" }, { createdAt: "asc" }],
-    }),
-    db.occurrence.findMany({
-      where: { AND: [...common, { date: null, targetMonth: { in: months }, status: { notIn: ["DONE", "CANCELLED"] } }] },
-      select,
-      orderBy: [{ targetMonth: "asc" }, { windowStart: "asc" }, { createdAt: "asc" }],
     }),
     loadPersonMap(),
     db.user.findMany({
@@ -248,7 +242,6 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
     filters,
     range,
     occurrences: rows.map((r) => toOccurrenceView(r, people, showAmount)),
-    unassigned: laneRows.map((r) => toOccurrenceView(r, people, showAmount)),
     workers: workerOptions,
     vehicles,
     customers: customers as CustomerOption[],
@@ -261,6 +254,20 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
 }
 
 /** 車両の選択肢（有効なものだけ。表示順→名前） */
+/** その月の未割当（日付が決まっていない定期の回など）。予定の追加で選んで日付を入れる */
+export async function loadUnassigned(month: string, actor: Actor): Promise<OccurrenceView[]> {
+  const showAmount = canViewAmounts(actor);
+  const [rows, people] = await Promise.all([
+    db.occurrence.findMany({
+      where: { date: null, targetMonth: month, status: { notIn: ["DONE", "CANCELLED"] } },
+      select: occurrenceSelect(showAmount),
+      orderBy: [{ windowStart: "asc" }, { createdAt: "asc" }],
+    }),
+    loadPersonMap(),
+  ]);
+  return rows.map((r) => toOccurrenceView(r, people, showAmount));
+}
+
 export async function loadVehicleOptions(): Promise<VehicleOption[]> {
   return db.vehicle.findMany({
     where: { active: true },

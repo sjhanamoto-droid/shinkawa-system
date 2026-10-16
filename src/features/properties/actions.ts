@@ -134,6 +134,9 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
     if (!w.workStart && w.workEnd) return { error: "工事の開始日を入力してください" };
     period = { startsOn: w.workStart ? dateFromKey(w.workStart) : null, endsOn: w.workEnd ? dateFromKey(w.workEnd) : null };
   }
+  // 日付の決まっていない予定は作らない（カレンダーの未割当は定期の回だけ）
+  if (w.addToCalendar && w.contractType === "SPOT" && !w.spotDate) return { error: "カレンダーに入れるには実施日を入力してください" };
+  if (w.addToCalendar && w.contractType === "CONSTRUCTION" && !w.workStart) return { error: "カレンダーに入れるには工事の開始日を入力してください" };
   return {
     data: {
       name: cat.label,
@@ -147,7 +150,7 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
   };
 }
 
-/** スポット・工事の予定を1件カレンダーに入れる（日付が無ければ未割当） */
+/** スポット・工事の予定を1件カレンダーに入れる（日付は normalizeWork で必須にしている） */
 async function createSingleOccurrence(
   tx: Prisma.TransactionClient,
   job: { id: string; propertyId: string; customerId: string; department: string; category: string; headcount: number | null; unitCount: number | null; defaultStartTime: string | null; defaultEndTime: string | null; vehicleId: string | null; amount: number | null },

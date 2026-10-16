@@ -140,7 +140,6 @@ export type ScheduleData = {
   filters: FilterState;
   range: { start: string; end: string }; // end は排他
   occurrences: OccurrenceView[];
-  unassigned: OccurrenceView[];
   workers: WorkerOption[];
   vehicles: VehicleOption[];
   customers: CustomerOption[];

@@ -173,7 +173,8 @@ export async function quickEntry(text: string): Promise<
     throw e;
   }
 
-  const date = parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : null;
+  // 日付が読み取れなければ今日に入れる（日付の決まっていない予定は作らない）
+  const date = parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : today;
   const startTime = parsed.startTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(parsed.startTime) ? parsed.startTime : null;
 
   const created = await db.occurrence.create({

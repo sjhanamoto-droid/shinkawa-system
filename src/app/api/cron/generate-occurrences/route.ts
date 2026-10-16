@@ -42,7 +42,7 @@ async function handle(req: NextRequest) {
       {
         type: "GENERATED",
         title: `${month.replace("-", "年")}月分の定期を生成しました`,
-        body: `${result.created}件を未割当に追加しました。週ビューの未割当レーンから日付を決めてください`,
+        body: `${result.created}件を未割当に追加しました。カレンダーの「＋」から予定を追加するときに選んで日付を決めてください`,
         href: `/schedule?view=week&d=${month}-01`,
         dedupeKey: `generated-${month}`,
       },

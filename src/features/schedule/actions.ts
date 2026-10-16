@@ -21,7 +21,7 @@ import { catDepartment, catLabel } from "@/lib/categories";
 import { getCategories, isUsableCategory } from "@/lib/categories-server";
 import { createNotificationForUsers } from "@/lib/notifications";
 import type { NotificationType } from "@/lib/constants";
-import { fetchOccurrenceView, loadChangeLog, loadVehicleUsage } from "./query";
+import { fetchOccurrenceView, loadChangeLog, loadUnassigned, loadVehicleUsage } from "./query";
 import { fmtKeyShort, shiftKey, ymOf } from "./filters";
 import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage } from "./types";
 
@@ -717,3 +717,11 @@ export async function refreshOccurrence(id: string): Promise<ActionResult<{ occu
   return run(async (me) => ({ occurrence: await fetchOccurrenceView(id, me) }));
 }
 
+
+/** 予定の追加で選ぶ、その月の未割当 */
+export async function getUnassigned(month: string): Promise<ActionResult<{ items: OccurrenceView[] }>> {
+  return run(async (me) => {
+    if (!/^\d{4}-\d{2}$/.test(month)) throw new ValidationError("月の形式が正しくありません");
+    return { items: await loadUnassigned(month, me) };
+  });
+}

@@ -3,7 +3,7 @@
 import { useCategories } from "@/components/category-provider";
 import { catDepartment, defaultCategoryFor, selectableCategories } from "@/lib/categories";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { AlertCircle, Save, Plus } from "lucide-react";
+import { AlertCircle, Save, Plus, Building, Check, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
@@ -17,7 +17,9 @@ import {
 } from "@/lib/constants";
 import { AssigneePicker } from "./assignee-picker";
 import { VehiclePicker } from "./vehicle-picker";
-import { createOccurrence, updateOccurrence, getVehicleUsage } from "./actions";
+import { createOccurrence, updateOccurrence, getVehicleUsage, getUnassigned } from "./actions";
+import { jstDateKey } from "@/lib/date";
+import { ymOf } from "./filters";
 import type { ActionResult, CustomerOption, OccurrenceInput, OccurrenceView, PropertyOption, VehicleOption, VehicleUsage, WorkerOption } from "./types";
 
 // 日時の切り替え（押しやすい高さ 44px のチップ）
@@ -72,7 +74,6 @@ export function OccurrenceForm({
   const [customerId, setCustomerId] = useState("");
   const [propertyId, setPropertyId] = useState("");
   const [title, setTitle] = useState("");
-  const [undated, setUndated] = useState(false);
   const [date, setDate] = useState("");
   const [multiDay, setMultiDay] = useState(false);
   const [endDate, setEndDate] = useState("");
@@ -87,6 +88,10 @@ export function OccurrenceForm({
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState("");
   const [workerIds, setWorkerIds] = useState<string[]>([]);
+  // 未割当（日付が決まっていない定期の回など）から選んだ回。保存するとその回に日付を入れる
+  const [slotId, setSlotId] = useState("");
+  const [slots, setSlots] = useState<OccurrenceView[] | null>(null);
+  const [loadingSlots, startSlots] = useTransition();
 
   // 入力欄の初期化は「開いたとき」だけ。カレンダーは定期的・タブ復帰時に再取得していて、そのたびに
   // defaultTimes などの props が作り直されるため、props を依存にすると入力中の内容が消えてしまう。
@@ -94,14 +99,14 @@ export function OccurrenceForm({
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setSlotId("");
     if (occurrence) {
       setDepartment((occurrence.department as Department) ?? defaultDepartment);
       setCategory(occurrence.category ?? "REGULAR_CLEANING");
       setCustomerId(occurrence.customer?.id ?? "");
       setPropertyId(occurrence.property?.id ?? "");
       setTitle(occurrence.customer || occurrence.property ? "" : occurrence.title);
-      setUndated(!occurrence.date);
-      setDate(occurrence.date ?? initialDate ?? "");
+      setDate(occurrence.date ?? initialDate ?? jstDateKey());
       setMultiDay(!!occurrence.endDate);
       setEndDate(occurrence.endDate ?? "");
       setTimed(!!occurrence.startTime);
@@ -119,8 +124,7 @@ export function OccurrenceForm({
       setCustomerId("");
       setPropertyId("");
       setTitle("");
-      setUndated(!initialDate);
-      setDate(initialDate ?? "");
+      setDate(initialDate ?? jstDateKey());
       setMultiDay(false);
       setEndDate("");
       setTimed(false);
@@ -136,7 +140,7 @@ export function OccurrenceForm({
   }, [openKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 日付が決まっていれば、同じ日の車両の使用状況を取りに行く（重複の注意表示用）
-  const usageDate = open && !undated && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  const usageDate = open && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
   useEffect(() => {
     if (!usageDate) {
       setUsage(null);
@@ -163,6 +167,43 @@ export function OccurrenceForm({
   const categoryOptions = selectableCategories(categories, { department, current: occurrence?.category, excludeOff: true });
   const isPersonal = category === "OFF";
 
+  // 新規のときは、日付の月の未割当を取りに行き、選んでいる種別のものを候補に出す
+  const month = /^\d{4}-\d{2}-\d{2}$/.test(date) ? ymOf(date) : null;
+  useEffect(() => {
+    if (!open || isEdit || !month) {
+      setSlots(null);
+      return;
+    }
+    startSlots(async () => {
+      const r = await getUnassigned(month);
+      setSlots(r.ok ? r.data.items : []);
+    });
+  }, [open, isEdit, month]);
+  const slotOptions = (slots ?? []).filter((o) => o.category === category && (slotId || !customerId || o.customer?.id === customerId));
+  const slot = slotOptions.find((o) => o.id === slotId) ?? null;
+
+  function pickSlot(o: OccurrenceView) {
+    if (o.id === slotId) {
+      setSlotId("");
+      return;
+    }
+    setSlotId(o.id);
+    setCustomerId(o.customer?.id ?? "");
+    setPropertyId(o.property?.id ?? "");
+    setTitle("");
+    setHeadcount(o.headcount?.toString() ?? "");
+    setUnitCount(o.unitCount?.toString() ?? "");
+    setNote(o.note ?? "");
+    setVehicleIds(o.vehicles.map((v) => v.id));
+    if (o.assignees.length) setWorkerIds(o.assignees.map((a) => a.id));
+    if (o.startTime) {
+      setTimed(true);
+      setStartTime(o.startTime);
+      setEndTime(o.endTime ?? defaultTimes.end);
+    }
+    if (showAmount && o.amount != null) setAmount(String(o.amount));
+  }
+
   // 部門で「休み」を選んだら種別を休みに。部門の値は前のまま（休みにも部門の値が要るため）
   function changeDepartment(v: string) {
     if (v === "OFF") {
@@ -175,7 +216,7 @@ export function OccurrenceForm({
 
   function submit() {
     setError(null);
-    if (!undated && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       setError("日付を入力してください");
       return;
     }
@@ -189,8 +230,8 @@ export function OccurrenceForm({
       customerId: customerId || null,
       propertyId: propertyId || null,
       title: title.trim() || null,
-      date: undated ? null : date,
-      endDate: !undated && multiDay && endDate ? endDate : null,
+      date,
+      endDate: multiDay && endDate ? endDate : null,
       startTime: timed ? startTime : null,
       endTime: timed ? endTime : null,
       headcount: numOrNull(headcount),
@@ -201,8 +242,9 @@ export function OccurrenceForm({
     };
     if (showAmount) input.amount = numOrNull(amount);
     start(async () => {
-      const r: ActionResult<{ occurrence: OccurrenceView }> = occurrence
-        ? await updateOccurrence(occurrence.id, input, occurrence.version)
+      const target = occurrence ?? slot;
+      const r: ActionResult<{ occurrence: OccurrenceView }> = target
+        ? await updateOccurrence(target.id, input, target.version)
         : await createOccurrence(input);
       if (!r.ok) {
         setError(r.error);
@@ -247,6 +289,45 @@ export function OccurrenceForm({
         {/* ── 顧客・物件 ── */}
         <section className="card space-y-4 p-4">
           <SectionTitle size="sm" className="px-0">{isPersonal ? "予定" : "顧客・物件"}</SectionTitle>
+          {!isEdit && !isPersonal && month && (loadingSlots || slotOptions.length > 0) && (
+            <div className="space-y-2">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                未割当の現場から選ぶ
+                <span className="font-normal text-ink-muted">（{Number(month.slice(5))}月・{slotOptions.length}件）</span>
+                {loadingSlots && <Loader2 className="h-4 w-4 animate-spin text-ink-faint" aria-hidden />}
+              </p>
+              <div className="max-h-60 space-y-1.5 overflow-y-auto">
+                {slotOptions.map((o) => {
+                  const on = o.id === slotId;
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => pickSlot(o)}
+                      aria-pressed={on}
+                      className={cn(
+                        "flex min-h-[44px] w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
+                        on ? "border-brand-400 bg-brand-50 dark:bg-brand-950/40" : "border-line-strong bg-surface hover:bg-surface-subtle",
+                      )}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words font-semibold text-ink">{o.customer?.name ?? o.title}</span>
+                        {o.property && (
+                          <span className="flex items-center gap-1 text-xs text-ink-soft">
+                            <Building className="h-3 w-3 shrink-0" aria-hidden />
+                            <span className="break-words">{o.property.name}</span>
+                          </span>
+                        )}
+                      </span>
+                      {o.windowLabel && <span className="shrink-0 text-xs text-ink-muted">{o.windowLabel}</span>}
+                      {on && <Check className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-ink-muted">選ぶと、その回に下の日付を入れます。新しく予定を作るときは選ばずに入力してください。</p>
+            </div>
+          )}
           {!isPersonal && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="顧客" htmlFor="of-customer" hint="名前で検索">
@@ -256,6 +337,7 @@ export function OccurrenceForm({
                   onChange={(v) => {
                     setCustomerId(v);
                     setPropertyId("");
+                    setSlotId("");
                   }}
                   options={customers.map((c) => ({
                     value: c.id,
@@ -272,6 +354,7 @@ export function OccurrenceForm({
                   value={propertyId}
                   onChange={(pid) => {
                     setPropertyId(pid);
+                    setSlotId("");
                     const p = properties.find((x) => x.id === pid);
                     if (p) setCustomerId(p.customerId);
                   }}
@@ -291,45 +374,35 @@ export function OccurrenceForm({
         <section className="card space-y-4 p-4">
           <SectionTitle size="sm" className="px-0">日時</SectionTitle>
           <div className="flex flex-wrap gap-2">
-            <label className={toggleClass(undated)}>
-              <input type="checkbox" checked={undated} onChange={(e) => setUndated(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
-              日付未定（未割当レーンに置く）
+            <label className={toggleClass(multiDay)}>
+              <input type="checkbox" checked={multiDay} onChange={(e) => setMultiDay(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
+              複数日
             </label>
-            {!undated && (
+            <label className={toggleClass(timed)}>
+              <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
+              時刻を指定
+            </label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={multiDay ? "開始日" : "日付"} htmlFor="of-date" required>
+              <Input id="of-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            {multiDay && (
+              <Field label="終了日" htmlFor="of-end">
+                <Input id="of-end" type="date" value={endDate} min={date || undefined} onChange={(e) => setEndDate(e.target.value)} />
+              </Field>
+            )}
+            {timed && (
               <>
-                <label className={toggleClass(multiDay)}>
-                  <input type="checkbox" checked={multiDay} onChange={(e) => setMultiDay(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
-                  複数日
-                </label>
-                <label className={toggleClass(timed)}>
-                  <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
-                  時刻を指定
-                </label>
+                <Field label="開始" htmlFor="of-start">
+                  <Input id="of-start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                </Field>
+                <Field label="終了" htmlFor="of-endtime">
+                  <Input id="of-endtime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                </Field>
               </>
             )}
           </div>
-          {!undated && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label={multiDay ? "開始日" : "日付"} htmlFor="of-date" required>
-                <Input id="of-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </Field>
-              {multiDay && (
-                <Field label="終了日" htmlFor="of-end">
-                  <Input id="of-end" type="date" value={endDate} min={date || undefined} onChange={(e) => setEndDate(e.target.value)} />
-                </Field>
-              )}
-              {timed && (
-                <>
-                  <Field label="開始" htmlFor="of-start">
-                    <Input id="of-start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                  </Field>
-                  <Field label="終了" htmlFor="of-endtime">
-                    <Input id="of-endtime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                  </Field>
-                </>
-              )}
-            </div>
-          )}
         </section>
 
         {/* ── 作業の内容 ── */}

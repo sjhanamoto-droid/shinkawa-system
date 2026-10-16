@@ -23,7 +23,7 @@ export function QuickEntry({ onCreated }: { onCreated: (o: OccurrenceView, unres
       }
       setText("");
       const o = r.data.occurrence;
-      toast(`${o.date ? o.date.slice(5).replace("-", "/") : "日付未定"} ${o.title} を${o.date ? "仮登録" : "未割当に追加"}しました`);
+      toast(`${o.date ? o.date.slice(5).replace("-", "/") : ""} ${o.title} を仮登録しました`);
       onCreated(o, r.data.unresolvedCustomer);
     });
   }

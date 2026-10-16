@@ -268,14 +268,14 @@ export function PropertyForm({
                     </Field>
                     <p className="flex items-start gap-1.5 text-xs leading-relaxed text-ink-muted">
                       <Repeat className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      毎月この回数ぶん、カレンダーの「未割当」に入ります。日付はカレンダーで未割当からドラッグして決めてください。
+                      毎月この回数ぶん、カレンダーの「未割当」に入ります。日付は、カレンダーの「＋」から予定を追加するときに、未割当の現場を選んで決めてください。
                     </p>
                   </div>
                 )}
 
                 {contractType === "CONSTRUCTION" && (
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="工事の開始日" htmlFor="workStart" hint="未定なら空欄">
+                    <Field label="工事の開始日" htmlFor="workStart" hint="カレンダーに入れるときは必須">
                       <Input id="workStart" name="workStart" type="date" defaultValue={work?.workStart ?? ""} />
                     </Field>
                     <Field label="工事の終了日" htmlFor="workEnd" hint="1日で終わるなら空欄">
@@ -291,7 +291,7 @@ export function PropertyForm({
                       <span>{calendarLabel}</span>
                     </label>
                     {contractType === "SPOT" && addToCalendar && (
-                      <Field label="実施日" htmlFor="spotDate" hint="未定なら空欄">
+                      <Field label="実施日" htmlFor="spotDate" required>
                         <Input id="spotDate" name="spotDate" type="date" className="max-w-[12rem]" />
                       </Field>
                     )}

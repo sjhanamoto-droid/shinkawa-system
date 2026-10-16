@@ -5,7 +5,6 @@ import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dayDropId } from "./dnd";
 import { OccurrenceCard } from "./occurrence-card";
-import { UnassignedLane } from "./unassigned-lane";
 import { holidayName } from "@/lib/holidays";
 import { shiftKey, weekStartOf, weekdayOfKey, WEEKDAY_JA } from "./filters";
 import { toneText } from "./day-heading";
@@ -85,7 +84,6 @@ function DayColumn({
 export function WeekView({
   dateKey,
   byDay,
-  unassigned,
   todayKey,
   canEdit,
   dnd,
@@ -95,7 +93,6 @@ export function WeekView({
 }: {
   dateKey: string;
   byDay: Map<string, OccurrenceView[]>;
-  unassigned: OccurrenceView[];
   todayKey: string;
   canEdit: boolean;
   dnd: boolean;
@@ -109,9 +106,7 @@ export function WeekView({
   return (
     // 列は最小 180px を確保し、画面が狭いときは横スクロールにする（チップの現場名を隠さないため）
     <div className="md:-mx-4 md:overflow-x-auto md:px-4 md:pb-2">
-    <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_repeat(7,minmax(180px,1fr))]">
-      {/* 未割当レーン（PC は左、スマホは上に折りたたみ） */}
-      <UnassignedLane items={unassigned} dnd={dnd} onSelect={onSelect} className="md:max-h-[calc(100vh-8rem)]" collapsible />
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-[repeat(7,minmax(180px,1fr))]">
       {days.map((k) => (
         <DayColumn
           key={k}

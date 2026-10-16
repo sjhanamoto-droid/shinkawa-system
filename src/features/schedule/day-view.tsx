@@ -3,7 +3,6 @@
 import { Plus } from "lucide-react";
 import { DEPARTMENT_LABEL, isDepartment } from "@/lib/constants";
 import { OccurrenceCard } from "./occurrence-card";
-import { UnassignedLane } from "./unassigned-lane";
 import type { OccurrenceView } from "./types";
 
 function bandOf(o: OccurrenceView): string {
@@ -18,7 +17,6 @@ const BAND_ORDER = ["早朝", "日中", "夜間", "終日"];
 export function DayView({
   dateKey,
   items,
-  unassigned,
   canEdit,
   mine,
   onSelect,
@@ -26,7 +24,6 @@ export function DayView({
 }: {
   dateKey: string;
   items: OccurrenceView[];
-  unassigned: OccurrenceView[];
   canEdit: boolean;
   mine: boolean;
   onSelect: (o: OccurrenceView) => void;
@@ -90,7 +87,6 @@ export function DayView({
         </section>
       ))}
       {items.length === 0 && <p className="card p-8 text-center text-[15px] text-ink-muted">{mine ? "この日のあなたの予定はありません" : "この日の予定はありません"}</p>}
-      {!mine && canEdit && unassigned.length > 0 && <UnassignedLane items={unassigned} dnd={false} onSelect={onSelect} collapsible />}
     </div>
   );
 }

@@ -46,7 +46,7 @@ export function RuleEditor({
       </Field>
 
       {(kind === "MONTHLY" || kind === "EVERY_N_MONTHS" || kind === "SEASONAL") && (
-        <Field label="実施日" htmlFor="rule-day" hint="空欄＝日付未定（未割当レーンに出す）">
+        <Field label="実施日" htmlFor="rule-day" hint="空欄＝日付未定（未割当に入る）">
           <Input id="rule-day" type="number" min={1} max={31} value={params.dayOfMonth ?? ""} onChange={(e) => set({ dayOfMonth: num(e.target.value) })} placeholder="例：15" className="max-w-[10rem]" />
         </Field>
       )}

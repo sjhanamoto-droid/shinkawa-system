@@ -47,17 +47,17 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   const dnd = canEdit && !coarse;
   const sensors = useScheduleSensors(dnd);
 
-  // ── ストア（表示範囲の実施回＋未割当レーン） ──
+  // ── ストア（表示範囲の実施回） ──
   const initial = useMemo(() => {
     const seen = new Set<string>();
     const out: OccurrenceView[] = [];
-    for (const o of [...data.occurrences, ...data.unassigned]) {
+    for (const o of data.occurrences) {
       if (seen.has(o.id)) continue;
       seen.add(o.id);
       out.push(o);
     }
     return out;
-  }, [data.occurrences, data.unassigned]);
+  }, [data.occurrences]);
   const store = useOccurrenceStore(initial);
   const personById = useMemo(() => new Map<string, PersonRef>(workers.map((w) => [w.id, w])), [workers]);
   const vehicleById = useMemo(() => new Map<string, VehicleRef>(vehicles.map((v) => [v.id, { id: v.id, name: v.name, color: v.color }])), [vehicles]);
@@ -95,7 +95,6 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     }
     return map;
   }, [store.items, range.start, range.end]);
-  const unassigned = useMemo(() => store.items.filter((o) => !o.date && o.status !== "DONE" && o.status !== "CANCELLED"), [store.items]);
 
   // ── ナビゲーション ──
   const [navPending, startNav] = useTransition();
@@ -182,11 +181,6 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     const target = parseDropId(e.over?.id);
     if (!d || !target) return;
     const o = d.occurrence;
-    if (target.kind === "lane") {
-      if (!o.date) return;
-      requestMove(o, { date: null, scope: "ONE" }, { confirmAlways: true });
-      return;
-    }
     if (target.kind === "day") {
       if (o.date === target.date) return;
       requestMove(o, { date: target.date, scope: "ONE" }, { confirmAlways: true });
@@ -381,10 +375,10 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
             <MonthView dateKey={filters.date} byDay={byDay} todayKey={today} coarse={coarse} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "week" && (
-            <WeekView dateKey={filters.date} byDay={byDay} unassigned={unassigned} todayKey={today} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
+            <WeekView dateKey={filters.date} byDay={byDay} todayKey={today} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "day" && (
-            <DayView dateKey={filters.date} items={byDay.get(filters.date) ?? []} unassigned={unassigned} canEdit={canEdit} mine={filters.mine} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} />
+            <DayView dateKey={filters.date} items={byDay.get(filters.date) ?? []} canEdit={canEdit} mine={filters.mine} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} />
           )}
           {filters.view === "board" && (
             <StaffBoard dateKey={filters.date} items={store.items} workers={workers} todayKey={today} dnd={dnd} dept={filters.dept} onSelect={(o) => setSelectedId(o.id)} />
