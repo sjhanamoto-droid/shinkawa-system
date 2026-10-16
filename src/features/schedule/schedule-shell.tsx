@@ -356,14 +356,15 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
           <QuickEntry
             onCreated={(o, unresolved) => {
               if (unresolved) toast("顧客が見つからなかったので、件名に残しました。編集で顧客を選んでください", { type: "error" });
-              // 表示範囲の外に入った予定は、その日の週へ移動して見せる（未割当はレーンに出る）
+              // 表示範囲の外に入った予定は、その日の週へ移動して見せる
               const inRange = !o.date || (o.date >= range.start && o.date < range.end);
               if (!inRange && o.date) {
                 navigate({ view: filters.view === "month" ? "month" : "week", date: o.date });
                 return;
               }
               store.upsert(o);
-              setSelectedId(o.id);
+              // 顧客が見つからなかったときだけ、編集しやすいように詳細を開く
+              if (unresolved) setSelectedId(o.id);
             }}
           />
         )}
@@ -430,8 +431,15 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         defaultTimes={defaultTimes}
         onSaved={(o) => {
           store.upsert(o);
-          setSelectedId(o.id);
           toast(form.occurrence ? "保存しました" : "予定を追加しました");
+          if (form.occurrence) {
+            // 編集は詳細から開くので、保存後も詳細に戻す
+            setSelectedId(o.id);
+            return;
+          }
+          // 追加したときは詳細を開かずカレンダーに戻る。表示範囲の外に入れたらその日の週（月）へ移動して見せる
+          const inRange = !!o.date && o.date >= range.start && o.date < range.end;
+          if (!inRange && o.date) navigate({ view: filters.view === "month" ? "month" : "week", date: o.date });
         }}
       />
 
