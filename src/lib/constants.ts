@@ -214,6 +214,12 @@ export const PARTNER_KIND_LABEL: Record<PartnerKind, string> = {
 };
 export const PARTNER_KIND_OPTIONS: PartnerKind[] = ["PARTNER", "SUBCONTRACTOR"];
 
+// ── 協力会社・下請の業種（最初から選べるもの。ここに無い業種も画面から追加できる） ──
+export const PARTNER_TRADE_PRESETS = [
+  "クリーニング", "工事", "解体", "大工", "軽天ボード", "電気", "設備", "クロス", "床",
+  "エアコン", "塗装", "左官", "タイル", "ALC", "溶接", "管理", "ガラス", "エクステリア",
+];
+
 // ── 実施回の出所 ──
 export type OccurrenceSource = "MANUAL" | "GENERATED" | "QUICK";
 export const OCCURRENCE_SOURCE_LABEL: Record<OccurrenceSource, string> = {

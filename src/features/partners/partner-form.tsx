@@ -7,14 +7,15 @@ import { createPartner, updatePartner, type PartnerFormState } from "./actions";
 import { Field, Input, Textarea, Select } from "@/components/ui/form";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
-import { PARTNER_KIND_LABEL, PARTNER_KIND_OPTIONS, DEPARTMENT_LABEL, DEPARTMENT_OPTIONS } from "@/lib/constants";
+import { PARTNER_KIND_LABEL, PARTNER_KIND_OPTIONS } from "@/lib/constants";
+import { TradePicker } from "./trade-picker";
 
 export type PartnerFormValues = {
   id?: string;
   name?: string | null;
   kana?: string | null;
   kind?: string | null;
-  department?: string | null;
+  trades?: string[];
   contactName?: string | null;
   phone?: string | null;
   email?: string | null;
@@ -31,7 +32,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function PartnerForm({ partner }: { partner?: PartnerFormValues }) {
+export function PartnerForm({ partner, tradeOptions }: { partner?: PartnerFormValues; tradeOptions: string[] }) {
   const isEdit = Boolean(partner?.id);
   const [state, formAction] = useActionState<PartnerFormState, FormData>(isEdit ? updatePartner : createPartner, {});
   return (
@@ -54,13 +55,8 @@ export function PartnerForm({ partner }: { partner?: PartnerFormValues }) {
                 ))}
               </Select>
             </Field>
-            <Field label="主な部門" htmlFor="department">
-              <Select id="department" name="department" defaultValue={partner?.department ?? ""}>
-                <option value="">指定なし（両方）</option>
-                {DEPARTMENT_OPTIONS.map((d) => (
-                  <option key={d} value={d}>{DEPARTMENT_LABEL[d]}</option>
-                ))}
-              </Select>
+            <Field label="業種" className="sm:col-span-2" hint="複数選べます。一覧に無い業種は下で追加">
+              <TradePicker options={tradeOptions} defaultValue={partner?.trades ?? []} />
             </Field>
             <Field label="窓口担当者" htmlFor="contactName">
               <Input id="contactName" name="contactName" defaultValue={partner?.contactName ?? ""} />

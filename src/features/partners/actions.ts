@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { assertCan, PermissionError } from "@/lib/permissions";
-import { PARTNER_KIND_OPTIONS, DEPARTMENT_OPTIONS } from "@/lib/constants";
+import { PARTNER_KIND_OPTIONS } from "@/lib/constants";
 
 export type PartnerFormState = { error?: string };
 
@@ -22,7 +22,7 @@ const schema = z.object({
   name: z.string().trim().min(1, "会社名を入力してください").max(100),
   kana: z.string().trim().max(100).nullable(),
   kind: z.enum(PARTNER_KIND_OPTIONS),
-  department: z.enum(DEPARTMENT_OPTIONS).nullable(),
+  trades: z.array(z.string().trim().min(1).max(20, "業種は20文字以内で入力してください")).max(30),
   contactName: z.string().trim().max(100).nullable(),
   phone: z.string().trim().max(30).nullable(),
   email: z.string().trim().max(100).nullable(),
@@ -30,13 +30,23 @@ const schema = z.object({
   memo: z.string().trim().max(2000).nullable(),
 });
 
+/** 業種（JSON 配列）。前後の空白を除き、重複は1つにまとめる */
+function parseTrades(raw: FormDataEntryValue | null): string[] {
+  try {
+    const v: unknown = JSON.parse(typeof raw === "string" ? raw : "[]");
+    if (!Array.isArray(v)) return [];
+    return Array.from(new Set(v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean)));
+  } catch {
+    return [];
+  }
+}
+
 function parse(formData: FormData) {
-  const dept = nz(formData.get("department"));
   return schema.safeParse({
     name: formData.get("name") ?? "",
     kana: nz(formData.get("kana")),
     kind: formData.get("kind") || "PARTNER",
-    department: dept === "CLEANING" || dept === "CONSTRUCTION" ? dept : null,
+    trades: parseTrades(formData.get("trades")),
     contactName: nz(formData.get("contactName")),
     phone: nz(formData.get("phone")),
     email: nz(formData.get("email")),

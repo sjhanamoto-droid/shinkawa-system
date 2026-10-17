@@ -11,7 +11,7 @@ import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
 import { SearchParamToast } from "@/components/ui/toast";
 import { PartnerRowActions } from "@/features/partners/partner-row-actions";
-import { PARTNER_KIND_LABEL, PARTNER_KIND_OPTIONS, DEPARTMENT_LABEL, isDepartment, type PartnerKind } from "@/lib/constants";
+import { PARTNER_KIND_LABEL, PARTNER_KIND_OPTIONS, type PartnerKind } from "@/lib/constants";
 
 export default async function PartnersPage() {
   await requireCan("partner.manage");
@@ -47,7 +47,9 @@ export default async function PartnersPage() {
                       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="truncate text-base font-bold text-ink">{p.name}</span>
-                          {isDepartment(p.department) && <Badge tone="info">{DEPARTMENT_LABEL[p.department]}</Badge>}
+                          {p.trades.map((t) => (
+                            <Badge key={t} tone="info">{t}</Badge>
+                          ))}
                           {!p.active && <Badge tone="danger">無効</Badge>}
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">

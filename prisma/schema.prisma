@@ -79,7 +79,8 @@ model Partner {
   name        String
   kana        String?
   kind        String   @default("PARTNER") // PARTNER(協力会社) | SUBCONTRACTOR(下請)
-  department  String? // CLEANING | CONSTRUCTION
+  department  String? // 旧：CLEANING | CONSTRUCTION（画面からは外し、trades に移した）
+  trades      String[] @default([]) // 業種（クリーニング・工事・解体・電気…。任意の業種も入れられる）
   contactName String?
   phone       String?
   email       String?

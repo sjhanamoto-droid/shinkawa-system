@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { SearchParamToast } from "@/components/ui/toast";
 import { PartnerForm } from "@/features/partners/partner-form";
+import { loadTradeOptions } from "@/features/partners/trades";
 
 export default async function EditPartnerPage({ params }: { params: Promise<{ id: string }> }) {
   await requireCan("partner.manage");
@@ -19,6 +20,7 @@ export default async function EditPartnerPage({ params }: { params: Promise<{ id
     include: { workers: { orderBy: [{ active: "desc" }, { name: "asc" }], select: { id: true, name: true, phone: true, tags: true, active: true, canLogin: true, avatarColor: true, avatarImage: true, updatedAt: true } } },
   });
   if (!partner) notFound();
+  const tradeOptions = await loadTradeOptions();
 
   return (
     <div>
@@ -26,7 +28,7 @@ export default async function EditPartnerPage({ params }: { params: Promise<{ id
       <PageContainer size="narrow">
         <SearchParamToast />
         <div className="space-y-6">
-          <PartnerForm partner={partner} />
+          <PartnerForm partner={partner} tradeOptions={tradeOptions} />
           <section className="space-y-2.5">
             <SectionTitle action={<Link href="/workers/new" className="flex h-10 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-brand-600 hover:bg-brand-50"><UserPlus className="h-4 w-4" />作業者を追加</Link>}>
               所属する作業者 <span className="text-base font-semibold text-ink-muted tnum">{partner.workers.length}名</span>
