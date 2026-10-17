@@ -23,7 +23,7 @@ export default async function LoginPage({
           <div className="mb-4 h-20 w-20 overflow-hidden rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/15">
             {/* 未ログインで表示されるページのため、最適化(_next/image)を介さず素の img で確実に表示 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/shinkawa-logo.png" alt={APP_NAME} width={80} height={80} className="h-full w-full object-cover" />
+            <img src="/shinkawa-mark.png" alt={APP_NAME} width={80} height={80} className="h-full w-full object-cover" />
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white">{APP_NAME}</h1>
           <p className="mt-1 text-sm font-medium tracking-wide text-white/55">{APP_TAGLINE}</p>

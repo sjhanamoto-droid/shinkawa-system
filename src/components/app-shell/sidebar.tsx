@@ -79,7 +79,7 @@ export function Sidebar({
             collapsed ? "h-8 w-8" : "h-9 w-9",
           )}
         >
-          <Image src="/shinkawa-logo.png" alt={APP_NAME} width={36} height={36} className="h-full w-full object-cover" />
+          <Image src="/shinkawa-mark.png" alt={APP_NAME} width={36} height={36} className="h-full w-full object-cover" />
         </span>
         {!collapsed && (
           <div className="min-w-0 flex-1 leading-tight">
