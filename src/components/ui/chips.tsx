@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-// 横スクロールするフィルタチップ群（リンク方式・サーバーサイドフィルタ）
-export function ChipBar({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-0.5">
-      {children}
-    </div>
-  );
-}
+// 横スクロールするフィルタチップ群（リンク方式・サーバーサイドフィルタ）。マウス操作は chip-bar.tsx
+export { ChipBar } from "./chip-bar";
 
 export function ChipLink({
   href,
