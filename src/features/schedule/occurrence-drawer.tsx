@@ -531,10 +531,10 @@ export function OccurrenceDrawer({
             {o.groupId && (
               <div className="space-y-1.5 rounded-xl border border-line p-3">
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="radio" checked={deleteScope === "ONE"} onChange={() => setDeleteScope("ONE")} /> この日だけ（例：日曜は工事が休み）
+                  <input type="radio" checked={deleteScope === "ONE"} onChange={() => setDeleteScope("ONE")} /> この日だけ
                 </label>
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="radio" checked={deleteScope === "FOLLOWING"} onChange={() => setDeleteScope("FOLLOWING")} /> この日以降の同じ工事もまとめて削除（日報を出して完了した日は残します）
+                  <input type="radio" checked={deleteScope === "FOLLOWING"} onChange={() => setDeleteScope("FOLLOWING")} /> この日以降の同じ工事もまとめて削除
                 </label>
               </div>
             )}
