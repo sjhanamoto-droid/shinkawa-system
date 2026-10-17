@@ -450,9 +450,9 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         showAmount={showAmount}
         defaultDepartment={defaultDepartment}
         defaultTimes={defaultTimes}
-        onSaved={(o) => {
-          store.upsert(o);
-          toast(form.occurrence ? "保存しました" : "予定を追加しました");
+        onSaved={(o, all) => {
+          for (const x of all) store.upsert(x);
+          toast(form.occurrence ? "保存しました" : all.length > 1 ? `${all.length}日分の予定を追加しました（1日ずつ担当や車両を変えられます）` : "予定を追加しました");
           if (form.occurrence) {
             // 編集は詳細から開くので、保存後も詳細に戻す
             setSelectedId(o.id);

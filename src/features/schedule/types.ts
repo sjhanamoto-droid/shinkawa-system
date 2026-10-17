@@ -37,8 +37,9 @@ export type OccurrenceView = {
   status: string; // OccurrenceStatus
   source: string;
   targetMonth: string;
-  date: string | null; // null = 未割当レーン
-  endDate: string | null;
+  date: string | null; // null = 未割当
+  endDate: string | null; // 旧データの複数日工事のみ（今は1日ずつに分けて groupId でつなぐ）
+  groupId: string | null; // 連続工事の日どうしで同じ値
   windowStart: string | null;
   windowEnd: string | null;
   windowLabel: string | null; // "前半" / "後半" など

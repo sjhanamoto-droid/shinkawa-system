@@ -38,6 +38,7 @@ export function occurrenceSelect(showAmount: boolean) {
     targetMonth: true,
     date: true,
     endDate: true,
+    groupId: true,
     windowStart: true,
     windowEnd: true,
     startTime: true,
@@ -122,6 +123,7 @@ export function toOccurrenceView(row: OccurrenceRow, people: Map<string, PersonR
     targetMonth: row.targetMonth,
     date: row.date ? storedDateKey(row.date) : null,
     endDate: row.endDate ? storedDateKey(row.endDate) : null,
+    groupId: row.groupId,
     windowStart: row.windowStart ? storedDateKey(row.windowStart) : null,
     windowEnd: row.windowEnd ? storedDateKey(row.windowEnd) : null,
     windowLabel: windowLabelOf(row.windowStart, row.windowEnd),
@@ -155,6 +157,23 @@ export function toOccurrenceView(row: OccurrenceRow, people: Map<string, PersonR
   };
   if (showAmount) view.amount = (row as { amount?: number | null }).amount ?? null;
   return view;
+}
+
+/** 連続工事の範囲（最初の日・最後の日・日数）。中止は数えない */
+export async function loadGroupSummary(groupId: string): Promise<{ start: string; end: string; count: number } | null> {
+  const rows = await db.occurrence.findMany({ where: { groupId, status: { not: "CANCELLED" }, date: { not: null } }, select: { date: true }, orderBy: { date: "asc" } });
+  if (rows.length === 0) return null;
+  return { start: storedDateKey(rows[0].date!), end: storedDateKey(rows[rows.length - 1].date!), count: rows.length };
+}
+
+/** 複数件を読み直して投影（日付順） */
+export async function fetchOccurrenceViews(ids: string[], actor: Actor): Promise<OccurrenceView[]> {
+  const showAmount = canViewAmounts(actor);
+  const [rows, people] = await Promise.all([
+    db.occurrence.findMany({ where: { id: { in: ids } }, select: occurrenceSelect(showAmount), orderBy: { date: "asc" } }),
+    loadPersonMap(),
+  ]);
+  return rows.map((r) => toOccurrenceView(r, people, showAmount));
 }
 
 /** 1件を読み直して投影（action の戻り値用） */

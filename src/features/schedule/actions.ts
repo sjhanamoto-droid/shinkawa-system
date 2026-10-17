@@ -21,7 +21,8 @@ import { catDepartment, catLabel } from "@/lib/categories";
 import { getCategories, isUsableCategory } from "@/lib/categories-server";
 import { createNotificationForUsers } from "@/lib/notifications";
 import type { NotificationType } from "@/lib/constants";
-import { fetchOccurrenceView, loadChangeLog, loadUnassigned, loadVehicleUsage, loadWorkerUsage } from "./query";
+import { fetchOccurrenceView, fetchOccurrenceViews, loadChangeLog, loadGroupSummary, loadUnassigned, loadVehicleUsage, loadWorkerUsage } from "./query";
+import { createOccurrenceDays, daysOf } from "@/lib/occurrence-days";
 import { fmtKeyShort, shiftKey, ymOf } from "./filters";
 import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage, WorkerUsage } from "./types";
 
@@ -106,6 +107,7 @@ async function loadForMutation(tx: Tx, id: string) {
       propertyId: true,
       customerId: true,
       seriesKey: true,
+      groupId: true,
       title: true,
       department: true,
       category: true,
@@ -241,14 +243,21 @@ function parseSlotIndex(seriesKey: string | null): number | null {
 
 // ─────────────────────────── 作成 ───────────────────────────
 
-export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResult<{ occurrence: OccurrenceView }>> {
+export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResult<{ occurrence: OccurrenceView; occurrences: OccurrenceView[] }>> {
   return run(async (me) => {
     const input = inputSchema.parse(raw);
     if (!(await isUsableCategory(input.category))) throw new ValidationError("種別が見つからないか、使わない設定になっています");
     await assertCategoryDepartment(input.category, input.department);
     assertCan(me, "occurrence.create", { department: input.department });
     if (input.amount !== undefined && input.amount !== null) assertCan(me, "amount.edit");
-    if (input.endDate && input.date && input.endDate < input.date) throw new ValidationError("終了日は開始日以降にしてください");
+    if (!input.date) throw new ValidationError("日付を入力してください");
+    if (input.endDate && input.endDate < input.date) throw new ValidationError("終了日は開始日以降にしてください");
+    let days: string[];
+    try {
+      days = daysOf(input.date, input.endDate);
+    } catch (e) {
+      throw new ValidationError(e instanceof Error ? e.message : "日数が多すぎます");
+    }
 
     let customerId = input.customerId;
     if (input.propertyId) {
@@ -258,43 +267,43 @@ export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResu
     }
     const workerIds = Array.from(new Set(input.workerIds));
     const status = computeStatus("UNASSIGNED", input.date, workerIds.length, input.category);
-    const targetMonth = ymOf(input.date ?? jstDateKey());
 
-    const created = await db.$transaction(async (tx) => {
-      const occ = await tx.occurrence.create({
-        data: {
-          department: input.department,
-          category: input.category,
-          customerId,
-          propertyId: input.propertyId,
-          title: input.title || null,
-          targetMonth,
-          date: input.date ? dateFromKey(input.date) : null,
-          endDate: input.endDate ? dateFromKey(input.endDate) : null,
-          startTime: input.startTime,
-          endTime: input.endTime,
-          headcount: input.headcount,
-          unitCount: input.unitCount,
-          note: input.note,
-          amount: canViewAmounts(me) ? (input.amount ?? null) : null,
-          status,
-          source: "MANUAL",
-          createdById: me.id,
-          assignments: { createMany: { data: workerIds.map((userId) => ({ userId, createdById: me.id })) } },
-        },
-        select: { id: true, version: true, date: true, category: true, propertyId: true },
-      });
-      await log(tx, occ.id, me.id, { action: "CREATE", toValue: input.date ?? "日付未定" });
-      for (const userId of workerIds) await log(tx, occ.id, me.id, { action: "ASSIGN", field: "assignee", toValue: userId });
-      await syncVehicles(tx, { id: occ.id, vehicles: [] }, me.id, input.vehicleIds);
-      return occ;
-    });
+    // 複数日で入れた工事は、1日ずつの予定に分けて作る（日ごとに担当・車両・削除・日報を扱えるように）
+    const ids = await db.$transaction(
+      async (tx) => {
+        const { ids: vehicleIds } = await resolveVehicles(tx, input.vehicleIds);
+        return createOccurrenceDays(
+          tx,
+          {
+            department: input.department,
+            category: input.category,
+            customerId,
+            propertyId: input.propertyId,
+            title: input.title || null,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            headcount: input.headcount,
+            unitCount: input.unitCount,
+            note: input.note,
+            amount: canViewAmounts(me) ? (input.amount ?? null) : null,
+            status,
+            source: "MANUAL",
+            createdById: me.id,
+          },
+          days,
+          { workerIds, vehicleIds, actorId: me.id },
+        );
+      },
+      { timeout: 30_000 },
+    );
 
-    const view = await fetchOccurrenceView(created.id, me);
-    if (!view) throw new NotFoundError();
-    await notify(me, created, workerIds, "OCC_ASSIGNED", "予定の担当になりました", `${view.date ? fmtKeyShort(view.date) : "日付未定"} ${view.title}`);
-    revalidateAll(created.propertyId);
-    return { occurrence: view };
+    const views = await fetchOccurrenceViews(ids, me);
+    const first = views[0];
+    if (!first) throw new NotFoundError();
+    const range = days.length > 1 ? `${fmtKeyShort(days[0])}〜${fmtKeyShort(days[days.length - 1])}（${days.length}日）` : fmtKeyShort(days[0]);
+    await notify(me, { id: first.id, version: first.version, date: dateFromKey(days[0]), category: first.category }, workerIds, "OCC_ASSIGNED", "予定の担当になりました", `${range} ${first.title}`);
+    revalidateAll(input.propertyId);
+    return { occurrence: first, occurrences: views };
   });
 }
 
@@ -344,7 +353,8 @@ export async function updateOccurrence(
         title: input.title || null,
         targetMonth: input.date ? ymOf(input.date) : occ.targetMonth,
         date: input.date ? dateFromKey(input.date) : null,
-        endDate: input.endDate ? dateFromKey(input.endDate) : null,
+        // 連続工事を分けた1日は1日のまま（旧データの複数日工事だけ endDate を持つ）
+        endDate: input.endDate && !occ.groupId ? dateFromKey(input.endDate) : null,
         startTime: input.startTime,
         endTime: input.endTime,
         headcount: input.headcount,
@@ -669,7 +679,15 @@ export async function deleteOccurrence(id: string, scope: "ONE" | "FOLLOWING"): 
       const occ = await loadForMutation(tx, id);
       assertCan(me, "occurrence.delete", { department: occ.department });
       const ids = [id];
-      if (scope === "FOLLOWING" && occ.jobId && occ.seriesKey) {
+      if (scope === "FOLLOWING" && occ.groupId) {
+        // 連続工事：同じ工事のこの日以降（完了した日は残す）
+        const oldDate = occ.date ? storedDateKey(occ.date) : null;
+        const later = await tx.occurrence.findMany({
+          where: { groupId: occ.groupId, id: { not: id }, status: { notIn: ["DONE", "CANCELLED"] }, ...(oldDate ? { date: { gte: dateFromKey(oldDate) } } : {}) },
+          select: { id: true },
+        });
+        ids.push(...later.map((o) => o.id));
+      } else if (scope === "FOLLOWING" && occ.jobId && occ.seriesKey) {
         const oldDate = occ.date ? storedDateKey(occ.date) : null;
         const siblings = await tx.occurrence.findMany({
           where: {
@@ -730,4 +748,9 @@ export async function getWorkerUsage(dateKey: string, excludeOccurrenceId?: stri
     if (!DATE_RE.test(dateKey)) throw new ValidationError("日付の形式が正しくありません");
     return { usage: await loadWorkerUsage(dateKey, excludeOccurrenceId) };
   });
+}
+
+/** 連続工事の範囲（予定の詳細に「10/23〜11/21 の1日（全30日）」と出す用） */
+export async function getGroupSummary(groupId: string): Promise<ActionResult<{ summary: { start: string; end: string; count: number } | null }>> {
+  return run(async () => ({ summary: await loadGroupSummary(groupId) }));
 }

@@ -62,7 +62,8 @@ export function OccurrenceForm({
   showAmount: boolean;
   defaultDepartment: Department;
   defaultTimes: { start: string; end: string };
-  onSaved: (o: OccurrenceView) => void;
+  /** all＝連続工事を1日ずつに分けて作ったときの全日（1日だけなら [o]） */
+  onSaved: (o: OccurrenceView, all: OccurrenceView[]) => void;
 }) {
   const categories = useCategories();
   const isEdit = !!occurrence;
@@ -182,6 +183,8 @@ export function OccurrenceForm({
   }, [open, isEdit, month]);
   const slotOptions = (slots ?? []).filter((o) => o.category === category && (slotId || !customerId || o.customer?.id === customerId));
   const slot = slotOptions.find((o) => o.id === slotId) ?? null;
+  // 複数日（1日ずつに分けて作る）は新規のときだけ。未割当の回を選んだときは1日。旧データの複数日の予定の編集は従来どおり
+  const canMultiDay = occurrence ? !!occurrence.endDate : !slot;
 
   function pickSlot(o: OccurrenceView) {
     if (o.id === slotId) {
@@ -232,7 +235,7 @@ export function OccurrenceForm({
       propertyId: propertyId || null,
       title: title.trim() || null,
       date,
-      endDate: multiDay && endDate ? endDate : null,
+      endDate: canMultiDay && multiDay && endDate ? endDate : null,
       startTime: timed ? startTime : null,
       endTime: timed ? endTime : null,
       headcount: numOrNull(headcount),
@@ -244,14 +247,14 @@ export function OccurrenceForm({
     if (showAmount) input.amount = numOrNull(amount);
     start(async () => {
       const target = occurrence ?? slot;
-      const r: ActionResult<{ occurrence: OccurrenceView }> = target
+      const r: ActionResult<{ occurrence: OccurrenceView; occurrences?: OccurrenceView[] }> = target
         ? await updateOccurrence(target.id, input, target.version)
         : await createOccurrence(input);
       if (!r.ok) {
         setError(r.error);
         return;
       }
-      onSaved(r.data.occurrence);
+      onSaved(r.data.occurrence, r.data.occurrences ?? [r.data.occurrence]);
       onClose();
     });
   }
@@ -375,21 +378,24 @@ export function OccurrenceForm({
         <section className="card space-y-4 p-4">
           <SectionTitle size="sm" className="px-0">日時</SectionTitle>
           <div className="flex flex-wrap gap-2">
-            <label className={toggleClass(multiDay)}>
-              <input type="checkbox" checked={multiDay} onChange={(e) => setMultiDay(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
-              複数日
-            </label>
+            {/* 複数日は新しく入れるときだけ（保存すると1日ずつの予定に分かれる）。旧データの複数日の予定を直すときは出す */}
+            {canMultiDay && (
+              <label className={toggleClass(multiDay)}>
+                <input type="checkbox" checked={multiDay} onChange={(e) => setMultiDay(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
+                複数日
+              </label>
+            )}
             <label className={toggleClass(timed)}>
               <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
               時刻を指定
             </label>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={multiDay ? "開始日" : "日付"} htmlFor="of-date" required>
+            <Field label={canMultiDay && multiDay ? "開始日" : "日付"} htmlFor="of-date" required>
               <Input id="of-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
-            {multiDay && (
-              <Field label="終了日" htmlFor="of-end">
+            {canMultiDay && multiDay && (
+              <Field label="終了日" htmlFor="of-end" hint="保存すると1日ずつの予定に分かれます">
                 <Input id="of-end" type="date" value={endDate} min={date || undefined} onChange={(e) => setEndDate(e.target.value)} />
               </Field>
             )}

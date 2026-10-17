@@ -16,7 +16,7 @@ import { catColor } from "@/lib/categories";
 import { useCategories } from "@/components/category-provider";
 import { AssigneePicker, useWorkerUsage } from "./assignee-picker";
 import { VehiclePicker } from "./vehicle-picker";
-import { getChangeLog, getVehicleUsage } from "./actions";
+import { getChangeLog, getGroupSummary, getVehicleUsage } from "./actions";
 import { OccurrenceReportPanel } from "@/features/reports/occurrence-report-panel";
 import { isReportDue } from "@/lib/reports";
 import { fmtKeyLong, fmtKeyShort } from "./filters";
@@ -120,6 +120,20 @@ export function OccurrenceDrawer({
   const [loadingLogs, startLogs] = useTransition();
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignIds, setAssignIds] = useState<string[]>([]);
+  // 連続工事の範囲（同じ工事のほかの日）
+  const [group, setGroup] = useState<{ start: string; end: string; count: number } | null>(null);
+  useEffect(() => {
+    setGroup(null);
+    const gid = o?.groupId;
+    if (!gid) return;
+    let alive = true;
+    getGroupSummary(gid).then((r) => {
+      if (alive && r.ok) setGroup(r.data.summary);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [o?.groupId, o?.id]);
   const workerUsage = useWorkerUsage(assignOpen ? (o?.date ?? null) : null, o?.id ?? null);
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [vehicleIds, setVehicleIds] = useState<string[]>([]);
@@ -137,6 +151,7 @@ export function OccurrenceDrawer({
     setAssignIds(o.assignees.map((a) => a.id));
     setVehicleIds(o.vehicles.map((v) => v.id));
     setUsage(null);
+    setDeleteScope("ONE"); // 削除の範囲は毎回「この日だけ」から
   }, [o?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 車両の変更モーダルを開いたら、同じ日の使用状況を取りに行く（日付が無い＝未割当なら不要）
@@ -254,6 +269,11 @@ export function OccurrenceDrawer({
                     {o.date ? fmtKeyLong(o.date) : "日付未定"}
                     {o.endDate && o.endDate !== o.date && <span className="text-ink-soft">〜 {fmtKeyShort(o.endDate)}</span>}
                   </p>
+                  {group && group.count > 1 && (
+                    <p className="mt-1 pl-6 text-sm text-ink-muted">
+                      連続工事 {fmtKeyShort(group.start)}〜{fmtKeyShort(group.end)} の1日（全{group.count}日）
+                    </p>
+                  )}
                   <p className="mt-0.5 pl-6 text-[15px] text-ink-soft">
                     {t ?? "終日"}
                     {o.windowLabel && !o.date && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">{o.targetMonth.replace("-", "年")}月 {o.windowLabel}</span>}
@@ -508,7 +528,17 @@ export function OccurrenceDrawer({
         description={
           <div className="space-y-2">
             <p>「{o.title}」を削除します。この操作は取り消せません。</p>
-            {o.ruleKind && (
+            {o.groupId && (
+              <div className="space-y-1.5 rounded-xl border border-line p-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="radio" checked={deleteScope === "ONE"} onChange={() => setDeleteScope("ONE")} /> この日だけ（例：日曜は工事が休み）
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="radio" checked={deleteScope === "FOLLOWING"} onChange={() => setDeleteScope("FOLLOWING")} /> この日以降の同じ工事もまとめて削除（日報を出して完了した日は残します）
+                </label>
+              </div>
+            )}
+            {o.ruleKind && !o.groupId && (
               <div className="space-y-1.5 rounded-xl border border-line p-3">
                 <label className="flex items-center gap-2 text-sm">
                   <input type="radio" checked={deleteScope === "ONE"} onChange={() => setDeleteScope("ONE")} /> この回だけ

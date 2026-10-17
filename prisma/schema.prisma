@@ -269,12 +269,13 @@ model Occurrence {
   propertyId      String?
   customerId      String? // フィルタ用に非正規化
   seriesKey       String?   @unique // `${jobId}:${YYYY-MM}:${slotIndex}`。生成の冪等キー
+  groupId         String? // 連続工事（複数日で入れた予定）を1日ずつに分けたとき、同じ工事の日どうしで同じ値
   title           String? // 未設定なら顧客短縮名／物件名から導出
   department      String // CLEANING | CONSTRUCTION
   category        String
   targetMonth     String // "YYYY-MM"。未割当レーンの月グルーピング
   date            DateTime? // 実施日（null=未割当）
-  endDate         DateTime? // 複数日工事の終了日
+  endDate         DateTime? // 旧：複数日工事の終了日（今は1日ずつに分けて groupId でつなぐ）
   windowStart     DateTime? // 定期ルールが示す候補期間（前半／後半など）
   windowEnd       DateTime?
   startTime       String? // "HH:mm"
@@ -307,6 +308,7 @@ model Occurrence {
   @@index([propertyId, date])
   @@index([customerId])
   @@index([department, date])
+  @@index([groupId])
 }
 
 // 配員（作業者 × 実施回）

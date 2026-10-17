@@ -19,6 +19,8 @@ import {
 import { validateRule, type RuleParams } from "@/lib/recurrence";
 import { generateOccurrencesForMonth, GENERATE_AHEAD_MONTHS } from "@/lib/generate-occurrences";
 import { PRIMARY_JOB_ORDER } from "./work";
+import { createOccurrenceDays, daysOf, MAX_GROUP_DAYS } from "@/lib/occurrence-days";
+import { occurrenceWorkDays } from "@/lib/reports";
 import { getCategories } from "@/lib/categories-server";
 import type { Cat } from "@/lib/categories";
 
@@ -137,6 +139,9 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
   // 日付の決まっていない予定は作らない（カレンダーの未割当は定期の回だけ）
   if (w.addToCalendar && w.contractType === "SPOT" && !w.spotDate) return { error: "カレンダーに入れるには実施日を入力してください" };
   if (w.addToCalendar && w.contractType === "CONSTRUCTION" && !w.workStart) return { error: "カレンダーに入れるには工事の開始日を入力してください" };
+  if (w.addToCalendar && w.contractType === "CONSTRUCTION" && w.workStart && w.workEnd && occurrenceWorkDays(w.workStart, w.workEnd).length > MAX_GROUP_DAYS) {
+    return { error: `カレンダーに一度に入れられるのは${MAX_GROUP_DAYS}日までです（工事の期間を短くしてください）` };
+  }
   return {
     data: {
       name: cat.label,
@@ -150,7 +155,7 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
   };
 }
 
-/** スポット・工事の予定を1件カレンダーに入れる（日付は normalizeWork で必須にしている） */
+/** スポット・工事の予定をカレンダーに入れる（日付は normalizeWork で必須にしている）。工事の期間は1日ずつの予定に分ける */
 async function createSingleOccurrence(
   tx: Prisma.TransactionClient,
   job: { id: string; propertyId: string; customerId: string; department: string; category: string; headcount: number | null; unitCount: number | null; defaultStartTime: string | null; defaultEndTime: string | null; vehicleId: string | null; amount: number | null },
@@ -158,30 +163,28 @@ async function createSingleOccurrence(
   actorId: string,
 ) {
   const date = w.contractType === "CONSTRUCTION" ? w.workStart : w.spotDate;
+  if (!date) return;
   const endDate = w.contractType === "CONSTRUCTION" ? w.workEnd : null;
-  const occ = await tx.occurrence.create({
-    data: {
+  await createOccurrenceDays(
+    tx,
+    {
       jobId: job.id,
       propertyId: job.propertyId,
       customerId: job.customerId,
       department: job.department,
       category: job.category,
-      targetMonth: (date ?? jstDateKey()).slice(0, 7),
-      date: date ? dateFromKey(date) : null,
-      endDate: endDate && endDate !== date ? dateFromKey(endDate) : null,
       startTime: job.defaultStartTime,
       endTime: job.defaultEndTime,
       headcount: job.headcount,
       unitCount: job.unitCount,
       amount: job.amount,
-      status: "UNASSIGNED",
+      status: "CONFIRMED",
       source: "MANUAL",
       createdById: actorId,
     },
-    select: { id: true },
-  });
-  await tx.occurrenceChangeLog.create({ data: { occurrenceId: occ.id, actorId, action: "CREATE", toValue: date ?? "日付未定" } });
-  if (job.vehicleId) await tx.occurrenceVehicle.create({ data: { occurrenceId: occ.id, vehicleId: job.vehicleId, createdById: actorId } });
+    daysOf(date, endDate),
+    { vehicleIds: job.vehicleId ? [job.vehicleId] : [], actorId },
+  );
 }
 
 /** 定期：今月〜翌々月の分を未割当に入れる（その先は毎日の自動生成で入る） */
