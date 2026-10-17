@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 // 横スクロールするフィルタチップ群。スマホは指で、PC はマウスのホイール・ドラッグ・左右のボタンで動かせる
 export function ChipBar({ children }: { children: React.ReactNode }) {
@@ -74,27 +73,30 @@ export function ChipBar({ children }: { children: React.ReactNode }) {
       >
         {children}
       </div>
+      {/* 端をグラデーションで薄くして、その上に矢印を置く（チップの上に枠つきのボタンが重ならないように）。右端は右が白、左端は左が白 */}
       {edge.left && (
-        <button
-          type="button"
-          onClick={() => scrollBy(-1)}
-          aria-label="左へ"
-          className="absolute -left-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line-strong bg-surface text-ink-soft shadow-card hover:bg-surface-subtle md:flex"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
+        <div className="pointer-events-none absolute inset-y-0 -left-4 flex w-20 items-center bg-gradient-to-r from-surface from-35% to-transparent pl-2">
+          <button
+            type="button"
+            onClick={() => scrollBy(-1)}
+            aria-label="左へ"
+            className="pointer-events-auto hidden h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-surface-sunken md:flex"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        </div>
       )}
       {edge.right && (
-        <button
-          type="button"
-          onClick={() => scrollBy(1)}
-          aria-label="右へ"
-          className={cn(
-            "absolute -right-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line-strong bg-surface text-ink-soft shadow-card hover:bg-surface-subtle md:flex",
-          )}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        <div className="pointer-events-none absolute inset-y-0 -right-4 flex w-20 items-center justify-end bg-gradient-to-l from-surface from-35% to-transparent pr-2">
+          <button
+            type="button"
+            onClick={() => scrollBy(1)}
+            aria-label="右へ"
+            className="pointer-events-auto hidden h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-surface-sunken md:flex"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
       )}
     </div>
   );
