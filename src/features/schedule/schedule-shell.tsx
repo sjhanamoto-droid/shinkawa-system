@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Loader2, Plus, CalendarDays } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { isPlanner, can, type Actor } from "@/lib/permissions";
+import { isPlanner, type Actor } from "@/lib/permissions";
 import { type Department, hasFixedDates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useOccurrenceStore } from "./use-occurrence-store";
@@ -25,7 +25,6 @@ import { OccurrenceForm } from "./occurrence-form";
 import { MoveSheet } from "./move-sheet";
 import { MoveConfirmDialog } from "./move-confirm-dialog";
 import { FilterBar } from "./filter-bar";
-import { QuickEntry } from "./quick-entry";
 import { Legend } from "./legend";
 import { DayHeading } from "./day-heading";
 import type { FilterState, MoveInput, OccurrenceView, PersonRef, ScheduleData, VehicleRef, ViewMode } from "./types";
@@ -372,23 +371,6 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
             )}
           </div>
         </div>
-
-        {can(actor, "occurrence.create") && (
-          <QuickEntry
-            onCreated={(o, unresolved) => {
-              if (unresolved) toast("顧客が見つからなかったので、件名に残しました。編集で顧客を選んでください", { type: "error" });
-              // 表示範囲の外に入った予定は、その日の週へ移動して見せる
-              const inRange = !o.date || (o.date >= range.start && o.date < range.end);
-              if (!inRange && o.date) {
-                navigate({ view: filters.view === "month" ? "month" : "week", date: o.date });
-                return;
-              }
-              store.upsert(o);
-              // 顧客が見つからなかったときだけ、編集しやすいように詳細を開く
-              if (unresolved) setSelectedId(o.id);
-            }}
-          />
-        )}
 
         <FilterBar filters={filters} workers={workers} customers={customers} onChange={navigate} showMine />
 
