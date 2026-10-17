@@ -13,6 +13,7 @@ import type {
   OccurrenceView,
   PersonRef,
   ScheduleData,
+  StaffingEntry,
   WorkerOption,
   VehicleOption,
   VehicleUsage,
@@ -198,7 +199,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
 
   const select = occurrenceSelect(showAmount);
 
-  const [rows, people, workers, vehicles, customers, properties, settings] = await Promise.all([
+  const [rows, staffRows, people, workers, vehicles, customers, properties, settings] = await Promise.all([
     db.occurrence.findMany({
       where: {
         AND: [
@@ -214,6 +215,15 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
       },
       select,
       orderBy: [{ date: "asc" }, { startTime: "asc" }, { createdAt: "asc" }],
+    }),
+    // 「作業可能／残り」の人数は絞り込みに関係なく数える
+    db.occurrence.findMany({
+      where: {
+        status: { not: "CANCELLED" },
+        assignments: { some: {} },
+        OR: [{ date: { gte: start, lt: end } }, { date: { lt: end }, endDate: { gte: start } }],
+      },
+      select: { id: true, date: true, endDate: true, category: true, assignments: { select: { userId: true } } },
     }),
     loadPersonMap(),
     db.user.findMany({
@@ -243,6 +253,15 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
     filters,
     range,
     occurrences: rows.map((r) => toOccurrenceView(r, people, showAmount)),
+    staffing: staffRows.map(
+      (r): StaffingEntry => ({
+        id: r.id,
+        date: storedDateKey(r.date!),
+        endDate: r.endDate ? storedDateKey(r.endDate) : null,
+        off: r.category === "OFF",
+        userIds: r.assignments.map((a) => a.userId),
+      }),
+    ),
     workers: workerOptions,
     vehicles,
     customers: customers as CustomerOption[],

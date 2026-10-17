@@ -138,10 +138,14 @@ export type OccurrenceInput = {
   workerIds: string[];
 };
 
+/** 人数の集計用：表示範囲のすべての予定（絞り込みに関係なく、中止は除く）の日付と担当 */
+export type StaffingEntry = { id: string; date: string; endDate: string | null; off: boolean; userIds: string[] };
+
 export type ScheduleData = {
   filters: FilterState;
   range: { start: string; end: string }; // end は排他
   occurrences: OccurrenceView[];
+  staffing: StaffingEntry[];
   workers: WorkerOption[];
   vehicles: VehicleOption[];
   customers: CustomerOption[];

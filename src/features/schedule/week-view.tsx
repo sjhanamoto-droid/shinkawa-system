@@ -9,10 +9,12 @@ import { holidayName } from "@/lib/holidays";
 import { shiftKey, weekStartOf, weekdayOfKey, WEEKDAY_JA } from "./filters";
 import { toneText } from "./day-heading";
 import type { OccurrenceView } from "./types";
+import type { DayStaff } from "./staffing";
 
 function DayColumn({
   dateKey,
   items,
+  staff,
   isToday,
   canEdit,
   dnd,
@@ -22,6 +24,7 @@ function DayColumn({
 }: {
   dateKey: string;
   items: OccurrenceView[];
+  staff?: DayStaff;
   isToday: boolean;
   canEdit: boolean;
   dnd: boolean;
@@ -32,7 +35,6 @@ function DayColumn({
   const { setNodeRef, isOver } = useDroppable({ id: dayDropId(dateKey), disabled: !dnd });
   const dow = weekdayOfKey(dateKey);
   const holiday = holidayName(dateKey);
-  const head = items.reduce((s, o) => s + (o.assignees.length || o.headcount || 0), 0);
   const noWorker = items.filter((o) => o.assignees.length === 0 && o.category !== "OFF" && o.status !== "DONE" && o.status !== "CANCELLED").length;
 
   return (
@@ -53,9 +55,12 @@ function DayColumn({
             </span>
             <span className={cn("text-xs font-bold", toneText(dateKey, "text-ink-soft"))}>{WEEKDAY_JA[dow]}</span>
           </button>
-          <span className="whitespace-nowrap text-xs tnum text-ink-muted">
-            {items.length}件{head > 0 && `/${head}名`}
-          </span>
+          {staff && (
+            <span className="flex min-w-0 flex-wrap gap-x-1 text-xs leading-tight tnum text-ink-muted" title="作業可能＝社員・アルバイトのうち休みでない人／残り＝そのうちまだ現場に入っていない人">
+              <span className="whitespace-nowrap">作業可能{staff.available}人</span>
+              <span className={cn("whitespace-nowrap font-bold", staff.remaining === 0 ? "text-red-600" : "text-brand-700")}>残り{staff.remaining}人</span>
+            </span>
+          )}
           {canEdit && (
             <button type="button" onClick={() => onAdd(dateKey)} aria-label="予定を追加" className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand-600 active:bg-brand-100 md:h-7 md:w-7 md:hover:bg-brand-100">
               <Plus className="h-5 w-5 md:h-4 md:w-4" />
@@ -84,6 +89,7 @@ function DayColumn({
 export function WeekView({
   dateKey,
   byDay,
+  staffByDay,
   todayKey,
   canEdit,
   dnd,
@@ -93,6 +99,7 @@ export function WeekView({
 }: {
   dateKey: string;
   byDay: Map<string, OccurrenceView[]>;
+  staffByDay?: Map<string, DayStaff>;
   todayKey: string;
   canEdit: boolean;
   dnd: boolean;
@@ -112,6 +119,7 @@ export function WeekView({
           key={k}
           dateKey={k}
           items={byDay.get(k) ?? []}
+          staff={staffByDay?.get(k)}
           isToday={k === todayKey}
           canEdit={canEdit}
           dnd={dnd}

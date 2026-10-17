@@ -18,6 +18,7 @@ import { DayView } from "./day-view";
 import { StaffBoard } from "./staff-board";
 import { OccurrenceCard } from "./occurrence-card";
 import { isOffOccurrence } from "./labels";
+import { dayStaffing, STAFFING_KINDS } from "./staffing";
 import { OccurrenceDrawer } from "./occurrence-drawer";
 import { OccurrenceForm } from "./occurrence-form";
 import { MoveSheet } from "./move-sheet";
@@ -94,6 +95,21 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     }
     return map;
   }, [store.items, range.start, range.end]);
+
+  // 日ごとの「作業可能・残り」。絞り込みに関係なく数えるため、サーバーの集計用データに、画面で変えた予定（store）を重ねる
+  const staffByDay = useMemo(() => {
+    const live = new Map(store.items.map((o) => [o.id, o]));
+    const loadedIds = new Set(data.occurrences.map((o) => o.id));
+    const entries = data.staffing.filter((e) => !live.has(e.id) && !loadedIds.has(e.id)); // 画面に出ていない予定（絞り込みで外れたもの）
+    for (const o of store.items) {
+      if (!o.date || o.status === "CANCELLED" || o.assignees.length === 0) continue;
+      entries.push({ id: o.id, date: o.date, endDate: o.endDate, off: isOffOccurrence(o), userIds: o.assignees.map((a) => a.id) });
+    }
+    const keys: string[] = [];
+    for (let k = range.start; k < range.end; k = shiftKey(k, 1)) keys.push(k);
+    const staffIds = workers.filter((w) => STAFFING_KINDS.includes(w.kind)).map((w) => w.id);
+    return dayStaffing(entries, staffIds, keys);
+  }, [store.items, data.staffing, data.occurrences, workers, range.start, range.end]);
 
   // ── ナビゲーション ──
   const [navPending, startNav] = useTransition();
@@ -375,7 +391,7 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
             <MonthView dateKey={filters.date} byDay={byDay} todayKey={today} coarse={coarse} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "week" && (
-            <WeekView dateKey={filters.date} byDay={byDay} todayKey={today} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
+            <WeekView dateKey={filters.date} byDay={byDay} staffByDay={staffByDay} todayKey={today} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "day" && (
             <DayView dateKey={filters.date} items={byDay.get(filters.date) ?? []} canEdit={canEdit} mine={filters.mine} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} />
