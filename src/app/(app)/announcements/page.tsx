@@ -32,7 +32,6 @@ export default async function AnnouncementsPage() {
     <div>
       <PageHeader
         title="全体連絡"
-        subtitle="会社からのお知らせ・行事・クレームの共有"
         right={
           canSend && (
             <LinkButton href="/announcements/new" size="sm">

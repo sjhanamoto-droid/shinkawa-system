@@ -22,7 +22,7 @@ export default async function SchedulePage({
 
   return (
     <div>
-      <PageHeader title="カレンダー" subtitle="白板とサイボウズの代わりに、ここで予定を組む" fluid />
+      <PageHeader title="カレンダー" fluid />
       <PageContainer size="full">
         <ScheduleShell data={data} />
       </PageContainer>

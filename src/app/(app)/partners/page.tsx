@@ -53,7 +53,6 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
     <div>
       <PageHeader
         title="協力会社・下請"
-        subtitle="クリーニングの外注先と工事の下職"
         right={<LinkButton href="/partners/new" size="sm"><Plus className="h-4 w-4" />追加</LinkButton>}
       >
         <PeopleTabs />

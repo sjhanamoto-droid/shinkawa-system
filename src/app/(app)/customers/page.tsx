@@ -57,7 +57,6 @@ export default async function CustomersPage({
     <div>
       <PageHeader
         title="顧客"
-        subtitle="元請・管理会社・オーナー"
         right={
           canImport ? (
             <LinkButton href="/customers/import" variant="outline" size="sm">

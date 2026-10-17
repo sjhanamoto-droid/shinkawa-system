@@ -59,7 +59,7 @@ export default async function AllReportsPage({ searchParams }: { searchParams: P
 
   return (
     <div>
-      <PageHeader title="すべての日報" subtitle={property ? `現場：${property.name}` : "日付の新しい順"} backHref="/reports">
+      <PageHeader title="すべての日報" subtitle={property ? `現場：${property.name}` : undefined} backHref="/reports">
         <form action="/reports/all" className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative min-w-0 flex-1 sm:max-w-md">

@@ -29,7 +29,6 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     <div>
       <PageHeader
         title="稼働時間"
-        subtitle="提出された日報から、月別・人別に集計（タイムカード）"
         right={
           rows.length > 0 && (
             <a href={`/attendance/export?ym=${ym}`} className={buttonClass({ variant: "outline", size: "sm" })}>

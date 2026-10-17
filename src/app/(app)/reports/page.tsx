@@ -29,7 +29,6 @@ export default async function ReportsPage() {
     <div>
       <PageHeader
         title="日報"
-        subtitle="カレンダーで担当になった予定ごとに書きます"
         right={
           canViewAllReports(me) ? (
             <LinkButton href="/reports/all" variant="outline" size="sm">

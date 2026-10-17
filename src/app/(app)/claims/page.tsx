@@ -40,7 +40,6 @@ export default async function ClaimsPage() {
     <div>
       <PageHeader
         title="クレーム再発防止"
-        subtitle="起きたクレームと再発防止策を全員で共有"
         right={
           manager && (
             <LinkButton href="/claims/new" size="sm">

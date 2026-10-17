@@ -46,7 +46,6 @@ export default async function WorkersPage({
     <div>
       <PageHeader
         title="作業者"
-        subtitle="スタッフ・アルバイト・協力会社スタッフ・下請の台帳"
         right={
           <LinkButton href="/workers/new" size="sm">
             <UserPlus className="h-4 w-4" />追加

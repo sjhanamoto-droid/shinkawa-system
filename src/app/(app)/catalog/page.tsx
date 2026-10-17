@@ -29,7 +29,6 @@ export default async function CatalogPage() {
     <div>
       <PageHeader
         title="カタログ"
-        subtitle="自社ホームページ・メーカーのデジタルカタログ"
         right={
           manager && (
             <LinkButton href="/catalog/new" size="sm">

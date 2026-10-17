@@ -98,7 +98,7 @@ export default async function PropertiesPage({
 
   return (
     <div>
-      <PageHeader title="現場" subtitle="ここを開けば全部載っている（作業内容・周期もここで登録）">
+      <PageHeader title="現場">
         {/* 自分でタブを選んだときだけ覚える（既定の部門で開いただけでは書き込まない） */}
         {pick(sp.dept) && <RememberDeptTab value={tab} />}
         {/* 部門タブ（クリーニング／工事を分けて見る） */}

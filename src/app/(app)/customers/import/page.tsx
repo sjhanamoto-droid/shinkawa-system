@@ -7,7 +7,7 @@ export default async function CustomerImportPage() {
   await requireCan("customer.import");
   return (
     <div>
-      <PageHeader title="顧客のCSV取込" subtitle="サイボウズ アドレス帳からの移行" backHref="/customers" />
+      <PageHeader title="顧客のCSV取込" backHref="/customers" />
       <PageContainer size="narrow">
         <CsvImport />
       </PageContainer>

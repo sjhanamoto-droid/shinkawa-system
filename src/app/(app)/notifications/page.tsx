@@ -13,7 +13,7 @@ export default async function NotificationsPage() {
 
   return (
     <div>
-      <PageHeader title="通知" subtitle="現場・日報のお知らせ">
+      <PageHeader title="通知">
         <InboxTabs />
       </PageHeader>
       <PageContainer size="narrow">

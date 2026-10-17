@@ -77,7 +77,6 @@ export default async function VehiclesPage() {
     <div>
       <PageHeader
         title="車両"
-        subtitle="社有車の台帳。カレンダーで当日使う車両を選ぶときの選択肢になります"
         right={<LinkButton href="/vehicles/new" size="sm"><Plus className="h-4 w-4" />追加</LinkButton>}
       />
       <PageContainer>
