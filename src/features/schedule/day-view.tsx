@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { DEPARTMENT_LABEL, isDepartment } from "@/lib/constants";
 import { OccurrenceCard } from "./occurrence-card";
 import type { OccurrenceView } from "./types";
+import { StaffCount, type StaffInfo } from "./staff-count";
 
 function bandOf(o: OccurrenceView): string {
   if (!o.startTime) return "終日";
@@ -17,6 +18,7 @@ const BAND_ORDER = ["早朝", "日中", "夜間", "終日"];
 export function DayView({
   dateKey,
   items,
+  staff,
   canEdit,
   mine,
   onSelect,
@@ -24,6 +26,7 @@ export function DayView({
 }: {
   dateKey: string;
   items: OccurrenceView[];
+  staff?: StaffInfo;
   canEdit: boolean;
   mine: boolean;
   onSelect: (o: OccurrenceView) => void;
@@ -48,10 +51,13 @@ export function DayView({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 px-1">
-        <h2 className="text-lg font-bold text-ink">
-          この日の予定
-          {items.length > 0 && <span className="ml-2 text-sm font-semibold tnum text-ink-muted">{items.length}件</span>}
-        </h2>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-ink">
+            この日の予定
+            {items.length > 0 && <span className="ml-2 text-sm font-semibold tnum text-ink-muted">{items.length}件</span>}
+          </h2>
+          {staff && <StaffCount staff={staff} dateKey={dateKey} className="mt-1 text-sm" />}
+        </div>
         {canEdit && (
           <button
             type="button"

@@ -19,6 +19,7 @@ import { StaffBoard } from "./staff-board";
 import { OccurrenceCard } from "./occurrence-card";
 import { isOffOccurrence } from "./labels";
 import { dayStaffing, STAFFING_KINDS } from "./staffing";
+import type { StaffInfo } from "./staff-count";
 import { OccurrenceDrawer } from "./occurrence-drawer";
 import { OccurrenceForm } from "./occurrence-form";
 import { MoveSheet } from "./move-sheet";
@@ -108,8 +109,13 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     const keys: string[] = [];
     for (let k = range.start; k < range.end; k = shiftKey(k, 1)) keys.push(k);
     const staffIds = workers.filter((w) => STAFFING_KINDS.includes(w.kind)).map((w) => w.id);
-    return dayStaffing(entries, staffIds, keys);
-  }, [store.items, data.staffing, data.occurrences, workers, range.start, range.end]);
+    const toPeople = (ids: string[]) => ids.map((id) => personById.get(id)).filter((p): p is PersonRef => !!p);
+    const out = new Map<string, StaffInfo>();
+    for (const [k, d] of dayStaffing(entries, staffIds, keys)) {
+      out.set(k, { available: d.available, remaining: d.remaining, free: toPeople(d.freeIds), off: toPeople(d.offIds) });
+    }
+    return out;
+  }, [store.items, data.staffing, data.occurrences, workers, personById, range.start, range.end]);
 
   // ── ナビゲーション ──
   const [navPending, startNav] = useTransition();
@@ -388,13 +394,13 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
 
         <div className={cn(navPending && "pointer-events-none opacity-60 transition-opacity")}>
           {filters.view === "month" && (
-            <MonthView dateKey={filters.date} byDay={byDay} todayKey={today} coarse={coarse} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
+            <MonthView dateKey={filters.date} byDay={byDay} staffByDay={staffByDay} todayKey={today} coarse={coarse} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "week" && (
             <WeekView dateKey={filters.date} byDay={byDay} staffByDay={staffByDay} todayKey={today} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "day" && (
-            <DayView dateKey={filters.date} items={byDay.get(filters.date) ?? []} canEdit={canEdit} mine={filters.mine} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} />
+            <DayView dateKey={filters.date} items={byDay.get(filters.date) ?? []} staff={staffByDay.get(filters.date)} canEdit={canEdit} mine={filters.mine} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} />
           )}
           {filters.view === "board" && (
             <StaffBoard dateKey={filters.date} items={store.items} workers={workers} todayKey={today} dnd={dnd} dept={filters.dept} onSelect={(o) => setSelectedId(o.id)} />

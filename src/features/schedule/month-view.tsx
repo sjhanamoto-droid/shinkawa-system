@@ -11,11 +11,13 @@ import { holidayName } from "@/lib/holidays";
 import { monthStartOf, monthEndExclusive, shiftKey, weekdayOfKey, WEEKDAY_JA } from "./filters";
 import { toneText } from "./day-heading";
 import type { OccurrenceView } from "./types";
+import { StaffCount, type StaffInfo } from "./staff-count";
 
 function DayCell({
   dateKey,
   inMonth,
   items,
+  staff,
   isToday,
   coarse,
   canEdit,
@@ -27,6 +29,7 @@ function DayCell({
   dateKey: string;
   inMonth: boolean;
   items: OccurrenceView[];
+  staff?: StaffInfo;
   isToday: boolean;
   coarse: boolean;
   canEdit: boolean;
@@ -76,6 +79,10 @@ function DayCell({
             {(noWorker > 0 || unassigned > 0) && <span className="h-1 w-4 rounded-full bg-red-400" />}
           </>
         )}
+        {/* スマホは小さく「残り◯」だけ。タップで日ビューを開くと、誰が空いているか見られる */}
+        {staff && inMonth && (
+          <span className={cn("text-[10px] font-bold leading-none tnum", staff.remaining === 0 ? "text-red-600" : "text-brand-700")}>残{staff.remaining}</span>
+        )}
       </button>
     );
   }
@@ -106,6 +113,7 @@ function DayCell({
           </button>
         )}
       </div>
+      {staff && inMonth && <StaffCount staff={staff} dateKey={dateKey} className="px-0.5 text-[11px]" />}
       {/* 祝日名 */}
       {holiday && <span className="truncate px-0.5 text-[11px] font-bold leading-tight text-red-500">{holiday}</span>}
       <div className="mt-1 flex flex-1 flex-col gap-1">
@@ -120,6 +128,7 @@ function DayCell({
 export function MonthView({
   dateKey,
   byDay,
+  staffByDay,
   todayKey,
   coarse,
   canEdit,
@@ -130,6 +139,7 @@ export function MonthView({
 }: {
   dateKey: string;
   byDay: Map<string, OccurrenceView[]>;
+  staffByDay?: Map<string, StaffInfo>;
   todayKey: string;
   coarse: boolean;
   canEdit: boolean;
@@ -164,6 +174,7 @@ export function MonthView({
             dateKey={k}
             inMonth={k >= start && k < end}
             items={byDay.get(k) ?? []}
+            staff={staffByDay?.get(k)}
             isToday={k === todayKey}
             coarse={coarse}
             canEdit={canEdit}

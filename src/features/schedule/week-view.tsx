@@ -9,7 +9,7 @@ import { holidayName } from "@/lib/holidays";
 import { shiftKey, weekStartOf, weekdayOfKey, WEEKDAY_JA } from "./filters";
 import { toneText } from "./day-heading";
 import type { OccurrenceView } from "./types";
-import type { DayStaff } from "./staffing";
+import { StaffCount, type StaffInfo } from "./staff-count";
 
 function DayColumn({
   dateKey,
@@ -24,7 +24,7 @@ function DayColumn({
 }: {
   dateKey: string;
   items: OccurrenceView[];
-  staff?: DayStaff;
+  staff?: StaffInfo;
   isToday: boolean;
   canEdit: boolean;
   dnd: boolean;
@@ -55,12 +55,7 @@ function DayColumn({
             </span>
             <span className={cn("text-xs font-bold", toneText(dateKey, "text-ink-soft"))}>{WEEKDAY_JA[dow]}</span>
           </button>
-          {staff && (
-            <span className="flex min-w-0 flex-wrap gap-x-1 text-xs leading-tight tnum text-ink-muted" title="作業可能＝社員・アルバイトのうち休みでない人／残り＝そのうちまだ現場に入っていない人">
-              <span className="whitespace-nowrap">作業可能{staff.available}人</span>
-              <span className={cn("whitespace-nowrap font-bold", staff.remaining === 0 ? "text-red-600" : "text-brand-700")}>残り{staff.remaining}人</span>
-            </span>
-          )}
+          {staff && <StaffCount staff={staff} dateKey={dateKey} />}
           {canEdit && (
             <button type="button" onClick={() => onAdd(dateKey)} aria-label="予定を追加" className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand-600 active:bg-brand-100 md:h-7 md:w-7 md:hover:bg-brand-100">
               <Plus className="h-5 w-5 md:h-4 md:w-4" />
@@ -99,7 +94,7 @@ export function WeekView({
 }: {
   dateKey: string;
   byDay: Map<string, OccurrenceView[]>;
-  staffByDay?: Map<string, DayStaff>;
+  staffByDay?: Map<string, StaffInfo>;
   todayKey: string;
   canEdit: boolean;
   dnd: boolean;

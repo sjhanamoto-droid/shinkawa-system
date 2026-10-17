@@ -7,7 +7,8 @@ import type { StaffingEntry } from "./types";
 /** 作業可能の人数に数える雇用区分（協力会社・下請は数えない） */
 export const STAFFING_KINDS = ["EMPLOYEE", "PARTTIME"];
 
-export type DayStaff = { available: number; remaining: number };
+/** freeIds＝残り（空いている人）、offIds＝休みの人。並びは staffIds の順 */
+export type DayStaff = { available: number; remaining: number; freeIds: string[]; offIds: string[] };
 
 function shiftKey(key: string, days: number): string {
   const [y, m, d] = key.split("-").map(Number);
@@ -33,9 +34,10 @@ export function dayStaffing(entries: StaffingEntry[], staffIds: string[], dayKey
   const out = new Map<string, DayStaff>();
   for (const k of dayKeys) {
     const offSet = off.get(k) ?? new Set<string>();
-    const available = staff.size - offSet.size;
-    const working = [...(busy.get(k) ?? [])].filter((u) => !offSet.has(u)).length;
-    out.set(k, { available, remaining: Math.max(0, available - working) });
+    const busySet = busy.get(k) ?? new Set<string>();
+    const freeIds = staffIds.filter((u) => !offSet.has(u) && !busySet.has(u));
+    const offIds = staffIds.filter((u) => offSet.has(u));
+    out.set(k, { available: staff.size - offSet.size, remaining: freeIds.length, freeIds, offIds });
   }
   return out;
 }
