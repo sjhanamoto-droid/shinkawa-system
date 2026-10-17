@@ -5,7 +5,7 @@ import { COMPANY_NAME } from "@/lib/brand";
 import { PHOTO_KIND_LABEL, isPhotoKind } from "@/lib/constants";
 import { catLabel } from "@/lib/categories";
 import { getCategories } from "@/lib/categories-server";
-import { fmtWorkHours, REPORT_STATUS_LABEL, workMinutes } from "@/lib/reports";
+import { fmtTimeRange, fmtWorkHours, REPORT_STATUS_LABEL, workMinutes } from "@/lib/reports";
 import { fmtYen } from "@/lib/utils";
 import { jstDateKey, jstDateTimeLabel } from "@/lib/date";
 import { photoSrc } from "@/lib/photos";
@@ -77,7 +77,7 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
               </td>
               <th className={th}>作業時間</th>
               <td className={td}>
-                {r.startTime}〜{r.endTime}（{fmtWorkHours(minutes)}）
+                {fmtTimeRange(r.startTime, r.endTime)}（{fmtWorkHours(minutes)}）
               </td>
             </tr>
             {r.occurrence && r.occurrence.vehicles.length > 0 && (

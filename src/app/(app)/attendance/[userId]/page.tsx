@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { jstMonthKey } from "@/lib/date";
 import { parseMonthKey } from "@/lib/attendance";
-import { fmtWorkHours } from "@/lib/reports";
+import { fmtTimeRange, fmtWorkHours } from "@/lib/reports";
 import { fmtKeyLong } from "@/features/schedule/filters";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -74,7 +74,7 @@ export default async function AttendanceUserPage({
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-base font-bold text-ink">{row.title}</p>
                           <p className="text-sm text-ink-muted tnum">
-                            {row.start}〜{row.end}
+                            {fmtTimeRange(row.start, row.end)}
                           </p>
                         </div>
                         <p className="shrink-0 text-base font-bold text-ink tnum">{fmtWorkHours(row.minutes)}</p>

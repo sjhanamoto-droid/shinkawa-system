@@ -7,6 +7,8 @@ import {
   isReportDue,
   shouldAutoComplete,
   workMinutes,
+  crossesMidnight,
+  fmtTimeRange,
   fmtWorkHours,
   isTimeOnStep,
   roundTimeToStep,
@@ -65,12 +67,23 @@ describe("reports: 自動完了", () => {
   });
 });
 
+describe("reports: 日付をまたぐ作業", () => {
+  it("終了が開始より前なら翌日の時刻として数える", () => {
+    expect(workMinutes("22:00", "05:00")).toBe(420);
+    expect(crossesMidnight("22:00", "05:00")).toBe(true);
+    expect(crossesMidnight("09:00", "17:00")).toBe(false);
+    expect(fmtTimeRange("22:00", "05:00")).toBe("22:00〜翌05:00");
+    expect(fmtTimeRange("09:00", "17:00")).toBe("09:00〜17:00");
+  });
+});
+
 describe("reports: 作業時間", () => {
   it("分で計算し表示する", () => {
     expect(workMinutes("09:00", "17:30")).toBe(510);
     expect(fmtWorkHours(510)).toBe("8時間30分");
     expect(fmtWorkHours(480)).toBe("8時間");
-    expect(workMinutes("17:00", "09:00")).toBe(0);
+    expect(workMinutes("17:00", "09:00")).toBe(960);
+    expect(workMinutes("09:00", "09:00")).toBe(0);
     expect(workMinutes("9:00", "17:00")).toBe(0);
   });
 });

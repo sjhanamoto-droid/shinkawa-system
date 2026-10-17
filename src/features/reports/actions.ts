@@ -180,7 +180,8 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
   else if (!isTimeOnStep(startTime)) fieldErrors.startTime = "開始時刻は10分単位で入力してください";
   if (!TIME_RE.test(endTime)) fieldErrors.endTime = "終了時刻を入力してください";
   else if (!isTimeOnStep(endTime)) fieldErrors.endTime = "終了時刻は10分単位で入力してください";
-  if (TIME_RE.test(startTime) && TIME_RE.test(endTime) && endTime <= startTime) fieldErrors.endTime = "終了時刻は開始時刻より後にしてください";
+  // 終了が開始より前なら翌日の時刻（日付をまたぐ夜間作業）。同じ時刻だけはエラー
+  if (TIME_RE.test(startTime) && TIME_RE.test(endTime) && endTime === startTime) fieldErrors.endTime = "終了時刻は開始時刻と別の時刻にしてください";
 
   const detail = str(fd, "detail").slice(0, 4000);
   if (submit && !detail) fieldErrors.detail = "提出には作業内容の入力が必要です";

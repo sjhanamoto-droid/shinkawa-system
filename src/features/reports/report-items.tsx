@@ -4,7 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { CategoryBadge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { REPORT_STATUS_LABEL, type ReportStatus } from "@/lib/reports";
+import { fmtTimeRange, REPORT_STATUS_LABEL, type ReportStatus } from "@/lib/reports";
 import { fmtKeyShort } from "@/features/schedule/filters";
 import type { ReportDue, ReportListItem } from "./queries";
 
@@ -154,7 +154,7 @@ export function ReportListRow({ r, showDate = true }: { r: ReportListItem; showD
         </p>
         <p className="mt-0.5 truncate text-sm text-ink-muted tnum">
           {showDate && <span className="font-medium">{fmtKeyShort(r.workDateKey)} ・ </span>}
-          {r.startTime}〜{r.endTime}
+          {fmtTimeRange(r.startTime, r.endTime)}
         </p>
         {r.detail && <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink-soft">{r.detail}</p>}
         {(r.photoCount > 0 || r.commentCount > 0) && (

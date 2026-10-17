@@ -97,14 +97,25 @@ export function shouldAutoComplete(input: {
   return input.assigneeIds.some((id) => submitted.has(id));
 }
 
-/** 'HH:mm' 同士の差（分）。終了が開始より前なら 0 */
+/** 終了が開始より前＝日付をまたぐ夜間作業（終了は翌日の時刻） */
+export function crossesMidnight(start: string, end: string): boolean {
+  return /^\d{2}:\d{2}$/.test(start) && /^\d{2}:\d{2}$/.test(end) && end < start;
+}
+
+/** 'HH:mm' 同士の差（分）。終了が開始より前なら翌日の時刻とみなす（22:00〜5:00＝7時間）。同じ時刻は 0 */
 export function workMinutes(start: string, end: string): number {
   const toMin = (t: string) => {
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
   if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return 0;
-  return Math.max(0, toMin(end) - toMin(start));
+  const diff = toMin(end) - toMin(start);
+  return diff < 0 ? diff + 24 * 60 : diff;
+}
+
+/** 「9:00〜17:00」「22:00〜翌5:00」 */
+export function fmtTimeRange(start: string, end: string): string {
+  return `${start}〜${crossesMidnight(start, end) ? "翌" : ""}${end}`;
 }
 
 /** 日報の時刻の刻み（分） */

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, Building, CalendarDays, Car, ChevronRight, Clock, MessageSquare, Pencil, Printer, UserCheck, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/session";
-import { canEditReport, fmtWorkHours, workMinutes } from "@/lib/reports";
+import { canEditReport, fmtTimeRange, fmtWorkHours, workMinutes } from "@/lib/reports";
 import { cn, fmtYen } from "@/lib/utils";
 import { photoSrc } from "@/lib/photos";
 import { jstDateTimeLabel } from "@/lib/date";
@@ -82,7 +82,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             <p className="mt-1 flex items-center gap-1.5 text-[15px] text-ink-soft">
               <Clock className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
               <span className="font-semibold tnum text-ink">
-                {r.startTime}〜{r.endTime}
+                {fmtTimeRange(r.startTime, r.endTime)}
               </span>
               <span>（{fmtWorkHours(minutes)}）</span>
             </p>

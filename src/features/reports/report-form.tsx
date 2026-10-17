@@ -11,7 +11,7 @@ import { buttonClass } from "@/components/ui/button";
 import { PhotoUploader, type UploaderPhoto } from "@/components/photo-uploader";
 import { cn } from "@/lib/utils";
 import { fmtKeyLong, fmtKeyShort } from "@/features/schedule/filters";
-import { fmtWorkHours, REPORT_TIME_STEP, workMinutes } from "@/lib/reports";
+import { crossesMidnight, fmtWorkHours, REPORT_TIME_STEP, workMinutes } from "@/lib/reports";
 import { saveReport, type ReportFormState } from "./actions";
 import { ExpenseEditor, serializeExpenses, type ExpenseRow } from "./expense-editor";
 import { AiSortPanel } from "./ai-sort-panel";
@@ -355,6 +355,11 @@ export function ReportForm(props: ReportFormProps) {
               <TimeSelect id="rf-end" name="endTime" value={v.endTime} onChange={(t) => set("endTime", t)} />
             </Field>
           </div>
+          {crossesMidnight(v.startTime, v.endTime) && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              終了は<span className="font-bold">翌日の {v.endTime}</span> として扱います（日付をまたぐ作業）。
+            </p>
+          )}
           <p className="text-sm text-ink-muted">
             作業時間 <span className="font-bold text-ink">{fmtWorkHours(minutes)}</span>。この時間がそのまま勤怠（タイムカード）になります。
           </p>

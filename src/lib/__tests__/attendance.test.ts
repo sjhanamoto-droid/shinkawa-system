@@ -12,8 +12,11 @@ describe("稼働時間の集計", () => {
     expect(m.get("a")).toEqual({ minutes: 240 + 270 + 480, days: 2 });
     expect(m.get("b")).toEqual({ minutes: 70, days: 1 });
   });
-  it("時刻がおかしい日報は0分", () => {
-    expect(summarizeByUser([{ userId: "a", dateKey: "2026-09-01", startTime: "17:00", endTime: "09:00" }]).get("a")).toEqual({ minutes: 0, days: 1 });
+  it("日付をまたぐ日報は翌日の終了時刻まで数える（作業を始めた日の1日）", () => {
+    expect(summarizeByUser([{ userId: "a", dateKey: "2026-09-01", startTime: "22:00", endTime: "05:00" }]).get("a")).toEqual({ minutes: 420, days: 1 });
+  });
+  it("時刻の形式がおかしい日報は0分", () => {
+    expect(summarizeByUser([{ userId: "a", dateKey: "2026-09-01", startTime: "9:00", endTime: "17:00" }]).get("a")).toEqual({ minutes: 0, days: 1 });
   });
   it("月キー", () => {
     expect(parseMonthKey("2026-09", "x")).toBe("2026-09");
