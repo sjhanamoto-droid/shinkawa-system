@@ -31,8 +31,9 @@ function hrefWith(sp: SP, patch: Partial<SP>): string {
 // 全員分の日報（最高管理者・事務・手配担当）。日付ごとにまとめて新しい順。
 export default async function AllReportsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const me = await requireUser();
-  if (!canViewAllReports(me)) redirect("/reports");
+  // 全員分の一覧は予定を扱う役割だけ。現場の詳細からの「この現場の日報」はスタッフも見られる
   const sp = await searchParams;
+  if (!canViewAllReports(me) && !sp.property) redirect("/reports");
   const take = Math.min(500, Math.max(PAGE, Number.parseInt(sp.take ?? "", 10) || PAGE));
   const status = isReportStatus(sp.status) ? sp.status : undefined;
 

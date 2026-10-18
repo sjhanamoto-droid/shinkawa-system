@@ -25,11 +25,11 @@ import { loadCustomerChoices, OTHER_CUSTOMER_NAME } from "@/features/properties/
 import { PRIMARY_JOB_ORDER, describeWork } from "@/features/properties/work";
 import { getCategories } from "@/lib/categories-server";
 import { cn, mapSearchUrl } from "@/lib/utils";
-import { canViewAllReports } from "@/lib/reports";
 import { loadPropertyReports } from "@/features/reports/queries";
 import { ReportListRow } from "@/features/reports/report-items";
 
 const MEMO_LIMIT = 30;
+const REPORT_LIMIT = 30;
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -90,7 +90,15 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
   // メモ・引き継ぎの投稿者
   const authorIds = Array.from(new Set([...property.memos.map((m) => m.createdById), ...property.handovers.flatMap((h) => [h.createdById, h.resolvedById])].filter((x): x is string => !!x)));
-  const reports = canViewAllReports(user) ? await loadPropertyReports(id, 5) : null;
+  // この現場の日報（全員が見られる）と、日報で上げた写真（領収書は除く）
+  const [reports, reportPhotos] = await Promise.all([
+    loadPropertyReports(id, REPORT_LIMIT),
+    db.photo.findMany({
+      where: { report: { propertyId: id }, kind: { not: "RECEIPT" } },
+      select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
   const authorRows = await db.user.findMany({ where: { id: { in: [...authorIds, user.id] } }, select: { id: true, name: true, avatarColor: true, avatarImage: true, updatedAt: true } });
   const authors: Record<string, PropertyMemoAuthor> = {};
   for (const a of authorRows) authors[a.id] = { id: a.id, name: a.name, avatarColor: a.avatarColor, avatarUrl: avatarUrlFor(a) };
@@ -346,11 +354,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         )}
       </section>
 
-      {reports && (
+      {(
         <section className="space-y-2.5">
           <SectionTitle
             action={
-              reports.total > 0 ? (
+              reports.total > REPORT_LIMIT ? (
                 <Link href={`/reports/all?property=${id}`} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
                   すべて見る（{reports.total}）
                 </Link>
@@ -380,6 +388,13 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
   const photosTab = (
     <div className="space-y-6">
+      <section className="space-y-2.5">
+        <SectionTitle>
+          <span className="flex items-baseline gap-2">写真{countLabel(reportPhotos.length)}</span>
+        </SectionTitle>
+        <p className="-mt-1 text-xs text-ink-muted">日報で上げた写真・動画が、新しい順にすべてここに入ります。</p>
+        {reportPhotos.length === 0 ? emptyBox("日報の写真はまだありません") : <PhotoGrid photos={reportPhotos} />}
+      </section>
       <section className="space-y-2.5">
         <SectionTitle>図面・資料（PDF）</SectionTitle>
         {drawings.length === 0 ? (
@@ -536,7 +551,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         defaultId="basic"
         tabs={[
           { id: "basic", label: "基本情報", icon: <Info className="h-4 w-4" />, count: openHandovers.length, alert: openHandovers.length > 0, content: basicTab },
-          { id: "photos", label: "写真・図面", icon: <Camera className="h-4 w-4" />, count: property.photos.length, content: photosTab },
+          { id: "photos", label: "写真・図面", icon: <Camera className="h-4 w-4" />, count: property.photos.length + reportPhotos.length, content: photosTab },
           { id: "memo", label: "メモ・引き継ぎ", icon: <StickyNote className="h-4 w-4" />, count: property._count.memos, content: memoTab },
         ]}
       />

@@ -98,9 +98,10 @@ describe("reports: 権限", () => {
     expect(canWriteReportFor(office, "u-partner")).toBe(true);
     expect(canWriteReportFor(owner, "u-partner")).toBe(true);
   });
-  it("見られるのは本人・入力者・予定を扱う役割", () => {
+  it("日報はログインしている全員が見られる（経費は別）", () => {
     expect(canViewReport(staff, mine)).toBe(true);
-    expect(canViewReport(other, mine)).toBe(false);
+    expect(canViewReport(other, mine)).toBe(true);
+    expect(canViewReport(null, mine)).toBe(false);
     expect(canViewReport(sched, mine)).toBe(true);
     expect(canViewReport(office, proxied)).toBe(true);
     expect(canViewAllReports(sched)).toBe(true);

@@ -2,8 +2,8 @@
 //
 // - 日報の単位は「作業者 × 実施回 × 作業日」。複数日の工事は日ごとに1通。
 // - 書くのは担当者本人。ログインしない作業者の分などは最高管理者・事務が代理で書ける。
-// - 見られるのは本人・入力者・予定を扱う役割（最高管理者・事務・手配）。
-//   経費は本人・入力者・最高管理者・事務だけ（手配担当には見せない）。
+// - 日報（と写真）はログインしている全員が見られる（現場の詳細に、その現場の日報と写真が全員分たまる）。
+//   経費は本人・入力者・最高管理者・事務だけ（手配担当・ほかのスタッフには見せない）。
 // - 担当者のうち1人でも「最終日」の日報を提出したら、実施回を自動で完了にする（完了ボタンは置かない）。
 
 import { isManager, isPlanner, type Actor } from "./permissions";
@@ -157,9 +157,10 @@ export function isProxyWrite(actor: Actor, targetUserId: string): boolean {
   return actor.id !== targetUserId;
 }
 
-export function canViewReport(actor: Actor | null | undefined, r: ReportOwner): boolean {
-  if (!actor) return false;
-  return actor.id === r.userId || actor.id === r.createdById || isPlanner(actor);
+/** 日報を見られるか。前回の作業の様子を確認できるよう、ログインしている全員が見られる（経費は canSeeReportExpenses） */
+export function canViewReport(actor: Actor | null | undefined, _r: ReportOwner): boolean {
+  void _r;
+  return !!actor;
 }
 
 export function canEditReport(actor: Actor | null | undefined, r: ReportOwner): boolean {
