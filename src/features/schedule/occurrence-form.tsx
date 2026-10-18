@@ -215,7 +215,10 @@ export function OccurrenceForm({
       return;
     }
     setDepartment(v as Department);
-    if (isPersonal) setCategory(defaultCategoryFor(categories, v as Department));
+    // 休みから戻したとき、または今の種別がほかの部門の種別のときは、その部門の最初の種別にする
+    // （そのままだと画面は別の種別を出しているのに、保存で「◯◯部門の種別です」のエラーになる）
+    const catDept = catDepartment(categories, category);
+    if (isPersonal || (catDept && catDept !== v)) setCategory(defaultCategoryFor(categories, v as Department));
   }
 
   function submit() {
