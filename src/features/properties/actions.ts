@@ -19,6 +19,7 @@ import {
 import { validateRule, type RuleParams } from "@/lib/recurrence";
 import { generateOccurrencesForMonth, GENERATE_AHEAD_MONTHS } from "@/lib/generate-occurrences";
 import { PRIMARY_JOB_ORDER } from "./work";
+import { loadCustomerChoices } from "./customer-choices";
 import { createOccurrenceDays, daysOf, MAX_GROUP_DAYS } from "@/lib/occurrence-days";
 import { occurrenceWorkDays } from "@/lib/reports";
 import { getCategories } from "@/lib/categories-server";
@@ -615,4 +616,40 @@ export async function changePropertyCustomer(
   revalidatePath(`/customers/${property.customerId}`);
   revalidatePath("/customers");
   return { customerName: customer.name };
+}
+
+/**
+ * 予定の追加から現場をその場で登録する（現場名・住所だけ。作業内容などは後で現場の編集から）。
+ * 顧客を選んでいなければ「その他」に入れる。
+ */
+export async function createPropertyQuick(input: {
+  customerId: string | null;
+  name: string;
+  address: string | null;
+}): Promise<{ error: string } | { property: { id: string; name: string; customerId: string; address: string | null }; customer: { id: string; name: string } }> {
+  const me = await requireUser();
+  try {
+    assertCan(me, "property.manage");
+  } catch (e) {
+    return { error: e instanceof PermissionError ? e.message : "エラーが発生しました" };
+  }
+  const name = input.name.trim();
+  if (!name) return { error: "現場名を入力してください" };
+  if (name.length > 100) return { error: "現場名は100文字以内で入力してください" };
+  const address = input.address?.trim().slice(0, 300) || null;
+
+  let customer: { id: string; name: string } | null = null;
+  if (input.customerId) {
+    customer = await db.customer.findUnique({ where: { id: input.customerId }, select: { id: true, name: true } });
+    if (!customer) return { error: "顧客が見つかりません" };
+  } else {
+    const other = (await loadCustomerChoices())[0];
+    customer = { id: other.id, name: other.name };
+  }
+  const p = await db.property.create({
+    data: { customerId: customer.id, name, address, createdById: me.id },
+    select: { id: true, name: true, customerId: true, address: true },
+  });
+  revalidateProperty(p.id, customer.id);
+  return { property: p, customer };
 }

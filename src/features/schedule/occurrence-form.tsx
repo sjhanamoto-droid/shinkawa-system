@@ -19,6 +19,7 @@ import { AssigneePicker, useWorkerUsage } from "./assignee-picker";
 import { VehiclePicker } from "./vehicle-picker";
 import { createOccurrence, updateOccurrence, getVehicleUsage, getUnassigned } from "./actions";
 import { jstDateKey } from "@/lib/date";
+import { createPropertyQuick } from "@/features/properties/actions";
 import { ymOf } from "./filters";
 import type { ActionResult, CustomerOption, OccurrenceInput, OccurrenceView, PropertyOption, VehicleOption, VehicleUsage, WorkerOption } from "./types";
 
@@ -102,6 +103,8 @@ export function OccurrenceForm({
     if (!open) return;
     setError(null);
     setSlotId("");
+    setSiteOpen(false);
+    setSiteError(null);
     if (occurrence) {
       setDepartment((occurrence.department as Department) ?? defaultDepartment);
       setCategory(occurrence.category ?? "REGULAR_CLEANING");
@@ -161,10 +164,40 @@ export function OccurrenceForm({
     if (d) setDepartment(d);
   }, [category, categories]);
 
+  // 予定の追加からその場で登録した現場・顧客（「その他」）。次に開いたときも選べるように持っておく
+  const [addedProperties, setAddedProperties] = useState<PropertyOption[]>([]);
+  const [addedCustomers, setAddedCustomers] = useState<CustomerOption[]>([]);
+  const allProperties = useMemo(() => [...properties, ...addedProperties.filter((a) => !properties.some((p) => p.id === a.id))], [properties, addedProperties]);
+  const allCustomers = useMemo(() => [...customers, ...addedCustomers.filter((a) => !customers.some((c) => c.id === a.id))], [customers, addedCustomers]);
   const propertyOptions = useMemo(
-    () => properties.filter((p) => !customerId || p.customerId === customerId),
-    [properties, customerId],
+    () => allProperties.filter((p) => !customerId || p.customerId === customerId),
+    [allProperties, customerId],
   );
+
+  // 新しい現場の登録（現場名・住所だけ。作業内容などは後で現場の編集から）
+  const [siteOpen, setSiteOpen] = useState(false);
+  const [siteName, setSiteName] = useState("");
+  const [siteAddress, setSiteAddress] = useState("");
+  const [siteError, setSiteError] = useState<string | null>(null);
+  const [sitePending, startSite] = useTransition();
+  function addSite() {
+    setSiteError(null);
+    startSite(async () => {
+      const r = await createPropertyQuick({ customerId: customerId || null, name: siteName, address: siteAddress || null });
+      if ("error" in r) {
+        setSiteError(r.error);
+        return;
+      }
+      setAddedProperties((xs) => [...xs, r.property]);
+      setAddedCustomers((xs) => (xs.some((c) => c.id === r.customer.id) ? xs : [...xs, { id: r.customer.id, name: r.customer.name }]));
+      setCustomerId(r.customer.id);
+      setPropertyId(r.property.id);
+      setSlotId("");
+      setSiteOpen(false);
+      setSiteName("");
+      setSiteAddress("");
+    });
+  }
   // 休みは部門の選択肢（クリーニング／工事／休み）で選ぶので、種別の選択肢からは外す
   const categoryOptions = selectableCategories(categories, { department, current: occurrence?.category, excludeOff: true });
   const isPersonal = category === "OFF";
@@ -346,7 +379,7 @@ export function OccurrenceForm({
                     setPropertyId("");
                     setSlotId("");
                   }}
-                  options={customers.map((c) => ({
+                  options={allCustomers.map((c) => ({
                     value: c.id,
                     label: c.name,
                     keywords: c.kana ?? null,
@@ -362,14 +395,46 @@ export function OccurrenceForm({
                   onChange={(pid) => {
                     setPropertyId(pid);
                     setSlotId("");
-                    const p = properties.find((x) => x.id === pid);
+                    const p = allProperties.find((x) => x.id === pid);
                     if (p) setCustomerId(p.customerId);
                   }}
                   options={propertyOptions.map((p) => ({ value: p.id, label: p.name, sub: p.address ?? null }))}
                   placeholder="物件名で検索"
                   emptyLabel="未選択"
                 />
+                {!siteOpen && (
+                  <button type="button" onClick={() => { setSiteOpen(true); setSiteError(null); }} className="mt-1.5 flex min-h-[36px] items-center gap-1 text-sm font-bold text-brand-600">
+                    <Plus className="h-4 w-4" />
+                    新しい現場を登録
+                  </button>
+                )}
               </Field>
+            </div>
+          )}
+          {!isPersonal && siteOpen && (
+            <div className="space-y-3 rounded-xl border border-brand-200 bg-brand-50/50 p-3.5 dark:border-brand-900 dark:bg-brand-950/30">
+              <p className="text-sm font-bold text-ink">新しい現場を登録</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="現場名" htmlFor="of-site-name" required>
+                  <Input id="of-site-name" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="○○マンション" maxLength={100} />
+                </Field>
+                <Field label="住所" htmlFor="of-site-address" hint="任意">
+                  <Input id="of-site-address" value={siteAddress} onChange={(e) => setSiteAddress(e.target.value)} placeholder="埼玉県○○市○○1-2-3" maxLength={300} />
+                </Field>
+              </div>
+              <p className="text-xs text-ink-muted">
+                {customerId ? `顧客「${allCustomers.find((c) => c.id === customerId)?.name ?? ""}」の現場として登録します。` : "顧客を選んでいないので「その他」の現場として登録します（あとで現場の詳細から顧客を変えられます）。"}
+                作業内容・キーBOXなどは、あとで現場の編集から入れられます。
+              </p>
+              {siteError && <p className="text-sm font-medium text-red-600">{siteError}</p>}
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" className="flex-1" onClick={() => setSiteOpen(false)} disabled={sitePending}>
+                  やめる
+                </Button>
+                <Button type="button" className="flex-1" onClick={addSite} disabled={sitePending || !siteName.trim()}>
+                  {sitePending ? "登録中..." : "現場を登録して選ぶ"}
+                </Button>
+              </div>
             </div>
           )}
           <Field label={isPersonal ? "件名" : "件名（顧客・物件が無いときの表示名）"} htmlFor="of-title" hint="任意">
