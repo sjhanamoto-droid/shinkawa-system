@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import { dateFromKey } from "@/lib/date";
+import { dateFromKey, jstMonthKey } from "@/lib/date";
 import { occurrenceWorkDays } from "@/lib/reports";
 
 // 連続工事（開始日〜終了日）を「1日ずつの予定」に分けて作る。同じ工事の日どうしは groupId でつなぐ。
@@ -21,21 +21,21 @@ type Tx = Prisma.TransactionClient;
 
 /**
  * 日ごとに予定を作る（担当・車両・変更履歴も各日に）。作った予定の id を日付順で返す。
- * base は date / endDate / targetMonth / groupId 以外の共通の値。
+ * base は date / endDate / targetMonth / groupId 以外の共通の値。days に null を1つ渡すと日付未定（未割当の列）の予定を1件作る。
  */
 export async function createOccurrenceDays(
   tx: Tx,
   base: Omit<Prisma.OccurrenceCreateManyInput, "id" | "date" | "endDate" | "targetMonth" | "groupId">,
-  days: string[],
+  days: (string | null)[],
   opts: { workerIds?: string[]; vehicleIds?: string[]; actorId: string; reason?: string },
 ): Promise<string[]> {
   const groupId = days.length > 1 ? randomUUID() : null;
   const rows = days.map((d) => ({
     ...base,
     id: randomUUID(),
-    date: dateFromKey(d),
+    date: d ? dateFromKey(d) : null,
     endDate: null,
-    targetMonth: d.slice(0, 7),
+    targetMonth: d ? d.slice(0, 7) : jstMonthKey(),
     groupId,
   }));
   await tx.occurrence.createMany({ data: rows });
@@ -51,7 +51,7 @@ export async function createOccurrenceDays(
   const note = days.length > 1 ? `${days[0]}〜${days[days.length - 1]}（${days.length}日）の連続工事` : undefined;
   await tx.occurrenceChangeLog.createMany({
     data: rows.flatMap((r, i) => [
-      { occurrenceId: r.id, actorId: opts.actorId, action: "CREATE", toValue: days[i], reason: opts.reason ?? note ?? null },
+      { occurrenceId: r.id, actorId: opts.actorId, action: "CREATE", toValue: days[i] ?? "日付未定", reason: opts.reason ?? note ?? null },
       ...workerIds.map((userId) => ({ occurrenceId: r.id, actorId: opts.actorId, action: "ASSIGN", field: "assignee", toValue: userId })),
     ]),
   });

@@ -218,7 +218,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
 
   const select = occurrenceSelect(showAmount);
 
-  const [rows, staffRows, people, workers, vehicles, customers, properties, settings] = await Promise.all([
+  const [rows, laneRows, staffRows, people, workers, vehicles, customers, properties, settings] = await Promise.all([
     db.occurrence.findMany({
       where: {
         AND: [
@@ -234,6 +234,12 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
       },
       select,
       orderBy: [{ date: "asc" }, { startTime: "asc" }, { createdAt: "asc" }],
+    }),
+    // 未割当の列：日付の決まっていない、定期以外の予定（工事・スポットなど）。忘れないよう月に関係なく全部
+    db.occurrence.findMany({
+      where: { AND: [...common, { date: null, seriesKey: null, status: { notIn: ["DONE", "CANCELLED"] } }] },
+      select,
+      orderBy: [{ targetMonth: "asc" }, { createdAt: "asc" }],
     }),
     // 「作業可能／残り」の人数は絞り込みに関係なく数える
     db.occurrence.findMany({
@@ -272,6 +278,7 @@ export async function loadSchedule(filters: FilterState, user: Actor & { name: s
     filters,
     range,
     occurrences: rows.map((r) => toOccurrenceView(r, people, showAmount)),
+    unassigned: laneRows.map((r) => toOccurrenceView(r, people, showAmount)),
     staffing: staffRows.map(
       (r): StaffingEntry => ({
         id: r.id,

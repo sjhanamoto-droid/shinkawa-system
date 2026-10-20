@@ -275,7 +275,7 @@ export function PropertyForm({
 
                 {contractType === "CONSTRUCTION" && (
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="工事の開始日" htmlFor="workStart" hint="カレンダーに入れるときは必須">
+                    <Field label="工事の開始日" htmlFor="workStart" hint="未定なら空欄（カレンダーの「未割当」に入ります）">
                       <Input id="workStart" name="workStart" type="date" defaultValue={work?.workStart ?? ""} />
                     </Field>
                     <Field label="工事の終了日" htmlFor="workEnd" hint="1日で終わるなら空欄">
@@ -297,7 +297,7 @@ export function PropertyForm({
                       <span>{calendarLabel}</span>
                     </label>
                     {contractType === "SPOT" && addToCalendar && (
-                      <Field label="実施日" htmlFor="spotDate" required>
+                      <Field label="実施日" htmlFor="spotDate" hint="未定なら空欄（カレンダーの「未割当」に入ります）">
                         <Input id="spotDate" name="spotDate" type="date" className="max-w-[12rem]" />
                       </Field>
                     )}

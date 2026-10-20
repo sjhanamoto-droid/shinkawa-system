@@ -32,6 +32,7 @@ export function MoveSheet({
   const [unassign, setUnassign] = useState(false);
   const [assignees, setAssignees] = useState<string[]>([]);
   const [reason, setReason] = useState("");
+  const [endDate, setEndDate] = useState(""); // 日付未定の工事・スポットを期間で入れるときの終了日（任意）
   const workerUsage = useWorkerUsage(occurrence && !unassign ? date : null, occurrence?.id ?? null);
 
   useEffect(() => {
@@ -40,6 +41,7 @@ export function MoveSheet({
     setUnassign(!occurrence.date);
     setAssignees(occurrence.assignees.map((a) => a.id));
     setReason("");
+    setEndDate("");
   }, [occurrence, today]);
 
   if (!occurrence) return null;
@@ -55,9 +57,11 @@ export function MoveSheet({
   const workerAdd = assignees.filter((id) => !before.includes(id));
   const workerRemove = before.filter((id) => !assignees.includes(id));
 
+  const canPeriod = !occurrence.date && !occurrence.ruleKind && !unassign;
   function submit() {
     onSubmit({
       date: unassign ? null : date,
+      endDate: canPeriod && endDate && endDate > date ? endDate : null,
       workerAdd,
       workerRemove,
       scope: "ONE",
@@ -110,6 +114,11 @@ export function MoveSheet({
                 <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
                 <Input id="move-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="pl-9" />
               </div>
+            </Field>
+          )}
+          {canPeriod && (
+            <Field label="終了日" htmlFor="move-end" hint="期間で入れるとき（任意）。1日ずつの予定に分かれます">
+              <Input id="move-end" type="date" value={endDate} min={date || undefined} onChange={(e) => setEndDate(e.target.value)} />
             </Field>
           )}
         </div>

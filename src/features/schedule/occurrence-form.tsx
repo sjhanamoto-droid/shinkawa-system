@@ -78,6 +78,7 @@ export function OccurrenceForm({
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [multiDay, setMultiDay] = useState(false);
+  const [undated, setUndated] = useState(false); // 日付未定（未割当の列に置く。定期以外）
   const [endDate, setEndDate] = useState("");
   const [timed, setTimed] = useState(false);
   const [startTime, setStartTime] = useState(defaultTimes.start);
@@ -113,6 +114,7 @@ export function OccurrenceForm({
       setTitle(occurrence.customer || occurrence.property ? "" : occurrence.title);
       setDate(occurrence.date ?? initialDate ?? jstDateKey());
       setMultiDay(!!occurrence.endDate);
+      setUndated(!occurrence.date);
       setEndDate(occurrence.endDate ?? "");
       setTimed(!!occurrence.startTime);
       setStartTime(occurrence.startTime ?? defaultTimes.start);
@@ -131,6 +133,7 @@ export function OccurrenceForm({
       setTitle("");
       setDate(initialDate ?? jstDateKey());
       setMultiDay(false);
+      setUndated(false);
       setEndDate("");
       setTimed(false);
       setStartTime(defaultTimes.start);
@@ -217,7 +220,11 @@ export function OccurrenceForm({
   const slotOptions = (slots ?? []).filter((o) => o.category === category && (slotId || !customerId || o.customer?.id === customerId));
   const slot = slotOptions.find((o) => o.id === slotId) ?? null;
   // 複数日（1日ずつに分けて作る）は新規のときだけ。未割当の回を選んだときは1日。旧データの複数日の予定の編集は従来どおり
-  const canMultiDay = occurrence ? !!occurrence.endDate : !slot;
+  // 日付未定の工事・スポットに日付を入れるときも期間で入れられる（保存で1日ずつに分かれる）
+  const canMultiDay = occurrence ? !!occurrence.endDate || (!occurrence.date && !occurrence.ruleKind) : !slot;
+  // 日付未定は定期以外の予定だけ（休み・未割当の定期の回を選んだときは出さない）。日付未定の予定を直すときも出す
+  const canUndated = !isPersonal && (occurrence ? !occurrence.date : !slot);
+  const noDate = canUndated && undated;
 
   function pickSlot(o: OccurrenceView) {
     if (o.id === slotId) {
@@ -256,7 +263,7 @@ export function OccurrenceForm({
 
   function submit() {
     setError(null);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!noDate && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       setError("日付を入力してください");
       return;
     }
@@ -270,8 +277,8 @@ export function OccurrenceForm({
       customerId: customerId || null,
       propertyId: propertyId || null,
       title: title.trim() || null,
-      date,
-      endDate: canMultiDay && multiDay && endDate ? endDate : null,
+      date: noDate ? null : date,
+      endDate: !noDate && canMultiDay && multiDay && endDate ? endDate : null,
       startTime: timed ? startTime : null,
       endTime: timed ? endTime : null,
       headcount: numOrNull(headcount),
@@ -446,8 +453,14 @@ export function OccurrenceForm({
         <section className="card space-y-4 p-4">
           <SectionTitle size="sm" className="px-0">日時</SectionTitle>
           <div className="flex flex-wrap gap-2">
+            {canUndated && (
+              <label className={toggleClass(undated)}>
+                <input type="checkbox" checked={undated} onChange={(e) => setUndated(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
+                日付未定（左の「未割当」に置く）
+              </label>
+            )}
             {/* 複数日は新しく入れるときだけ（保存すると1日ずつの予定に分かれる）。旧データの複数日の予定を直すときは出す */}
-            {canMultiDay && (
+            {canMultiDay && !noDate && (
               <label className={toggleClass(multiDay)}>
                 <input type="checkbox" checked={multiDay} onChange={(e) => setMultiDay(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
                 複数日
@@ -459,10 +472,12 @@ export function OccurrenceForm({
             </label>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={canMultiDay && multiDay ? "開始日" : "日付"} htmlFor="of-date" required>
-              <Input id="of-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </Field>
-            {canMultiDay && multiDay && (
+            {!noDate && (
+              <Field label={canMultiDay && multiDay ? "開始日" : "日付"} htmlFor="of-date" required>
+                <Input id="of-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </Field>
+            )}
+            {canMultiDay && multiDay && !noDate && (
               <Field label="終了日" htmlFor="of-end" hint="保存すると1日ずつの予定に分かれます">
                 <Input id="of-end" type="date" value={endDate} min={date || undefined} onChange={(e) => setEndDate(e.target.value)} />
               </Field>

@@ -137,9 +137,6 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
     if (!w.workStart && w.workEnd) return { error: "工事の開始日を入力してください" };
     period = { startsOn: w.workStart ? dateFromKey(w.workStart) : null, endsOn: w.workEnd ? dateFromKey(w.workEnd) : null };
   }
-  // 日付の決まっていない予定は作らない（カレンダーの未割当は定期の回だけ）
-  if (w.addToCalendar && w.contractType === "SPOT" && !w.spotDate) return { error: "カレンダーに入れるには実施日を入力してください" };
-  if (w.addToCalendar && w.contractType === "CONSTRUCTION" && !w.workStart) return { error: "カレンダーに入れるには工事の開始日を入力してください" };
   if (w.addToCalendar && w.contractType === "CONSTRUCTION" && w.workStart && w.workEnd && occurrenceWorkDays(w.workStart, w.workEnd).length > MAX_GROUP_DAYS) {
     return { error: `カレンダーに一度に入れられるのは${MAX_GROUP_DAYS}日までです（工事の期間を短くしてください）` };
   }
@@ -156,15 +153,15 @@ function normalizeWork(w: Work, categories: Cat[], currentCategory?: string | nu
   };
 }
 
-/** スポット・工事の予定をカレンダーに入れる（日付は normalizeWork で必須にしている）。工事の期間は1日ずつの予定に分ける */
+/** スポット・工事の予定をカレンダーに入れる。工事の期間は1日ずつの予定に分け、日付が無ければ未割当の列に1件 */
 async function createSingleOccurrence(
   tx: Prisma.TransactionClient,
   job: { id: string; propertyId: string; customerId: string; department: string; category: string; headcount: number | null; unitCount: number | null; defaultStartTime: string | null; defaultEndTime: string | null; vehicleId: string | null; amount: number | null },
   w: Work,
   actorId: string,
 ) {
+  // 日付が決まっていなければ、カレンダー左の「未割当」の列に入れる（忘れないように）
   const date = w.contractType === "CONSTRUCTION" ? w.workStart : w.spotDate;
-  if (!date) return;
   const endDate = w.contractType === "CONSTRUCTION" ? w.workEnd : null;
   await createOccurrenceDays(
     tx,
@@ -179,11 +176,11 @@ async function createSingleOccurrence(
       headcount: job.headcount,
       unitCount: job.unitCount,
       amount: job.amount,
-      status: "CONFIRMED",
+      status: date ? "CONFIRMED" : "UNASSIGNED",
       source: "MANUAL",
       createdById: actorId,
     },
-    daysOf(date, endDate),
+    date ? daysOf(date, endDate) : [null],
     { vehicleIds: job.vehicleId ? [job.vehicleId] : [], actorId },
   );
 }

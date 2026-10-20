@@ -23,6 +23,7 @@ import { createNotificationForUsers } from "@/lib/notifications";
 import type { NotificationType } from "@/lib/constants";
 import { fetchOccurrenceView, fetchOccurrenceViews, loadChangeLog, loadGroupSummary, loadUnassigned, loadVehicleUsage, loadWorkerUsage } from "./query";
 import { createOccurrenceDays, daysOf } from "@/lib/occurrence-days";
+import { randomUUID } from "node:crypto";
 import { fmtKeyShort, shiftKey, ymOf } from "./filters";
 import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage, WorkerUsage } from "./types";
 
@@ -250,11 +251,11 @@ export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResu
     await assertCategoryDepartment(input.category, input.department);
     assertCan(me, "occurrence.create", { department: input.department });
     if (input.amount !== undefined && input.amount !== null) assertCan(me, "amount.edit");
-    if (!input.date) throw new ValidationError("日付を入力してください");
-    if (input.endDate && input.endDate < input.date) throw new ValidationError("終了日は開始日以降にしてください");
-    let days: string[];
+    if (input.date && input.endDate && input.endDate < input.date) throw new ValidationError("終了日は開始日以降にしてください");
+    // 日付が無ければ日付未定（未割当の列）で1件
+    let days: (string | null)[];
     try {
-      days = daysOf(input.date, input.endDate);
+      days = input.date ? daysOf(input.date, input.endDate) : [null];
     } catch (e) {
       throw new ValidationError(e instanceof Error ? e.message : "日数が多すぎます");
     }
@@ -300,11 +301,66 @@ export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResu
     const views = await fetchOccurrenceViews(ids, me);
     const first = views[0];
     if (!first) throw new NotFoundError();
-    const range = days.length > 1 ? `${fmtKeyShort(days[0])}〜${fmtKeyShort(days[days.length - 1])}（${days.length}日）` : fmtKeyShort(days[0]);
-    await notify(me, { id: first.id, version: first.version, date: dateFromKey(days[0]), category: first.category }, workerIds, "OCC_ASSIGNED", "予定の担当になりました", `${range} ${first.title}`);
+    const d0 = days[0], dN = days[days.length - 1];
+    const range = !d0 ? "日付未定" : days.length > 1 && dN ? `${fmtKeyShort(d0)}〜${fmtKeyShort(dN)}（${days.length}日）` : fmtKeyShort(d0);
+    await notify(me, { id: first.id, version: first.version, date: d0 ? dateFromKey(d0) : null, category: first.category }, workerIds, "OCC_ASSIGNED", "予定の担当になりました", `${range} ${first.title}`);
     revalidateAll(input.propertyId);
     return { occurrence: first, occurrences: views };
   });
+}
+
+/**
+ * 日付未定だった予定に期間（開始日〜終了日）を入れたとき、1日ずつの予定に分ける。
+ * 元の予定は開始日のまま残し（groupId を付ける）、2日目以降を同じ内容・担当・車両で作る。作った予定の id を返す。
+ */
+async function expandToDays(tx: Tx, id: string, startKey: string, endKey: string, actorId: string): Promise<string[]> {
+  let days: string[];
+  try {
+    days = daysOf(startKey, endKey);
+  } catch (e) {
+    throw new ValidationError(e instanceof Error ? e.message : "日数が多すぎます");
+  }
+  if (days.length <= 1) return [];
+  const src = await tx.occurrence.findUnique({
+    where: { id },
+    include: { assignments: { select: { userId: true } }, vehicles: { select: { vehicleId: true } } },
+  });
+  if (!src) throw new NotFoundError();
+  const groupId = randomUUID();
+  await tx.occurrence.update({ where: { id }, data: { groupId, endDate: null } });
+  const rows = days.slice(1).map((d) => ({
+    id: randomUUID(),
+    jobId: src.jobId,
+    propertyId: src.propertyId,
+    customerId: src.customerId,
+    title: src.title,
+    department: src.department,
+    category: src.category,
+    targetMonth: d.slice(0, 7),
+    date: dateFromKey(d),
+    startTime: src.startTime,
+    endTime: src.endTime,
+    status: src.status,
+    headcount: src.headcount,
+    unitCount: src.unitCount,
+    amount: src.amount,
+    note: src.note,
+    customerNameRaw: src.customerNameRaw,
+    source: src.source,
+    createdById: actorId,
+    groupId,
+  }));
+  await tx.occurrence.createMany({ data: rows });
+  const ids = rows.map((r) => r.id);
+  if (src.assignments.length) {
+    await tx.assignment.createMany({ data: ids.flatMap((occurrenceId) => src.assignments.map((a) => ({ occurrenceId, userId: a.userId, createdById: actorId }))), skipDuplicates: true });
+  }
+  if (src.vehicles.length) {
+    await tx.occurrenceVehicle.createMany({ data: ids.flatMap((occurrenceId) => src.vehicles.map((v) => ({ occurrenceId, vehicleId: v.vehicleId, createdById: actorId }))), skipDuplicates: true });
+  }
+  const reason = `${days[0]}〜${days[days.length - 1]}（${days.length}日）の期間で入れたため1日ずつに分割`;
+  await tx.occurrenceChangeLog.createMany({ data: ids.map((occurrenceId, i) => ({ occurrenceId, actorId, action: "CREATE", toValue: days[i + 1], reason })) });
+  return ids;
 }
 
 // ─────────────────────────── 編集 ───────────────────────────
@@ -353,8 +409,8 @@ export async function updateOccurrence(
         title: input.title || null,
         targetMonth: input.date ? ymOf(input.date) : occ.targetMonth,
         date: input.date ? dateFromKey(input.date) : null,
-        // 連続工事を分けた1日は1日のまま（旧データの複数日工事だけ endDate を持つ）
-        endDate: input.endDate && !occ.groupId ? dateFromKey(input.endDate) : null,
+        // 連続工事を分けた1日は1日のまま。日付未定から期間で入れたときは下で1日ずつに分ける（旧データの複数日工事だけ endDate を持つ）
+        endDate: input.endDate && !occ.groupId && occ.date ? dateFromKey(input.endDate) : null,
         startTime: input.startTime,
         endTime: input.endTime,
         headcount: input.headcount,
@@ -376,16 +432,19 @@ export async function updateOccurrence(
       for (const u of added) await log(tx, id, me.id, { action: "ASSIGN", field: "assignee", toValue: u });
       for (const u of removed) await log(tx, id, me.id, { action: "UNASSIGN", field: "assignee", fromValue: u });
       if (status !== occ.status) await log(tx, id, me.id, { action: "STATUS", field: "status", fromValue: occ.status, toValue: status });
-      return { occ, added, dateChanged, remaining: after.filter((u) => !added.includes(u)) };
-    });
+      // 日付未定だった予定に期間で日付を入れた → 1日ずつに分ける
+      const createdIds = !occ.date && input.date && input.endDate && input.endDate > input.date ? await expandToDays(tx, id, input.date, input.endDate, me.id) : [];
+      return { occ, added, dateChanged, createdIds, remaining: after.filter((u) => !added.includes(u)) };
+    }, { timeout: 30_000 });
 
     const view = await fetchOccurrenceView(id, me);
     if (!view) throw new NotFoundError();
+    const created = result.createdIds.length ? await fetchOccurrenceViews(result.createdIds, me) : [];
     const occRef = { id, version: view.version, date: view.date ? dateFromKey(view.date) : null, category: view.category };
     if (result.added.length) await notify(me, occRef, result.added, "OCC_ASSIGNED", "予定の担当になりました", `${view.date ? fmtKeyShort(view.date) : "日付未定"} ${view.title}`);
     if (result.dateChanged) await notify(me, occRef, result.remaining, "OCC_MOVED", "予定の日付が変わりました", `${view.date ? fmtKeyShort(view.date) : "日付未定"} ${view.title}`);
     revalidateAll(view.property?.id);
-    return { occurrence: view };
+    return { occurrence: view, occurrences: [view, ...created] };
   });
 }
 
@@ -395,9 +454,10 @@ export async function moveOccurrence(
   id: string,
   move: MoveInput,
   expectedVersion: number,
-): Promise<ActionResult<{ occurrence: OccurrenceView; movedIds: string[] }>> {
+): Promise<ActionResult<{ occurrence: OccurrenceView; movedIds: string[]; created: OccurrenceView[] }>> {
   return run(async (me) => {
     if (move.date && !DATE_RE.test(move.date)) throw new ValidationError("日付の形式が正しくありません");
+    if (move.endDate && (!DATE_RE.test(move.endDate) || !move.date || move.endDate < move.date)) throw new ValidationError("終了日は開始日以降にしてください");
     const reason = move.reason?.trim().slice(0, 200) || undefined;
 
     const result = await db.$transaction(async (tx) => {
@@ -490,9 +550,13 @@ export async function moveOccurrence(
         }
       }
 
+      // 日付未定だった予定に期間で日付を入れた → 1日ずつに分ける
+      const createdIds = !oldDate && newDate && move.endDate && move.endDate > newDate ? await expandToDays(tx, id, newDate, move.endDate, me.id) : [];
+
       return {
         occ,
         movedIds,
+        createdIds,
         dateChanged,
         notifyMoved: before.filter((u) => !remove.includes(u) && !add.includes(u)),
         notifyAdded: add,
@@ -506,7 +570,9 @@ export async function moveOccurrence(
     if (result.dateChanged) await notify(me, occRef, result.notifyMoved, "OCC_MOVED", "予定の日付が変わりました", label + (reason ? `（${reason}）` : ""));
     if (result.notifyAdded.length) await notify(me, occRef, result.notifyAdded, "OCC_ASSIGNED", "予定の担当になりました", label);
     revalidateAll(view.property?.id);
-    return { occurrence: view, movedIds: result.movedIds };
+    const createdIds = "createdIds" in result ? (result.createdIds ?? []) : [];
+    const created = createdIds.length ? await fetchOccurrenceViews(createdIds, me) : [];
+    return { occurrence: view, movedIds: result.movedIds, created };
   });
 }
 

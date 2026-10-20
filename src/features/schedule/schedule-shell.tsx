@@ -47,18 +47,20 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
   const dnd = canEdit && !coarse;
   const sensors = useScheduleSensors(dnd);
 
-  // ── ストア（表示範囲の実施回） ──
+  // ── ストア（表示範囲の実施回＋未割当の列） ──
   const initial = useMemo(() => {
     const seen = new Set<string>();
     const out: OccurrenceView[] = [];
-    for (const o of data.occurrences) {
+    for (const o of [...data.occurrences, ...data.unassigned]) {
       if (seen.has(o.id)) continue;
       seen.add(o.id);
       out.push(o);
     }
     return out;
-  }, [data.occurrences]);
+  }, [data.occurrences, data.unassigned]);
   const store = useOccurrenceStore(initial);
+  // 未割当の列に出すのは、日付の決まっていない定期以外の予定（定期の回は予定の追加で選ぶ）
+  const unassigned = useMemo(() => store.items.filter((o) => !o.date && !o.ruleKind && o.status !== "DONE" && o.status !== "CANCELLED"), [store.items]);
   const personById = useMemo(() => new Map<string, PersonRef>(workers.map((w) => [w.id, w])), [workers]);
   const vehicleById = useMemo(() => new Map<string, VehicleRef>(vehicles.map((v) => [v.id, { id: v.id, name: v.name, color: v.color }])), [vehicles]);
 
@@ -162,7 +164,8 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
       setBusy(false);
       if (r.ok) {
         store.commit(o.id, r.data.occurrence);
-        const label = move.date ? fmtKeyShort(move.date) : "未割当";
+        for (const x of r.data.created) store.upsert(x);
+        const label = move.date ? (r.data.created.length ? `${fmtKeyShort(move.date)}〜（${r.data.created.length + 1}日）` : fmtKeyShort(move.date)) : "未割当";
         toast(`${o.title} を ${label} へ移動しました${r.data.movedIds.length ? `（以降 ${r.data.movedIds.length} 回も更新）` : ""}`);
         if (r.data.movedIds.length) router.refresh();
       } else {
@@ -201,6 +204,12 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
     const target = parseDropId(e.over?.id);
     if (!d || !target) return;
     const o = d.occurrence;
+    if (target.kind === "lane") {
+      // 定期の回は未割当の列に出さないので、列へは戻さない
+      if (!o.date || o.ruleKind) return;
+      requestMove(o, { date: null, scope: "ONE" }, { confirmAlways: true });
+      return;
+    }
     if (target.kind === "day") {
       if (o.date === target.date) return;
       requestMove(o, { date: target.date, scope: "ONE" }, { confirmAlways: true });
@@ -379,10 +388,10 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
             <MonthView dateKey={filters.date} byDay={byDay} staffByDay={staffByDay} todayKey={today} coarse={coarse} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "week" && (
-            <WeekView dateKey={filters.date} byDay={byDay} staffByDay={staffByDay} todayKey={today} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
+            <WeekView dateKey={filters.date} byDay={byDay} unassigned={unassigned} staffByDay={staffByDay} todayKey={today} canEdit={canEdit} dnd={dnd} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} onOpenDay={openDay} />
           )}
           {filters.view === "day" && (
-            <DayView dateKey={filters.date} items={byDay.get(filters.date) ?? []} staff={staffByDay.get(filters.date)} canEdit={canEdit} mine={filters.mine} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} />
+            <DayView dateKey={filters.date} items={byDay.get(filters.date) ?? []} unassigned={unassigned} staff={staffByDay.get(filters.date)} canEdit={canEdit} mine={filters.mine} onSelect={(o) => setSelectedId(o.id)} onAdd={openAdd} />
           )}
           {filters.view === "board" && (
             <StaffBoard dateKey={filters.date} items={store.items} workers={workers} todayKey={today} dnd={dnd} dept={filters.dept} onSelect={(o) => setSelectedId(o.id)} />
@@ -467,10 +476,10 @@ export function ScheduleShell({ data }: { data: ScheduleData }) {
         workers={workers}
         onClose={() => setConfirm(null)}
         pending={busy}
-        onConfirm={(scope, reason) => {
+        onConfirm={(scope, reason, endDate) => {
           const r = confirm;
           setConfirm(null);
-          if (r) void performMove(r.occurrence, { ...r.move, scope, reason: reason ?? r.move.reason });
+          if (r) void performMove(r.occurrence, { ...r.move, scope, reason: reason ?? r.move.reason, endDate: endDate ?? r.move.endDate ?? null });
         }}
       />
     </DndContext>

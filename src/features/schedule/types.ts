@@ -115,6 +115,8 @@ export type ActionResult<T = undefined> =
 
 export type MoveInput = {
   date: string | null;
+  /** 日付未定の予定に日付を入れるとき、期間で入れるなら終了日（1日ずつの予定に分ける） */
+  endDate?: string | null;
   workerAdd?: string[];
   workerRemove?: string[];
   scope: "ONE" | "FOLLOWING";
@@ -146,6 +148,8 @@ export type ScheduleData = {
   filters: FilterState;
   range: { start: string; end: string }; // end は排他
   occurrences: OccurrenceView[];
+  /** 未割当の列：日付の決まっていない工事・スポットなど（定期の回は含めない。月の範囲に関係なく全部） */
+  unassigned: OccurrenceView[];
   staffing: StaffingEntry[];
   workers: WorkerOption[];
   vehicles: VehicleOption[];

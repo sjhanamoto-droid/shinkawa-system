@@ -5,6 +5,7 @@ import { DEPARTMENT_LABEL, isDepartment } from "@/lib/constants";
 import { OccurrenceCard } from "./occurrence-card";
 import type { OccurrenceView } from "./types";
 import { StaffCount, type StaffInfo } from "./staff-count";
+import { UnassignedLane } from "./unassigned-lane";
 
 function bandOf(o: OccurrenceView): string {
   if (!o.startTime) return "終日";
@@ -18,6 +19,7 @@ const BAND_ORDER = ["早朝", "日中", "夜間", "終日"];
 export function DayView({
   dateKey,
   items,
+  unassigned,
   staff,
   canEdit,
   mine,
@@ -26,6 +28,7 @@ export function DayView({
 }: {
   dateKey: string;
   items: OccurrenceView[];
+  unassigned: OccurrenceView[];
   staff?: StaffInfo;
   canEdit: boolean;
   mine: boolean;
@@ -93,6 +96,7 @@ export function DayView({
         </section>
       ))}
       {items.length === 0 && <p className="card p-8 text-center text-[15px] text-ink-muted">{mine ? "この日のあなたの予定はありません" : "この日の予定はありません"}</p>}
+      {!mine && canEdit && unassigned.length > 0 && <UnassignedLane items={unassigned} dnd={false} onSelect={onSelect} collapsible />}
     </div>
   );
 }

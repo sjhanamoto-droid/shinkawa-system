@@ -7,12 +7,14 @@ import type { OccurrenceView } from "./types";
 // ドラッグ＆ドロップの ID 規約
 //   draggable: occ:<id>                 data = { occurrence, fromWorkerId? }
 //   droppable: day:<YYYY-MM-DD>         日付列（週ビュー・月セル）
+//              lane                     未割当の列（日付を外す。定期以外）
 //              cell:<userId>:<date>     担当者ボードのセル
 //              cell:unassigned:<date>   担当者ボードの「担当未定」行
 
 export type DragData = { occurrence: OccurrenceView; fromWorkerId?: string | null };
 
 export type DropTarget =
+  | { kind: "lane" }
   | { kind: "day"; date: string }
   | { kind: "cell"; workerId: string | null; date: string };
 
@@ -26,8 +28,11 @@ export function cellDropId(workerId: string | null, date: string): string {
   return `cell:${workerId ?? "unassigned"}:${date}`;
 }
 
+export const LANE_DROP_ID = "lane";
+
 export function parseDropId(id: string | number | undefined): DropTarget | null {
   if (typeof id !== "string") return null;
+  if (id === LANE_DROP_ID) return { kind: "lane" };
   if (id.startsWith("day:")) return { kind: "day", date: id.slice(4) };
   if (id.startsWith("cell:")) {
     const [, worker, date] = id.split(":");

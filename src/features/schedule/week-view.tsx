@@ -10,6 +10,7 @@ import { shiftKey, weekStartOf, weekdayOfKey, WEEKDAY_JA } from "./filters";
 import { toneText } from "./day-heading";
 import type { OccurrenceView } from "./types";
 import { StaffCount, type StaffInfo } from "./staff-count";
+import { UnassignedLane } from "./unassigned-lane";
 
 function DayColumn({
   dateKey,
@@ -84,6 +85,7 @@ function DayColumn({
 export function WeekView({
   dateKey,
   byDay,
+  unassigned,
   staffByDay,
   todayKey,
   canEdit,
@@ -94,6 +96,7 @@ export function WeekView({
 }: {
   dateKey: string;
   byDay: Map<string, OccurrenceView[]>;
+  unassigned: OccurrenceView[];
   staffByDay?: Map<string, StaffInfo>;
   todayKey: string;
   canEdit: boolean;
@@ -108,7 +111,9 @@ export function WeekView({
   return (
     // 列は最小 180px を確保し、画面が狭いときは横スクロールにする（チップの現場名を隠さないため）
     <div className="md:-mx-4 md:overflow-x-auto md:px-4 md:pb-2">
-    <div className="grid grid-cols-1 gap-2 md:grid-cols-[repeat(7,minmax(180px,1fr))]">
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_repeat(7,minmax(180px,1fr))]">
+      {/* 未割当の列（工事・スポットなど。PC は左、スマホは上に折りたたみ） */}
+      <UnassignedLane items={unassigned} dnd={dnd} onSelect={onSelect} className="md:max-h-[calc(100vh-8rem)]" collapsible />
       {days.map((k) => (
         <DayColumn
           key={k}

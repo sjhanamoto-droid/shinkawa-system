@@ -27,15 +27,19 @@ export function MoveConfirmDialog({
   move: MoveInput | null;
   workers: WorkerOption[];
   onClose: () => void;
-  onConfirm: (scope: "ONE" | "FOLLOWING", reason?: string) => void;
+  onConfirm: (scope: "ONE" | "FOLLOWING", reason?: string, endDate?: string | null) => void;
   pending?: boolean;
 }) {
   const [scope, setScope] = useState<"ONE" | "FOLLOWING">("ONE");
   const [reason, setReason] = useState("");
+  const [period, setPeriod] = useState(false);
+  const [endDate, setEndDate] = useState("");
   useEffect(() => {
     if (open) {
       setScope("ONE");
       setReason("");
+      setPeriod(false);
+      setEndDate("");
     }
   }, [open]);
 
@@ -46,6 +50,9 @@ export function MoveConfirmDialog({
   const nameOf = (id: string) => workers.find((w) => w.id === id)?.name ?? id;
   const adds = (move.workerAdd ?? []).map(nameOf);
   const removes = (move.workerRemove ?? []).map(nameOf);
+  // 日付未定の工事・スポットを日付に入れるときは、期間（終了日）も入れられる。1日ずつの予定に分かれる
+  const canPeriod = !o.date && !!move.date && !o.ruleKind && !move.endDate;
+  const periodOk = !period || (!!endDate && !!move.date && endDate >= move.date);
 
   const options: { key: "ONE" | "FOLLOWING"; title: string; desc: string }[] = [
     { key: "ONE", title: "この回だけ", desc: "今回の実施回だけを動かします。定期のルールと他の回は変わりません。" },
@@ -115,13 +122,29 @@ export function MoveConfirmDialog({
         </div>
       )}
 
+      {canPeriod && (
+        <div className="mb-4 space-y-2 rounded-xl border border-line p-3">
+          <label className="flex min-h-[36px] cursor-pointer items-center gap-2 text-[15px] font-semibold text-ink">
+            <input type="checkbox" checked={period} onChange={(e) => setPeriod(e.target.checked)} className="h-4 w-4 rounded border-line-strong text-brand-600" />
+            期間で入れる（連続工事）
+          </label>
+          {period && (
+            <label className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+              {fmtKeyShort(move.date!)} 〜
+              <Input type="date" value={endDate} min={move.date ?? undefined} onChange={(e) => setEndDate(e.target.value)} className="max-w-[12rem]" aria-label="終了日" />
+              <span className="w-full text-xs text-ink-muted">1日ずつの予定に分かれ、日ごとに担当や車両を変えられます</span>
+            </label>
+          )}
+        </div>
+      )}
+
       <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="理由（任意。履歴と通知に残ります）" maxLength={200} className="mb-4" />
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={pending}>
           キャンセル
         </Button>
-        <Button type="button" className="flex-1" onClick={() => onConfirm(recurring ? scope : "ONE", reason.trim() || undefined)} disabled={pending}>
+        <Button type="button" className="flex-1" onClick={() => onConfirm(recurring ? scope : "ONE", reason.trim() || undefined, canPeriod && period ? endDate : null)} disabled={pending || !periodOk}>
           {pending ? "移動中..." : "移動する"}
         </Button>
       </div>
