@@ -28,9 +28,9 @@ export default async function AttendanceUserPage({
 }) {
   const me = await requireUser();
   const { userId } = await params;
-  // 他の人の稼働は最高管理者・事務だけ。本人は自分の分を見られる
+  // 稼働時間は最高管理者・事務だけ（本人の分も含め、ほかの役割には見せない）
   const manager = can(me, "attendance.view");
-  if (!manager && userId !== me.id) notFound();
+  if (!manager) notFound();
   const ym = parseMonthKey((await searchParams).ym, jstMonthKey());
   const data = await userMonthAttendance(userId, ym);
   if (!data) notFound();

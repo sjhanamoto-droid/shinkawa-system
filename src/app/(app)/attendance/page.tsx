@@ -22,7 +22,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const me = await requireUser();
   const ym = parseMonthKey((await searchParams).ym, jstMonthKey());
   // 全員分は最高管理者・事務だけ。それ以外の人は自分の内訳へ
-  if (!can(me, "attendance.view")) redirect(`/attendance/${me.id}?ym=${ym}`);
+  // 稼働時間は最高管理者・事務だけ
+  if (!can(me, "attendance.view")) redirect("/");
   const { rows, totalMinutes, totalDays } = await monthlyAttendance(ym);
 
   return (

@@ -42,7 +42,7 @@ const ENTRIES: NavEntry[] = [
   { item: HOME, bottom: true },
   { item: SCHEDULE, bottom: true },
   { item: REPORTS, bottom: true },
-  { item: ATTENDANCE, bottom: false },
+  { item: ATTENDANCE, action: "attendance.view", bottom: false }, // 稼働時間は最高管理者・事務だけ
   { item: PROPERTIES, bottom: true },
   { item: CUSTOMERS, action: "customer.manage", bottom: true },
   { item: PEOPLE, action: "worker.manage", bottom: false },
