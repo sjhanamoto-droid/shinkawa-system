@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Play } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { PHOTO_KIND_LABEL, type PhotoKind } from "@/lib/constants";
+import { useState } from "react";
+import { Play } from "lucide-react";
 import { photoSrc } from "@/lib/photos";
+import { PhotoLightbox } from "./photo-lightbox";
 
 /**
  * 表示用の写真メタデータ。base64（dataUrl/thumbUrl）は含めない。
@@ -52,32 +51,17 @@ function VideoThumb({ photo }: { photo: PhotoData }) {
 }
 
 export function PhotoGrid({ photos }: { photos: PhotoData[] }) {
-  const [active, setActive] = useState<PhotoData | null>(null);
-  // 端末が形式に対応していないと再生できない（iPhoneのHEVC動画をAndroidで開いた場合など）
-  const [playbackFailed, setPlaybackFailed] = useState(false);
-
-  // ライトボックス表示中は Escape で閉じる
-  useEffect(() => {
-    if (!active) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setActive(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [active]);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   if (photos.length === 0) return null;
 
   return (
     <>
       <div className="grid grid-cols-3 gap-2">
-        {photos.map((p) => (
+        {photos.map((p, i) => (
           <button
             key={p.id}
-            onClick={() => {
-              setPlaybackFailed(false);
-              setActive(p);
-            }}
+            onClick={() => setActiveIndex(i)}
             aria-label={p.caption || (p.isVideo ? "動画を再生" : "写真を拡大")}
             className="group relative aspect-square overflow-hidden rounded-xl bg-surface-sunken active:scale-95"
           >
@@ -110,66 +94,13 @@ export function PhotoGrid({ photos }: { photos: PhotoData[] }) {
         ))}
       </div>
 
-      {active && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={active.caption || (active.isVideo ? "動画" : "写真")}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4 animate-fade-in"
-          onClick={() => setActive(null)}
-        >
-          <button
-            onClick={() => setActive(null)}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white safe-top"
-            aria-label="閉じる"
-          >
-            <X className="h-6 w-6" />
-          </button>
-          {active.isVideo ? (
-            playbackFailed ? (
-              <div
-                className="max-w-sm rounded-xl bg-white p-5 text-center text-sm"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <p className="font-bold text-ink">この端末では再生できませんでした</p>
-                <p className="mt-1.5 text-[12px] text-ink-muted">
-                  iPhoneの「高効率」設定で撮った動画は、Androidやパソコンで再生できないことがあります。
-                </p>
-                <a
-                  href={photoSrc(active.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex rounded-lg bg-brand-500 px-4 py-2 font-bold text-white"
-                >
-                  ダウンロードして開く
-                </a>
-              </div>
-            ) : (
-              <video
-                src={photoSrc(active.id)}
-                controls
-                playsInline
-                preload="metadata"
-                onError={() => setPlaybackFailed(true)}
-                className="max-h-[80vh] max-w-full rounded-xl"
-                onClick={(e) => e.stopPropagation()}
-              />
-            )
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photoSrc(active.id)}
-              alt={active.caption ?? ""}
-              decoding="async"
-              className="max-h-[80vh] max-w-full rounded-xl object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-          )}
-          <div className="mt-3 flex items-center gap-2 text-center text-white" onClick={(e) => e.stopPropagation()}>
-            <Badge tone="neutral">{PHOTO_KIND_LABEL[active.kind as PhotoKind] ?? active.kind}</Badge>
-            {active.caption && <span className="text-sm">{active.caption}</span>}
-          </div>
-        </div>
+      {activeIndex !== null && photos[activeIndex] && (
+        <PhotoLightbox
+          photos={photos}
+          index={activeIndex}
+          onIndexChange={setActiveIndex}
+          onClose={() => setActiveIndex(null)}
+        />
       )}
     </>
   );
