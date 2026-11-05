@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, MapPin, KeyRound, DoorOpen, Phone, CalendarDays, Copy, Repeat, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users, Building2, ChevronRight, ClipboardCheck, UserRound, Wallet, Map as MapIcon } from "lucide-react";
+import { Pencil, MapPin, KeyRound, DoorOpen, Phone, CalendarDays, Copy, Repeat, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users, Building2, ChevronRight, ClipboardCheck, UserRound, Wallet, FilePlus, Map as MapIcon } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser, avatarUrlFor } from "@/lib/session";
 import { can, canEditDepartment, canViewAmounts, isManager } from "@/lib/permissions";
@@ -362,11 +362,18 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         <section className="space-y-2.5">
           <SectionTitle
             action={
-              reports.total > REPORT_LIMIT ? (
-                <Link href={`/reports/all?property=${id}`} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
-                  すべて見る（{reports.total}）
-                </Link>
-              ) : undefined
+              <span className="flex items-center gap-2">
+                {reports.total > REPORT_LIMIT && (
+                  <Link href={`/reports/all?property=${id}`} className="flex min-h-[44px] items-center gap-1 text-xs font-bold text-brand-600">
+                    すべて見る（{reports.total}）
+                  </Link>
+                )}
+                {/* 書き忘れ・担当の入れ忘れなどを、あとから追加する */}
+                <LinkButton href={`/properties/${id}/reports/new`} variant="outline" size="sm">
+                  <FilePlus className="h-4 w-4" />
+                  日報を追加
+                </LinkButton>
+              </span>
             }
           >
             <span className="flex items-baseline gap-2">日報{countLabel(reports.total)}</span>

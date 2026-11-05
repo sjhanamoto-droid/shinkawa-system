@@ -180,8 +180,11 @@ export async function loadOccurrenceReportState(occurrenceId: string): Promise<O
 
 // ─────────────────────────── 新規作成フォーム用 ───────────────────────────
 
-/** 日報フォームの対象（予定と担当者）。担当でなければ null */
-export async function loadReportTarget(occurrenceId: string, userId: string) {
+/**
+ * 日報フォームの対象（予定と担当者）。担当でなければ null。
+ * allowUnassigned：担当に入っていなくても在籍者なら返す（現場詳細からの後追加。保存時に担当へ足す）
+ */
+export async function loadReportTarget(occurrenceId: string, userId: string, opts: { allowUnassigned?: boolean } = {}) {
   const o = await db.occurrence.findUnique({
     where: { id: occurrenceId },
     select: {
@@ -194,7 +197,12 @@ export async function loadReportTarget(occurrenceId: string, userId: string) {
   });
   if (!o || !o.date) return null;
   const a = o.assignments.find((x) => x.userId === userId);
-  if (!a) return null;
+  let worker = a ? { id: a.userId, name: a.user.name, canLogin: a.user.canLogin } : null;
+  if (!worker && opts.allowUnassigned) {
+    const u = await db.user.findFirst({ where: { id: userId, active: true }, select: { id: true, name: true, canLogin: true } });
+    worker = u;
+  }
+  if (!worker) return null;
   return {
     occurrence: {
       id: o.id,
@@ -211,8 +219,68 @@ export async function loadReportTarget(occurrenceId: string, userId: string) {
       property: o.property,
       vehicles: o.vehicles.map((v) => v.vehicle),
     },
-    worker: { id: a.userId, name: a.user.name, canLogin: a.user.canLogin },
+    worker,
+    assigned: !!a,
   };
+}
+
+// ─────────────────────────── 現場詳細からの後追加 ───────────────────────────
+
+export type LateReportOccurrence = {
+  id: string;
+  title: string;
+  category: string;
+  startTime: string | null;
+  endTime: string | null;
+  multiDay: boolean;
+  /** 今日より後の日まで続く予定（担当外の人は後から担当に足せない） */
+  ongoing: boolean;
+  /** 作業者がこの予定の担当に入っているか（入っていなければ保存時に担当へ追加する） */
+  assigned: boolean;
+  /** その作業者・その日の日報がすでにあれば、そのID */
+  existingReportId: string | null;
+};
+
+/** 現場のその日の予定（日報が要るものだけ。複数日の工事は期間内なら含める）と、作業者の日報の有無 */
+export async function loadPropertyOccurrencesOn(propertyId: string, dateKey: string, userId: string): Promise<LateReportOccurrence[]> {
+  const day = dayRangeForKey(dateKey);
+  const rows = await db.occurrence.findMany({
+    where: {
+      propertyId,
+      status: { not: "CANCELLED" },
+      category: { notIn: NON_WORK_CATEGORIES as string[] },
+      date: { not: null, lt: day.lt },
+      OR: [{ date: { gte: day.gte } }, { endDate: { gte: day.gte } }],
+    },
+    select: {
+      ...dueOccurrenceSelect,
+      reports: { where: { userId, workDate: dateFromKey(dateKey) }, select: { id: true } },
+    },
+    orderBy: [{ startTime: "asc" }, { createdAt: "asc" }],
+  });
+  return rows
+    .filter((o) => occurrenceWorkDays(storedDateKey(o.date!), o.endDate ? storedDateKey(o.endDate) : null).includes(dateKey))
+    .map((o) => ({
+      id: o.id,
+      title: occurrenceTitle(o),
+      category: o.category,
+      startTime: o.startTime,
+      endTime: o.endTime,
+      multiDay: !!o.endDate && storedDateKey(o.endDate) > storedDateKey(o.date!),
+      ongoing: (o.endDate ? storedDateKey(o.endDate) : storedDateKey(o.date!)) > jstDateKey(),
+      assigned: o.assignments.some((a) => a.userId === userId),
+      existingReportId: o.reports[0]?.id ?? null,
+    }));
+}
+
+/** 予定に紐付かない現場の日報（その作業者・その日）。DB の一意制約は occurrenceId が空だと効かないので、ここで探す */
+export async function findPropertyOnlyReport(propertyId: string, userId: string, dateKey: string): Promise<string | null> {
+  const r = await db.dailyReport.findFirst({
+    where: { occurrenceId: null, propertyId, userId, workDate: dateFromKey(dateKey) },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return r?.id ?? null;
 }
 
 // ─────────────────────────── 詳細・編集用 ───────────────────────────

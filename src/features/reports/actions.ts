@@ -112,6 +112,10 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
 
   // ── 対象の特定と権限 ──
   let occurrenceId: string | null;
+  /** 予定に紐付かない現場の日報（現場詳細からの後追加）の現場 */
+  let formPropertyId: string | null = null;
+  /** 担当に入っていない予定への後追加。保存時に担当へ追加する */
+  let addAssignee = false;
   let userId: string;
   let workDate: string;
   let existing: { id: string; status: string; submittedAt: Date | null; propertyId: string | null } | null = null;
@@ -129,16 +133,29 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
     existing = r;
   } else {
     occurrenceId = str(fd, "occurrenceId") || null;
+    formPropertyId = occurrenceId ? null : str(fd, "propertyId") || null;
+    addAssignee = !!occurrenceId && str(fd, "addAssignee") === "1";
     userId = str(fd, "userId");
     workDate = str(fd, "workDate");
-    if (!occurrenceId || !userId) return { error: "予定または作業者が指定されていません" };
+    if ((!occurrenceId && !formPropertyId) || !userId) return { error: "予定または作業者が指定されていません" };
     if (!canWriteReportFor(me, userId)) return { error: "この作業者の日報を書く権限がありません" };
-    if (!DATE_RE.test(workDate)) return { fieldErrors: { workDate: "作業日を選んでください" } };
+    // 形だけでなく実在する日付か（2026-02-31 などは Date で繰り上がってしまう）
+    if (!DATE_RE.test(workDate) || storedDateKey(dateFromKey(workDate)) !== workDate) return { fieldErrors: { workDate: "作業日を選んでください" } };
     if (workDate > today) return { fieldErrors: { workDate: "未来の日付では日報を作成できません" } };
-    const found = await db.dailyReport.findUnique({
-      where: { occurrenceId_userId_workDate: { occurrenceId, userId, workDate: dateFromKey(workDate) } },
-      select: { id: true },
-    });
+    if (formPropertyId) {
+      const [property, worker] = await Promise.all([
+        db.property.findUnique({ where: { id: formPropertyId }, select: { id: true } }),
+        db.user.findFirst({ where: { id: userId, active: true }, select: { id: true } }),
+      ]);
+      if (!property) return { error: "現場が見つかりません（削除された可能性があります）" };
+      if (!worker) return { error: "作業者が見つかりません" };
+    }
+    const found = occurrenceId
+      ? await db.dailyReport.findUnique({
+          where: { occurrenceId_userId_workDate: { occurrenceId, userId, workDate: dateFromKey(workDate) } },
+          select: { id: true },
+        })
+      : await findPropertyOnlyReportId(formPropertyId!, userId, workDate);
     if (found) {
       // 別の端末などで先に作られていた場合は上書きしない（写真などを消さないため）。そちらを開いてもらう
       return { error: "この作業日の日報はすでにあります。下のボタンから開いて編集してください。", existingReportId: found.id };
@@ -160,13 +177,17 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         },
       })
     : null;
-  if (!reportId) {
+  if (!reportId && occurrenceId) {
     if (!occ || !occ.date) return { error: "予定が見つかりません（削除された可能性があります）" };
-    if (!occ.assignments.some((a) => a.userId === userId)) return { error: "この予定の担当者ではありません" };
+    if (occ.assignments.some((a) => a.userId === userId)) addAssignee = false;
+    else if (!addAssignee) return { error: "この予定の担当者ではありません" };
+    else if (!(await db.user.findFirst({ where: { id: userId, active: true }, select: { id: true } }))) return { error: "作業者が見つかりません" };
     const dateKey = storedDateKey(occ.date);
     if (!isReportDue({ date: dateKey, status: occ.status, category: occ.category })) return { error: "この予定には日報は不要です（中止・休みなど）" };
     const days = occurrenceWorkDays(dateKey, occ.endDate ? storedDateKey(occ.endDate) : null);
     if (!days.includes(workDate)) return { fieldErrors: { workDate: "予定の作業日ではありません" } };
+    // 後追加で担当に足すのは、もう終わった予定だけ（これからの日まで担当に入ってしまわないように）
+    if (addAssignee && days[days.length - 1] > today) return { error: "この予定はまだ続いているため、後から担当に追加できません。カレンダーで担当に追加してください。" };
   }
 
   // 提出済みは下書きに戻せない（「保存して提出」のみ）
@@ -206,7 +227,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
   const handoverNone = handoverChoice === "no" ? true : handoverChoice === "yes" ? false : null;
   const status = submit ? "SUBMITTED" : "DRAFT";
   // 既存の日報は、書いたときの現場のまま（予定が消えたり別の現場に動いても変えない）
-  const propertyId = existing ? existing.propertyId : (occ?.propertyId ?? null);
+  const propertyId = existing ? existing.propertyId : occurrenceId ? (occ?.propertyId ?? null) : formPropertyId;
   const firstSubmit = submit && existing?.status !== "SUBMITTED";
 
   // ── 保存 ──
@@ -226,6 +247,27 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         status,
         submittedAt: submit ? (existing?.submittedAt ?? new Date()) : null,
       } satisfies Prisma.DailyReportUncheckedUpdateInput;
+
+      // 担当に入っていない予定への後追加：担当に足す（カレンダーの変更履歴に残す。通知はしない）
+      if (addAssignee && occ) {
+        const added = await tx.assignment.createMany({ data: [{ occurrenceId: occ.id, userId, createdById: me.id }], skipDuplicates: true });
+        if (added.count > 0) {
+          await tx.occurrence.update({ where: { id: occ.id }, data: { version: { increment: 1 } } });
+          await tx.occurrenceChangeLog.create({
+            data: { occurrenceId: occ.id, actorId: me.id, action: "ASSIGN", field: "assignee", toValue: userId, reason: "日報の後追加で担当に追加" },
+          });
+        }
+      }
+
+      // 予定に紐付かない現場の日報は DB の一意制約が効かないので、現場の行をロックしてから確認し直す
+      if (!existing && formPropertyId) {
+        await tx.$queryRaw`SELECT id FROM "Property" WHERE id = ${formPropertyId} FOR UPDATE`;
+        const dup = await tx.dailyReport.findFirst({
+          where: { occurrenceId: null, propertyId: formPropertyId, userId, workDate: dateFromKey(workDate) },
+          select: { id: true },
+        });
+        if (dup) throw new DuplicateReportError(dup.id);
+      }
 
       const report = existing
         ? await tx.dailyReport.update({ where: { id: existing.id }, data, select: { id: true } })
@@ -378,6 +420,9 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
     removedBlobs = result.gone;
     completed = result.done;
   } catch (e) {
+    if (e instanceof DuplicateReportError) {
+      return { error: "この作業日の日報はすでにあります。下のボタンから開いて編集してください。", existingReportId: e.reportId };
+    }
     // 同じ日報が同時に新規作成された（ユニーク制約）→ 先にできた方を開いてもらう
     if (!existing && occurrenceId && typeof e === "object" && e && "code" in e && (e as { code?: string }).code === "P2002") {
       const dup = await db.dailyReport.findUnique({
@@ -417,4 +462,18 @@ export async function getOccurrenceReportState(occurrenceId: string): Promise<Ac
   await requireUser();
   const state = await loadOccurrenceReportState(occurrenceId);
   return { ok: true, data: { state } };
+}
+
+/** 予定に紐付かない現場の日報（その作業者・その日）があるか。occurrenceId が空だと DB の一意制約が効かないため */
+async function findPropertyOnlyReportId(propertyId: string, userId: string, workDate: string) {
+  return db.dailyReport.findFirst({
+    where: { occurrenceId: null, propertyId, userId, workDate: dateFromKey(workDate) },
+    select: { id: true },
+  });
+}
+
+class DuplicateReportError extends Error {
+  constructor(readonly reportId: string) {
+    super("duplicate report");
+  }
 }

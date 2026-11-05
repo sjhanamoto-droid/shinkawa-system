@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, CalendarDays, Camera, Car, ClipboardList, Clock, PenLine, Send, Save, Sparkles, UserCheck, Wallet, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CalendarDays, Camera, Car, ClipboardList, Clock, PenLine, Send, Save, Sparkles, UserCheck, UserPlus, Wallet, X } from "lucide-react";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Field, Select, Textarea } from "@/components/ui/form";
 import { CategoryBadge } from "@/components/ui/badge";
@@ -44,6 +44,10 @@ export type ReportFormProps = {
     vehicles: { id: string; name: string; color: string }[];
   };
   worker: { id: string; name: string };
+  /** 予定に紐付かない現場の日報（現場詳細からの後追加）。occurrence.id は空 */
+  propertyId?: string;
+  /** 担当に入っていない予定への後追加。保存時に担当へ追加する（通知はしない） */
+  addAssignee?: boolean;
   proxy: boolean; // 自分以外の分（代理入力）
   workDays: string[]; // 選べる作業日（新規のみ。1つなら固定）
   initial: ReportFormValues;
@@ -152,14 +156,14 @@ function ChoiceToggle({ name, value, onChange, labels = ["あり", "なし"] }: 
 }
 
 export function ReportForm(props: ReportFormProps) {
-  const { reportId, submitted, occurrence: o, worker, proxy, workDays, initialPhotos, blobEnabled, aiEnabled } = props;
+  const { reportId, submitted, occurrence: o, worker, propertyId, addAssignee, proxy, workDays, initialPhotos, blobEnabled, aiEnabled } = props;
   const [aiOpen, setAiOpen] = useState(false);
   const toast = useToast();
   const [state, formAction] = useActionState<ReportFormState, FormData>(saveReport, {});
   const [v, setV] = useState<ReportFormValues>(props.initial);
   const set = <K extends keyof ReportFormValues>(k: K, val: ReportFormValues[K]) => setV((prev) => ({ ...prev, [k]: val }));
 
-  const storageKey = reportId ? `shinkawa:report:v2:edit:${reportId}` : `shinkawa:report:v2:new:${o.id}:${worker.id}:${v.workDate}`;
+  const storageKey = reportId ? `shinkawa:report:v2:edit:${reportId}` : `shinkawa:report:v2:new:${o.id || `property:${propertyId}`}:${worker.id}:${v.workDate}`;
   const pendingKey = `${storageKey}:pending`;
   const [restore, setRestore] = useState<ReportFormValues | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -246,7 +250,8 @@ export function ReportForm(props: ReportFormProps) {
     >
       {reportId ? <input type="hidden" name="reportId" value={reportId} /> : (
         <>
-          <input type="hidden" name="occurrenceId" value={o.id} />
+          {o.id ? <input type="hidden" name="occurrenceId" value={o.id} /> : <input type="hidden" name="propertyId" value={propertyId ?? ""} />}
+          {addAssignee && <input type="hidden" name="addAssignee" value="1" />}
           <input type="hidden" name="userId" value={worker.id} />
         </>
       )}
@@ -287,10 +292,10 @@ export function ReportForm(props: ReportFormProps) {
       <div className="card p-4 md:p-5">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink-muted">
           <ClipboardList className="h-4 w-4 shrink-0" />
-          予定（自動入力）
+          {o.id || reportId ? "予定（自動入力）" : "現場（予定に紐付けない日報）"}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <CategoryBadge category={o.category} />
+          {(o.id || reportId) && <CategoryBadge category={o.category} />}
           {proxy && (
             <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-bold text-violet-700">
               <UserCheck className="h-3.5 w-3.5" />
@@ -316,6 +321,12 @@ export function ReportForm(props: ReportFormProps) {
                 {o.vehicles.map((x) => x.name).join("・")}
               </span>
             )}
+          </p>
+        )}
+        {addAssignee && (
+          <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+            <UserPlus className="h-4 w-4 shrink-0" />
+            {worker.name} さんはこの予定の担当に入っていません。保存すると担当に追加されます（通知は送りません）。
           </p>
         )}
         {o.note && <p className="mt-3 whitespace-pre-wrap rounded-xl bg-surface-subtle px-3.5 py-3 text-sm text-ink-soft">{o.note}</p>}
@@ -501,7 +512,9 @@ export function ReportForm(props: ReportFormProps) {
 
       <SubmitButtons submitted={submitted} uploading={uploading} />
       <p className="text-center text-sm text-ink-muted">
-        {submitted ? "提出済みの日報を修正して、もう一度提出します。" : "提出すると管理者が内容を確認できるようになります。提出すると、予定は自動で「完了」になります。"}
+        {submitted ? "提出済みの日報を修正して、もう一度提出します。" : o.id
+            ? "提出すると管理者が内容を確認できるようになります。提出すると、予定は自動で「完了」になります。"
+            : "提出すると管理者が内容を確認できるようになります。"}
       </p>
     </form>
   );
