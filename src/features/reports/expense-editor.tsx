@@ -88,7 +88,7 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
 }
 
 /** 写真を圧縮して保存用の形にする。Blob が使えればアップロードまで済ませる */
-async function prepareReceipt(file: File, blobEnabled: boolean): Promise<{ receipt: ReceiptRef; dataUrl: string }> {
+export async function prepareReceipt(file: File, blobEnabled: boolean): Promise<{ receipt: ReceiptRef; dataUrl: string }> {
   const img = await loadImage(file);
   const main = draw(img, MAX_DIM, 0.8);
   const thumb = draw(img, THUMB_DIM, 0.6);

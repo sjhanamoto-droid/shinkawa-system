@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { AlertTriangle, Building, CalendarDays, Car, ChevronRight, Clock, MessageSquare, Pencil, Printer, UserCheck, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { canEditReport, fmtTimeRange, fmtWorkHours, workMinutes } from "@/lib/reports";
-import { cn, fmtYen } from "@/lib/utils";
-import { photoSrc } from "@/lib/photos";
+import { cn } from "@/lib/utils";
 import { jstDateTimeLabel } from "@/lib/date";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
@@ -18,6 +17,8 @@ import { fmtKeyLong } from "@/features/schedule/filters";
 import { loadReport } from "@/features/reports/queries";
 import { ReportCommentForm } from "@/features/reports/comment-form";
 import { ReportStatusBadge } from "@/features/reports/report-items";
+import { ReportExpenseList } from "@/features/reports/report-expense-list";
+import { isBlobConfigured } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -168,36 +169,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                   経費
                 </span>
               </SectionTitle>
-              <Card className="divide-y divide-line overflow-hidden text-sm">
-                {r.expenseLines.length === 0 && <p className="px-4 py-3 text-ink-muted">経費はありません</p>}
-                {r.expenseLines.map((e) => (
-                  <div key={e.key} className="flex items-center gap-3 px-4 py-3">
-                    {e.receiptPhotoId ? (
-                      <a href={photoSrc(e.receiptPhotoId)} target="_blank" rel="noreferrer" className="shrink-0" aria-label="領収書を開く">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={photoSrc(e.receiptPhotoId, true)} alt="領収書" className="h-12 w-10 rounded border border-line object-cover" />
-                      </a>
-                    ) : (
-                      <span className="flex h-12 w-10 shrink-0 items-center justify-center rounded border border-dashed border-line text-[10px] text-ink-faint">なし</span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-ink">{e.categoryLabel}</span>
-                      {(e.paidOn || e.label || e.ocr) && (
-                        <span className="block truncate text-xs text-ink-muted">
-                          {e.paidOn && <span className="mr-1.5 tnum">{e.paidOn}</span>}
-                          {e.label}
-                          {e.ocr && <span className="ml-1 text-emerald-700">（領収書から読み取り）</span>}
-                        </span>
-                      )}
-                    </span>
-                    <span className="font-semibold tnum text-ink">{fmtYen(e.amount)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between bg-surface-subtle px-4 py-3 font-bold">
-                  <span>合計</span>
-                  <span className="tnum">{fmtYen(r.expenseTotal)}</span>
-                </div>
-              </Card>
+              <ReportExpenseList reportId={r.id} lines={r.expenseLines} total={r.expenseTotal} canEdit={canEdit} blobEnabled={isBlobConfigured()} />
             </section>
           )}
 

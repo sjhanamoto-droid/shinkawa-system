@@ -33,6 +33,7 @@ export type Action =
   | "claim.manage"
   | "catalog.manage"
   | "attendance.view"
+  | "expense.view"
   | "amount.view"
   | "amount.edit";
 
@@ -148,6 +149,7 @@ export function can(a: Actor | null | undefined, action: Action, resource?: Reso
     case "claim.manage":
     case "catalog.manage":
     case "attendance.view":
+    case "expense.view": // 現場ごとの経費集計（他人の経費も合算されるため金額を見られる人と同じ範囲）
       return isManager(a);
 
     case "amount.view":

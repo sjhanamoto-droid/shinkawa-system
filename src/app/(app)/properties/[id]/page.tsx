@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, MapPin, KeyRound, DoorOpen, Phone, CalendarDays, Copy, Repeat, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users, Building2, ChevronRight, ClipboardCheck, UserRound, Map as MapIcon } from "lucide-react";
+import { Pencil, MapPin, KeyRound, DoorOpen, Phone, CalendarDays, Copy, Repeat, Camera, Info, StickyNote, AlertTriangle, ExternalLink, Users, Building2, ChevronRight, ClipboardCheck, UserRound, Wallet, Map as MapIcon } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser, avatarUrlFor } from "@/lib/session";
 import { can, canEditDepartment, canViewAmounts, isManager } from "@/lib/permissions";
@@ -27,6 +27,8 @@ import { getCategories } from "@/lib/categories-server";
 import { cn, mapSearchUrl } from "@/lib/utils";
 import { loadPropertyReports } from "@/features/reports/queries";
 import { ReportListRow } from "@/features/reports/report-items";
+import { loadPropertyExpenseItems } from "@/features/expenses/queries";
+import { PropertyExpensesTab } from "@/features/expenses/property-expenses-tab";
 
 const MEMO_LIMIT = 30;
 const REPORT_LIMIT = 30;
@@ -90,14 +92,16 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
   // メモ・引き継ぎの投稿者
   const authorIds = Array.from(new Set([...property.memos.map((m) => m.createdById), ...property.handovers.flatMap((h) => [h.createdById, h.resolvedById])].filter((x): x is string => !!x)));
-  // この現場の日報（全員が見られる）と、日報で上げた写真（領収書は除く）
-  const [reports, reportPhotos] = await Promise.all([
+  // この現場の日報（全員が見られる）と、日報で上げた写真（領収書は除く）、経費（最高管理者・事務のみ）
+  const showExpenses = can(user, "expense.view");
+  const [reports, reportPhotos, expenseItems] = await Promise.all([
     loadPropertyReports(id, REPORT_LIMIT),
     db.photo.findMany({
       where: { report: { propertyId: id }, kind: { not: "RECEIPT" } },
       select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true },
       orderBy: { createdAt: "desc" },
     }),
+    showExpenses ? loadPropertyExpenseItems(user, id) : Promise.resolve([]),
   ]);
   const authorRows = await db.user.findMany({ where: { id: { in: [...authorIds, user.id] } }, select: { id: true, name: true, avatarColor: true, avatarImage: true, updatedAt: true } });
   const authors: Record<string, PropertyMemoAuthor> = {};
@@ -553,6 +557,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           { id: "basic", label: "基本情報", icon: <Info className="h-4 w-4" />, count: openHandovers.length, alert: openHandovers.length > 0, content: basicTab },
           { id: "photos", label: "写真・図面", icon: <Camera className="h-4 w-4" />, count: property.photos.length + reportPhotos.length, content: photosTab },
           { id: "memo", label: "メモ・引き継ぎ", icon: <StickyNote className="h-4 w-4" />, count: property._count.memos, content: memoTab },
+          ...(showExpenses
+            ? [{ id: "expenses", label: "経費", icon: <Wallet className="h-4 w-4" />, count: expenseItems.length, content: <PropertyExpensesTab propertyId={id} items={expenseItems} /> }]
+            : []),
         ]}
       />
       <div className="mx-auto w-full max-w-7xl px-4 pb-6 md:px-8">

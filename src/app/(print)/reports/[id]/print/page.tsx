@@ -11,7 +11,7 @@ import { jstDateKey, jstDateTimeLabel } from "@/lib/date";
 import { photoSrc } from "@/lib/photos";
 import { fmtKeyLong } from "@/features/schedule/filters";
 import { loadReport } from "@/features/reports/queries";
-import { PrintToolbar } from "./print-toolbar";
+import { PrintToolbar } from "@/components/print-toolbar";
 
 export const dynamic = "force-dynamic";
 
