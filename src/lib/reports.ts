@@ -4,7 +4,7 @@
 // - 書くのは担当者本人。ログインしない作業者の分などは最高管理者・事務が代理で書ける。
 // - 日報（と写真）はログインしている全員が見られる（現場の詳細に、その現場の日報と写真が全員分たまる）。
 //   経費は本人・入力者・最高管理者・事務だけ（手配担当・ほかのスタッフには見せない）。
-// - 担当者のうち1人でも「最終日」の日報を提出したら、実施回を自動で完了にする（完了ボタンは置かない）。
+// - 担当者全員が「最終日」の日報を提出したら、実施回を自動で完了にする（完了ボタンは置かない）。
 
 import { isManager, isPlanner, type Actor } from "./permissions";
 import { NON_WORK_CATEGORIES } from "./constants";
@@ -83,8 +83,8 @@ export function isReportDue(o: { date: string | null; status: string; category: 
 }
 
 /**
- * 自動で完了にするか。担当者が1人以上いて、そのうち1人でも最終日の日報を提出済みで、
- * まだ完了・中止になっていないとき true。
+ * 自動で完了にするか。担当者が1人以上いて、担当者全員が最終日の日報を提出済みで、
+ * まだ完了・中止になっていないとき true（日報は担当者それぞれが書く。勤怠を兼ねるため）。
  */
 export function shouldAutoComplete(input: {
   status: string;
@@ -94,7 +94,64 @@ export function shouldAutoComplete(input: {
   if (input.status === "DONE" || input.status === "CANCELLED") return false;
   if (input.assigneeIds.length === 0) return false;
   const submitted = new Set(input.submittedOnLastDay);
-  return input.assigneeIds.some((id) => submitted.has(id));
+  return input.assigneeIds.every((id) => submitted.has(id));
+}
+
+// ─────────────────────────── 入力の記録（稼働時間の確認用） ───────────────────────────
+
+/** 作業日からこの日数以上たって提出された日報を「後から入力」とする（翌日の提出は夜間作業・帰宅後もあるので普通） */
+export const LATE_ENTRY_DAYS = 2;
+
+/** 'HH:mm'（日本時間） */
+function jstTime(d: Date): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+}
+
+function jstKey(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
+function keyDiffDays(fromKey: string, toKey: string): number {
+  const [y1, m1, d1] = fromKey.split("-").map(Number);
+  const [y2, m2, d2] = toKey.split("-").map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);
+}
+
+export type ReportEntryFlags = {
+  /** 提出したのが作業日の何日後か（未提出は null） */
+  delayDays: number | null;
+  /** 作業日から LATE_ENTRY_DAYS 日以上たって提出 */
+  late: boolean;
+  /** 作業日の当日、日報の終了時刻より前に提出（日付をまたぐ作業は除く） */
+  beforeEnd: boolean;
+  /** 提出後に開始・終了時刻を直した回数 */
+  timeEdits: number;
+};
+
+/**
+ * 日報の入力日時から、管理者が確認したほうがよい点を出す。
+ * 「終了前に提出」は提出したときの時刻で見る（提出後に時刻を直していれば、最初の修正の「直す前」が提出時の時刻）
+ */
+export function reportEntryFlags(r: {
+  workDateKey: string;
+  startTime: string;
+  endTime: string;
+  submittedAt: Date | null;
+  timeEdits: number;
+  firstEdit?: { fromStart: string; fromEnd: string } | null;
+}): ReportEntryFlags {
+  if (!r.submittedAt) return { delayDays: null, late: false, beforeEnd: false, timeEdits: r.timeEdits };
+  const submittedKey = jstKey(r.submittedAt);
+  const delayDays = keyDiffDays(r.workDateKey, submittedKey);
+  const start = r.firstEdit?.fromStart ?? r.startTime;
+  const end = r.firstEdit?.fromEnd ?? r.endTime;
+  const beforeEnd = delayDays <= 0 && !crossesMidnight(start, end) && jstTime(r.submittedAt) < end;
+  return { delayDays, late: delayDays >= LATE_ENTRY_DAYS, beforeEnd, timeEdits: r.timeEdits };
+}
+
+/** 確認したほうがよい点があるか */
+export function needsEntryCheck(f: ReportEntryFlags): boolean {
+  return f.late || f.beforeEnd || f.timeEdits > 0;
 }
 
 /** 終了が開始より前＝日付をまたぐ夜間作業（終了は翌日の時刻） */

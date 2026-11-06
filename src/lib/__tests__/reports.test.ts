@@ -17,6 +17,8 @@ import {
   canEditReport,
   canSeeReportExpenses,
   canViewAllReports,
+  reportEntryFlags,
+  needsEntryCheck,
 } from "@/lib/reports";
 import type { Actor } from "@/lib/permissions";
 
@@ -53,8 +55,9 @@ describe("reports: 自動完了", () => {
   it("全員提出で完了", () => {
     expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["b", "a"] })).toBe(true);
   });
-  it("担当者のうち1人でも提出すれば完了", () => {
-    expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["a"] })).toBe(true);
+  it("担当者のうち1人だけの提出では完了しない（全員が書く）", () => {
+    expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["a"] })).toBe(false);
+    expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["a", "c"] })).toBe(false);
   });
   it("担当者以外の提出だけでは完了しない", () => {
     expect(shouldAutoComplete({ status: "CONFIRMED", assigneeIds: ["a", "b"], submittedOnLastDay: ["c"] })).toBe(false);
@@ -148,5 +151,37 @@ describe("経費の利用日", () => {
     expect(fmtExpenseDate("2026-09-06")).toBe("9/6");
     expect(fmtExpenseDate(null)).toBe("");
     expect(fmtExpenseDate("bad")).toBe("");
+  });
+});
+
+describe("reports: 入力の記録", () => {
+  // 日本時間で指定する
+  const at = (s: string) => new Date(`${s}+09:00`);
+  const base = { workDateKey: "2026-11-02", startTime: "09:00", endTime: "17:00", timeEdits: 0 };
+  it("当日の終了後・翌日の提出は問題なし", () => {
+    const same = reportEntryFlags({ ...base, submittedAt: at("2026-11-02T17:30:00") });
+    expect(same).toEqual({ delayDays: 0, late: false, beforeEnd: false, timeEdits: 0 });
+    expect(needsEntryCheck(same)).toBe(false);
+    expect(reportEntryFlags({ ...base, submittedAt: at("2026-11-03T08:00:00") }).late).toBe(false);
+  });
+  it("2日以上あとの提出は後から入力", () => {
+    const f = reportEntryFlags({ ...base, submittedAt: at("2026-11-04T10:00:00") });
+    expect(f.delayDays).toBe(2);
+    expect(f.late).toBe(true);
+    expect(needsEntryCheck(f)).toBe(true);
+  });
+  it("当日、終了時刻より前の提出は印を付ける（日付をまたぐ作業は除く）", () => {
+    expect(reportEntryFlags({ ...base, submittedAt: at("2026-11-02T15:00:00") }).beforeEnd).toBe(true);
+    expect(reportEntryFlags({ ...base, startTime: "22:00", endTime: "05:00", submittedAt: at("2026-11-02T23:00:00") }).beforeEnd).toBe(false);
+    // 日本時間の深夜0時台（UTCでは前日）でも、日付は日本時間で数える
+    expect(reportEntryFlags({ ...base, submittedAt: at("2026-11-03T00:30:00") }).delayDays).toBe(1);
+  });
+  it("提出後に終了時刻を早めても、提出したときの時刻で判定する", () => {
+    const f = reportEntryFlags({ ...base, endTime: "14:50", submittedAt: at("2026-11-02T15:00:00"), timeEdits: 1, firstEdit: { fromStart: "09:00", fromEnd: "17:00" } });
+    expect(f.beforeEnd).toBe(true);
+  });
+  it("未提出は印なし、時刻の修正は回数で出す", () => {
+    expect(reportEntryFlags({ ...base, submittedAt: null }).delayDays).toBeNull();
+    expect(needsEntryCheck(reportEntryFlags({ ...base, submittedAt: at("2026-11-02T18:00:00"), timeEdits: 1 }))).toBe(true);
   });
 });

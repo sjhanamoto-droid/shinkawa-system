@@ -23,6 +23,7 @@ import { createNotificationForUsers } from "@/lib/notifications";
 import type { NotificationType } from "@/lib/constants";
 import { fetchOccurrenceView, fetchOccurrenceViews, loadChangeLog, loadGroupSummary, loadUnassigned, loadVehicleUsage, loadWorkerUsage } from "./query";
 import { createOccurrenceDays, daysOf } from "@/lib/occurrence-days";
+import { completeIfAllSubmitted } from "@/features/reports/auto-complete";
 import { randomUUID } from "node:crypto";
 import { fmtKeyShort, shiftKey, ymOf } from "./filters";
 import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage, WorkerUsage } from "./types";
@@ -432,6 +433,8 @@ export async function updateOccurrence(
       for (const u of added) await log(tx, id, me.id, { action: "ASSIGN", field: "assignee", toValue: u });
       for (const u of removed) await log(tx, id, me.id, { action: "UNASSIGN", field: "assignee", fromValue: u });
       if (status !== occ.status) await log(tx, id, me.id, { action: "STATUS", field: "status", fromValue: occ.status, toValue: status });
+      // 日報を出していない担当者を外したら、残った全員が提出済みかを見直す
+      if (removed.length) await completeIfAllSubmitted(tx, id, me.id, "担当者を外し、残った担当者全員の日報が提出済みのため自動で完了");
       // 日付未定だった予定に期間で日付を入れた → 1日ずつに分ける
       const createdIds = !occ.date && input.date && input.endDate && input.endDate > input.date ? await expandToDays(tx, id, input.date, input.endDate, me.id) : [];
       return { occ, added, dateChanged, createdIds, remaining: after.filter((u) => !added.includes(u)) };
@@ -506,6 +509,7 @@ export async function moveOccurrence(
       for (const u of add) await log(tx, id, me.id, { action: "ASSIGN", field: "assignee", toValue: u, reason });
       for (const u of remove) await log(tx, id, me.id, { action: "UNASSIGN", field: "assignee", fromValue: u, reason });
       if (status !== occ.status) await log(tx, id, me.id, { action: "STATUS", field: "status", fromValue: occ.status, toValue: status });
+      if (remove.length) await completeIfAllSubmitted(tx, id, me.id, "担当者を外し、残った担当者全員の日報が提出済みのため自動で完了");
 
       // ── 以降の定期もまとめて動かす ──
       const movedIds: string[] = [];
@@ -642,6 +646,7 @@ export async function assignWorkers(
       for (const u of added) await log(tx, id, me.id, { action: "ASSIGN", field: "assignee", toValue: u });
       for (const u of removed) await log(tx, id, me.id, { action: "UNASSIGN", field: "assignee", fromValue: u });
       if (status !== occ.status) await log(tx, id, me.id, { action: "STATUS", field: "status", fromValue: occ.status, toValue: status });
+      if (removed.length) await completeIfAllSubmitted(tx, id, me.id, "担当者を外し、残った担当者全員の日報が提出済みのため自動で完了");
       return { occ, added };
     });
     const view = await fetchOccurrenceView(id, me);

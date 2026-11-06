@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { addDaysKey, dateFromKey, dayRangeForKey, jstDateKey, storedDateKey } from "@/lib/date";
 import { NON_WORK_CATEGORIES } from "@/lib/constants";
-import type { Actor } from "@/lib/permissions";
+import { can, type Actor } from "@/lib/permissions";
 import { avatarUrlFor } from "@/lib/session";
 import {
   MISSING_LOOKBACK_DAYS,
@@ -14,6 +14,7 @@ import {
   isExpenseCategory,
   isReportStatus,
   occurrenceWorkDays,
+  reportEntryFlags,
   type ReportStatus,
 } from "@/lib/reports";
 import { occurrenceTitle } from "@/features/schedule/query";
@@ -332,15 +333,32 @@ export async function loadReport(id: string, actor: Actor) {
         select: { id: true, body: true, createdAt: true, user: { select: { id: true, name: true, avatarColor: true, avatarImage: true, updatedAt: true } } },
         orderBy: { createdAt: "asc" },
       },
+      timeLogs: {
+        select: { id: true, fromStart: true, fromEnd: true, toStart: true, toEnd: true, createdAt: true, changedBy: { select: { name: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   if (!r) return null;
   const owner = { userId: r.userId, createdById: r.createdById };
   if (!canViewReport(actor, owner)) return null;
   const showExpenses = canSeeReportExpenses(actor, owner);
+  const workDateKey = storedDateKey(r.workDate);
+  // 入力の記録（いつ入力・提出したか、提出後の時刻の修正）は、稼働時間を見られる人（最高管理者・事務）だけ
+  const entryRecord = can(actor, "attendance.view")
+    ? {
+        createdAt: r.createdAt,
+        submittedAt: r.submittedAt,
+        updatedAt: r.updatedAt,
+        timeLogs: r.timeLogs.map((l) => ({ id: l.id, from: [l.fromStart, l.fromEnd] as const, to: [l.toStart, l.toEnd] as const, at: l.createdAt, by: l.changedBy?.name ?? "（削除された人）" })),
+        flags: reportEntryFlags({ workDateKey, startTime: r.startTime, endTime: r.endTime, submittedAt: r.submittedAt, timeEdits: r.timeLogs.length, firstEdit: r.timeLogs[0] ?? null }),
+      }
+    : null;
   return {
     ...r,
-    workDateKey: storedDateKey(r.workDate),
+    timeLogs: undefined,
+    entryRecord,
+    workDateKey,
     status: isReportStatus(r.status) ? r.status : ("DRAFT" as ReportStatus),
     user: { id: r.user.id, name: r.user.name, avatarColor: r.user.avatarColor, avatarUrl: avatarUrlFor(r.user), canLogin: r.user.canLogin },
     occurrenceTitle: r.occurrence ? occurrenceTitle(r.occurrence) : (r.property?.name ?? "予定"),

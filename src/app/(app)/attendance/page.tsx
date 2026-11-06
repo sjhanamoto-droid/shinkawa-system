@@ -76,6 +76,9 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-bold text-ink">{r.name}</p>
                       {r.kind !== "EMPLOYEE" && <p className="text-sm text-ink-muted">{WORKER_KIND_LABEL[r.kind as WorkerKind] ?? r.kind}</p>}
+                      {r.checkCount > 0 && (
+                        <p className="mt-0.5 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800 tnum">要確認 {r.checkCount}件</p>
+                      )}
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-base font-bold text-ink tnum">{fmtWorkHours(r.minutes)}</p>
@@ -91,6 +94,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           <p className="px-1 text-xs leading-relaxed text-ink-muted">
             稼働時間は、提出済みの日報の「作業開始〜終了」を足したものです（下書きの日報は入りません）。代理入力した日報も本人の稼働に入ります。
             同じ日に複数の日報がある場合、日数は1日として数えます。
+            「要確認」は、後から入力（作業日の2日以上あと）・当日の終了時刻より前の提出・提出後の時刻の修正があった日報の件数です。
           </p>
         </div>
       </PageContainer>

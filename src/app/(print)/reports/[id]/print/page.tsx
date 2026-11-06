@@ -41,7 +41,8 @@ export default async function ReportPrintPage({ params }: { params: Promise<{ id
             <p className="mt-1">作業日：{fmtKeyLong(r.workDateKey)}</p>
             <p className="text-[11px] text-slate-600">
               {REPORT_STATUS_LABEL[r.status]}
-              {r.submittedAt && `（提出 ${jstDateTimeLabel(r.submittedAt)}）`}
+              {/* 提出日時は入力の記録として、最高管理者・事務だけ */}
+              {r.entryRecord?.submittedAt && `（提出 ${jstDateTimeLabel(r.entryRecord.submittedAt)}）`}
             </p>
           </div>
           <div className="text-right text-[11px]">

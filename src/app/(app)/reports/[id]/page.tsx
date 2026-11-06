@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, Building, CalendarDays, Car, ChevronRight, Clock, MessageSquare, Pencil, Printer, UserCheck, Wallet } from "lucide-react";
+import { AlertTriangle, Building, CalendarDays, Car, ChevronRight, Clock, History, MessageSquare, Pencil, Printer, UserCheck, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { canEditReport, fmtTimeRange, fmtWorkHours, workMinutes } from "@/lib/reports";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ import { loadReport } from "@/features/reports/queries";
 import { ReportCommentForm } from "@/features/reports/comment-form";
 import { ReportStatusBadge } from "@/features/reports/report-items";
 import { ReportExpenseList } from "@/features/reports/report-expense-list";
+import { EntryFlagBadges, EntryRecord } from "@/features/reports/entry-record";
 import { isBlobConfigured } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +107,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                 </span>
               )}
             </div>
-            {r.submittedAt && <p className="mt-1.5 text-xs text-ink-faint">提出：{jstDateTimeLabel(r.submittedAt)}</p>}
+            {r.entryRecord && <EntryFlagBadges flags={r.entryRecord.flags} className="mt-2" />}
 
             {canEdit && (
               <LinkButton href={`/reports/${id}/edit`} size="lg" className="relative mt-4 w-full">
@@ -178,6 +179,19 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             <section className="space-y-2.5">
               <SectionTitle action={<span className="text-sm font-semibold text-ink-muted tnum">{r.photos.length}件</span>}>写真</SectionTitle>
               <PhotoGrid photos={r.photos} />
+            </section>
+          )}
+
+          {/* 入力の記録（最高管理者・事務だけ） */}
+          {r.entryRecord && (
+            <section className="space-y-2.5">
+              <SectionTitle>
+                <span className="flex items-center gap-1.5">
+                  <History className="h-5 w-5" />
+                  入力の記録
+                </span>
+              </SectionTitle>
+              <EntryRecord record={r.entryRecord} />
             </section>
           )}
 

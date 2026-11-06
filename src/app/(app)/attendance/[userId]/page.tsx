@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { CategoryBadge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/misc";
 import { MonthNav } from "@/features/attendance/month-nav";
+import { EntryFlagBadges } from "@/features/reports/entry-record";
 import { userMonthAttendance } from "@/features/attendance/queries";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,12 @@ export default async function AttendanceUserPage({
             </div>
           </Card>
 
+          {data.checkCount > 0 && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+              入力の記録で確認したほうがよい日報が <span className="font-bold tnum">{data.checkCount}件</span> あります（後から入力・終了前に提出・提出後の時刻の修正）。日報を開くと、入力した日時と修正の履歴が見られます。
+            </p>
+          )}
+
           {data.days.length === 0 ? (
             <EmptyState icon={<Clock className="h-6 w-6" />} title="この月の稼働はまだありません" description="日報が提出されると、日ごとの稼働がここに表示されます。" />
           ) : (
@@ -76,6 +83,7 @@ export default async function AttendanceUserPage({
                           <p className="text-sm text-ink-muted tnum">
                             {fmtTimeRange(row.start, row.end)}
                           </p>
+                          <EntryFlagBadges flags={row.flags} className="mt-1" />
                         </div>
                         <p className="shrink-0 text-base font-bold text-ink tnum">{fmtWorkHours(row.minutes)}</p>
                         <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" />

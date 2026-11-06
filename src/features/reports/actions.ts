@@ -19,9 +19,9 @@ import {
   isTimeOnStep,
   lastWorkDay,
   occurrenceWorkDays,
-  shouldAutoComplete,
 } from "@/lib/reports";
 import { loadOccurrenceReportState, type OccurrenceReportState } from "./queries";
+import { completeIfAllSubmitted } from "./auto-complete";
 import type { ActionResult } from "@/features/schedule/types";
 
 // 日報の保存・提出。フォームは useActionState から呼ばれ、成功時は詳細画面へリダイレクトする。
@@ -269,6 +269,18 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         if (dup) throw new DuplicateReportError(dup.id);
       }
 
+      // 提出後に開始・終了時刻を直したら記録を残す（稼働時間の確認用。下書きの間の変更は残さない）。
+      // 同時に編集されても取りこぼさないよう、日報の行をロックして今の時刻と比べる
+      if (existing) {
+        const [cur] = await tx.$queryRaw<{ status: string; startTime: string; endTime: string }[]>`
+          SELECT status, "startTime", "endTime" FROM "DailyReport" WHERE id = ${existing.id} FOR UPDATE`;
+        if (cur?.status === "SUBMITTED" && (cur.startTime !== startTime || cur.endTime !== endTime)) {
+          await tx.reportTimeLog.create({
+            data: { reportId: existing.id, fromStart: cur.startTime, fromEnd: cur.endTime, toStart: startTime, toEnd: endTime, changedById: me.id },
+          });
+        }
+      }
+
       const report = existing
         ? await tx.dailyReport.update({ where: { id: existing.id }, data, select: { id: true } })
         : await tx.dailyReport.create({
@@ -367,51 +379,11 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         await tx.handover.delete({ where: { id: prevHandover.id } });
       }
 
-      // 担当者のうち1人でも最終日の日報を提出したら、実施回を完了にする。
+      // 担当者全員が最終日の日報を提出したら、実施回を完了にする。
       // 初めて提出したときだけ判定する（完了を手で戻した予定を、日報の修正で勝手に完了にしない）
       let done = false;
-      if (firstSubmit && occ?.date) {
-        const last = lastWorkDay(storedDateKey(occ.date), occ.endDate ? storedDateKey(occ.endDate) : null);
-        if (workDate === last) {
-          // 同時に提出されても取りこぼさないよう、予定の行をロックしてから数える
-          await tx.$queryRaw`SELECT id FROM "Occurrence" WHERE id = ${occ.id} FOR UPDATE`;
-          const current = await tx.occurrence.findUnique({
-            where: { id: occ.id },
-            select: { version: true, status: true, assignments: { select: { userId: true } } },
-          });
-          if (current) {
-            const submitted = await tx.dailyReport.findMany({
-              where: { occurrenceId: occ.id, workDate: dateFromKey(last), status: "SUBMITTED" },
-              select: { userId: true },
-            });
-            if (
-              shouldAutoComplete({
-                status: current.status,
-                assigneeIds: current.assignments.map((a) => a.userId),
-                submittedOnLastDay: submitted.map((s) => s.userId),
-              })
-            ) {
-              const upd = await tx.occurrence.updateMany({
-                where: { id: occ.id, version: current.version },
-                data: { status: "DONE", version: { increment: 1 } },
-              });
-              if (upd.count > 0) {
-                await tx.occurrenceChangeLog.create({
-                  data: {
-                    occurrenceId: occ.id,
-                    actorId: me.id,
-                    action: "STATUS",
-                    field: "status",
-                    fromValue: current.status,
-                    toValue: "DONE",
-                    reason: "担当者の日報が提出されたため自動で完了",
-                  },
-                });
-                done = true;
-              }
-            }
-          }
-        }
+      if (firstSubmit && occ?.date && workDate === lastWorkDay(storedDateKey(occ.date), occ.endDate ? storedDateKey(occ.endDate) : null)) {
+        done = await completeIfAllSubmitted(tx, occ.id, me.id, "担当者全員の日報が提出されたため自動で完了");
       }
 
       return { id: report.id, gone: gone.map((p) => p.blobPath).filter((p): p is string => !!p), done };
