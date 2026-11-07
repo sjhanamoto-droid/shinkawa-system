@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth";
+import { UI_COOKIE, decideUiMode, workerPathFor } from "@/lib/ui-mode";
 
 // 認証ガード。未ログインは /login へ、ログイン済みで /login に来たらホームへ。
 export async function middleware(req: NextRequest) {
@@ -33,6 +34,22 @@ export async function middleware(req: NextRequest) {
     url.pathname = "/";
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  // スマホはスタッフ画面（/w）へ。管理画面の URL を開いたら、対応するスタッフ画面に置き換える
+  // GET のページ表示だけを振り分ける（画面からの送信＝server action の POST はそのまま通す）
+  if (session && !pathname.startsWith("/api/") && (req.method === "GET" || req.method === "HEAD")) {
+    const mode = decideUiMode({ userAgent: req.headers.get("user-agent"), cookie: req.cookies.get(UI_COOKIE)?.value, role: session.role });
+    if (mode === "worker") {
+      const to = workerPathFor(pathname, req.nextUrl.searchParams);
+      if (to) {
+        const url = req.nextUrl.clone();
+        const [path, query = ""] = to.split("?");
+        url.pathname = path;
+        url.search = query ? `?${query}` : "";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return NextResponse.next();

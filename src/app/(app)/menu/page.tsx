@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  LogOut, Settings, ChevronRight, Building2, Users, Car, UserCog, Bell, BookOpen, Clock,
+  LogOut, Settings, ChevronRight, Building2, Users, Car, UserCog, Bell, BookOpen, Clock, Smartphone,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -12,6 +12,7 @@ import { PageContainer } from "@/components/app-shell/page-container";
 import { Avatar } from "@/components/ui/avatar";
 import { ROLE_LABEL, DEPARTMENT_LABEL, isDepartment, type Role } from "@/lib/constants";
 import { logoutAction } from "@/features/auth/actions";
+import { setUiMode } from "@/features/worker/actions";
 
 // スマホ用のメニュー。役割別のショートカット・通知・クレーム再発防止・設定・ログアウトを整理して表示する。
 export default async function MenuPage() {
@@ -66,6 +67,20 @@ export default async function MenuPage() {
               </Link>
             ))}
           </div>
+
+          {/* スタッフ画面（日報を書く画面）。スマホから管理画面に切り替えた人はここから戻る */}
+          <form action={setUiMode.bind(null, "worker")}>
+            <button type="submit" className="card flex w-full items-center gap-3.5 p-4 active:bg-surface-sunken">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
+                <Smartphone className="h-5 w-5" />
+              </span>
+              <span className="flex-1 text-left">
+                <span className="block text-[15px] font-bold text-ink">スタッフ画面に切り替える</span>
+                <span className="block text-xs text-ink-muted">自分の日報を書く・今日の現場を見る</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-ink-faint" />
+            </button>
+          </form>
 
           <form action={logoutAction}>
             <button type="submit" className="card flex w-full items-center gap-3.5 p-4 text-status-danger active:bg-red-50">

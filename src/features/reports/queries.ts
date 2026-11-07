@@ -327,7 +327,13 @@ export async function loadReport(id: string, actor: Actor) {
           vehicles: { select: { vehicle: { select: { id: true, name: true, color: true } } }, orderBy: { createdAt: "asc" } },
         },
       },
-      expenses: { select: { id: true, category: true, label: true, amount: true, paidOn: true, ocr: true, receiptPhotoId: true }, orderBy: { sortOrder: "asc" } },
+      expenses: {
+        select: {
+          id: true, category: true, label: true, amount: true, paidOn: true, ocr: true, receiptPhotoId: true,
+          tollFrom: true, tollTo: true, tollFromIcId: true, tollToIcId: true, tollCar: true, tollRound: true, tollFareLabel: true,
+        },
+        orderBy: { sortOrder: "asc" },
+      },
       photos: { where: { kind: { not: "RECEIPT" } }, select: { id: true, caption: true, kind: true, isVideo: true, duration: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
       comments: {
         select: { id: true, body: true, createdAt: true, user: { select: { id: true, name: true, avatarColor: true, avatarImage: true, updatedAt: true } } },

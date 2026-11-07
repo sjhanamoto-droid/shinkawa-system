@@ -1,12 +1,10 @@
 import { cookies } from "next/headers";
 import { requireUser } from "@/lib/session";
-import { db } from "@/lib/db";
 import { BottomNav } from "@/components/app-shell/bottom-nav";
 import { AppFrame, SIDEBAR_COOKIE } from "@/components/app-shell/app-frame";
 import { StartupGate } from "@/features/notifications/startup-gate";
-import { ClaimGate, type PendingClaim } from "@/features/claims/claim-gate";
-import { CLAIM_VIEW_SELECT } from "@/features/claims/claim-body";
-import { claimVisibleWhere, involvedNames } from "@/features/claims/queries";
+import { ClaimGate } from "@/features/claims/claim-gate";
+import { loadGateData } from "@/features/notifications/gates";
 import { getCategories } from "@/lib/categories-server";
 import { CategoryProvider } from "@/components/category-provider";
 
@@ -16,30 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const collapsed = store.get(SIDEBAR_COOKIE)?.value === "1";
 
   // 起動ゲート＆通知バッジ用の未読データ
-  const [unreadCount, unread, pendingAcks, categories] = await Promise.all([
-    db.notification.count({ where: { userId: user.id, read: false } }),
-    db.notification.findMany({
-      where: { userId: user.id, read: false },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: { id: true, type: true, title: true, body: true, href: true, read: true, createdAt: true },
-    }),
-    // まだ確認していないクレーム（古い順）。確認するまで他の画面に進めない
-    db.claimAck.findMany({
-      where: { userId: user.id, ackAt: null, claim: claimVisibleWhere(user) },
-      orderBy: { claim: { createdAt: "asc" } },
-      take: 20,
-      select: { claim: { select: { id: true, createdBy: { select: { name: true } }, ...CLAIM_VIEW_SELECT } } },
-    }),
-    getCategories(),
-  ]);
-  const pendingClaims: PendingClaim[] = await Promise.all(
-    pendingAcks.map(async ({ claim: { createdBy, ...c } }) => ({
-      ...c,
-      involved: await involvedNames(c.involvedUserIds, c.involvedOthers),
-      createdByName: createdBy?.name ?? null,
-    })),
-  );
+  const [{ unreadCount, unread, pendingClaims }, categories] = await Promise.all([loadGateData(user), getCategories()]);
 
   const actor = { id: user.id, role: user.role, department: user.department, kind: user.kind };
 

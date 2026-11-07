@@ -55,7 +55,23 @@ type ParsedExpense = {
   ocr: boolean;
   /** 既存の領収書（写真ID）／新しい領収書／なし */
   receipt: { keepId: string } | { added: NewPhotoInput } | null;
+  /** 高速代の区間（スタッフ画面の高速料金で選んだとき） */
+  toll: TollRoute | null;
 };
+
+type TollRoute = { tollFrom: string; tollTo: string; tollFromIcId: string | null; tollToIcId: string | null; tollCar: string | null; tollRound: boolean; tollFareLabel: string | null };
+const TOLL_CARS = new Set(["KEI", "NORMAL", "MEDIUM", "LARGE"]);
+
+function parseToll(o: Record<string, unknown>): TollRoute | null {
+  const t = o.toll && typeof o.toll === "object" ? (o.toll as Record<string, unknown>) : null;
+  if (!t) return null;
+  const s = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+  const from = s(t.from, 60);
+  const to = s(t.to, 60);
+  if (!from || !to) return null;
+  const car = s(t.car, 10);
+  return { tollFrom: from, tollTo: to, tollFromIcId: s(t.fromIcId, 40), tollToIcId: s(t.toIcId, 40), tollCar: car && TOLL_CARS.has(car) ? car : null, tollRound: t.round === true, tollFareLabel: s(t.fareLabel, 60) };
+}
 
 /** 経費の行。1行＝領収書1枚が目安。提出時は科目と金額が必須 */
 function parseExpenses(raw: string, submit: boolean): ParsedExpense[] | { error: string } {
@@ -98,7 +114,7 @@ function parseExpenses(raw: string, submit: boolean): ParsedExpense[] | { error:
     } else if (submit) {
       return { error: `${no}の金額を入力してください（領収書を読み取れなかったときは手で入力してください）` };
     }
-    out.push({ category, label, amount, paidOn: paidOnRaw || null, ocr: o.ocr === true, receipt });
+    out.push({ category, label, amount, paidOn: paidOnRaw || null, ocr: o.ocr === true, receipt, toll: category === "HIGHWAY" ? parseToll(o) : null });
   }
   if (out.length > MAX_EXPENSES) return { error: `経費は${MAX_EXPENSES}件までです` };
   return out;
@@ -288,7 +304,19 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
             select: { id: true },
           });
 
-      // 経費：作り直す。領収書は、この日報の領収書だけを引き継ぎ、新しいものは写真として登録する
+      // 経費：作り直す。領収書は、この日報の領収書だけを引き継ぎ、新しいものは写真として登録する。
+      // 高速代の区間は管理画面のフォームが送らないので、同じ金額・内容の行から引き継ぐ（消さないため）
+      const oldTolls = await tx.reportExpense.findMany({
+        where: { reportId: report.id, category: "HIGHWAY", tollFrom: { not: null } },
+        select: { label: true, amount: true, tollFrom: true, tollTo: true, tollFromIcId: true, tollToIcId: true, tollCar: true, tollRound: true, tollFareLabel: true },
+      });
+      for (const e of expenses) {
+        if (e.category !== "HIGHWAY" || e.toll) continue;
+        const i = oldTolls.findIndex((o) => o.amount === e.amount && o.label === e.label);
+        if (i < 0) continue;
+        const [o] = oldTolls.splice(i, 1);
+        e.toll = { tollFrom: o.tollFrom!, tollTo: o.tollTo ?? "", tollFromIcId: o.tollFromIcId, tollToIcId: o.tollToIcId, tollCar: o.tollCar, tollRound: !!o.tollRound, tollFareLabel: o.tollFareLabel };
+      }
       await tx.reportExpense.deleteMany({ where: { reportId: report.id } });
       const keepIds = expenses.flatMap((e) => (e.receipt && "keepId" in e.receipt ? [e.receipt.keepId] : []));
       const ownReceipts = new Set(
@@ -323,7 +351,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         }
         if (receiptPhotoId) usedReceipts.push(receiptPhotoId);
         await tx.reportExpense.create({
-          data: { reportId: report.id, category: e.category, label: e.label, amount: e.amount, paidOn: e.paidOn, ocr: e.ocr, receiptPhotoId, sortOrder: i },
+          data: { reportId: report.id, category: e.category, label: e.label, amount: e.amount, paidOn: e.paidOn, ocr: e.ocr, receiptPhotoId, sortOrder: i, ...(e.toll ?? {}) },
         });
       }
       // どの経費にも付いていない領収書の写真は消す
@@ -414,6 +442,11 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
   revalidatePath("/schedule");
   if (propertyId) revalidatePath(`/properties/${propertyId}`);
   const toast = submit ? (completed ? "日報を提出しました。予定を完了にしました" : "日報を提出しました") : "下書きを保存しました";
+  // スタッフ画面からは、スタッフ画面の完了画面などへ戻す（/w/ 以外は受け付けない）
+  const next = str(fd, "next");
+  if (next && /^\/w(\/|\?|$)/.test(next) && !next.includes("//")) {
+    redirect(`${next}${next.includes("?") ? "&" : "?"}id=${encodeURIComponent(savedId)}&done=${submit ? "submit" : "draft"}${completed ? "&completed=1" : ""}`);
+  }
   redirect(`/reports/${savedId}?toast=${encodeURIComponent(toast)}`);
 }
 

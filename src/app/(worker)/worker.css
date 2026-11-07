@@ -1,0 +1,121 @@
+/* スタッフ画面（/w）だけの見た目。デザイン資料 01_spec/design-tokens.css の値をそのまま使う */
+.worker {
+  --w-primary: #067a54;
+  --w-primary-dark: #056042;
+  --w-primary-soft: #ecfdf5;
+  --w-surface: #ffffff;
+  --w-text: #0f172a;
+  --w-text-sub: #475569;
+  --w-text-muted: #64748b;
+  --w-border: #d4d9e3;
+  --w-divider: #e6e9f0;
+  --w-disabled-bg: #eef1f6;
+  --w-soft-bg: #f7f8fb;
+  --w-warning-bg: #fef3c7;
+  --w-warning-text: #92400e;
+  --w-check-border: #f59e0b;
+  --w-check-bg: #fffbeb;
+  --w-danger: #dc2626;
+  --w-stamp: #b5483e; /* 提出済みのスタンプ（朱肉のような落ち着いた赤） */
+  --w-tile: rgba(255, 255, 255, 0.16);
+  --w-shadow-card: 0 16px 34px rgba(3, 50, 36, 0.3);
+  font-family: var(--font-inter), var(--font-noto-jp), system-ui, sans-serif;
+  font-weight: 500;
+  color: var(--w-text);
+  -webkit-tap-highlight-color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.worker b,
+.worker strong,
+.worker h1,
+.worker h2,
+.worker h3 {
+  font-weight: 600;
+}
+
+/* チケット型のカード（上の切り欠き・点線の区切りと左右の切り欠き） */
+.worker .w-ticket {
+  position: relative;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--w-shadow-card);
+}
+.worker .w-ticket::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 52px;
+  height: 16px;
+  margin-left: -26px;
+  border-radius: 999px;
+  background: var(--w-page, var(--w-primary));
+}
+.worker .w-ticket-cut {
+  position: relative;
+  border-top: 2px dashed var(--w-border);
+}
+.worker .w-ticket-cut::before,
+.worker .w-ticket-cut::after {
+  content: "";
+  position: absolute;
+  top: -12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--w-page, var(--w-primary));
+}
+.worker .w-ticket-cut::before {
+  left: -11px;
+}
+.worker .w-ticket-cut::after {
+  right: -11px;
+}
+
+/* 主ボタンの呼びかけ（日報まだのとき） */
+@keyframes w-call {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 122, 84, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(6, 122, 84, 0.08);
+  }
+}
+.worker .w-call {
+  animation: w-call 2.4s ease-in-out infinite;
+}
+
+/* 提出済みのスタンプ */
+.worker .w-stamp {
+  display: inline-flex;
+  width: 64px;
+  height: 64px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px double var(--w-stamp);
+  border-radius: 999px;
+  color: var(--w-stamp);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  transform: rotate(-14deg);
+}
+
+/* 端末の余白（ノッチ・ホームバー）に、画面の余白を足す。pt-4 などと同じ指定を上書きしてしまわないよう、足し算にする */
+.worker .w-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.worker .w-safe-top {
+  padding-top: calc(env(safe-area-inset-top) + var(--w-top, 20px));
+}
+.worker .w-footer-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+}
+
+/* スタッフ画面を開いているときは、ページ全体を緑にする（iPhone の Safari は上の時刻・電波の欄の色をページの背景から決める） */
+html:has(.worker),
+body:has(.worker) {
+  background-color: #067a54;
+}

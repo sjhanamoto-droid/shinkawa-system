@@ -502,6 +502,14 @@ model ReportExpense {
   receiptPhotoId String?     @unique
   ocr            Boolean     @default(false) // 領収書から自動で読み取った
   sortOrder      Int         @default(0)
+  // 高速代の区間（スタッフ画面の高速料金で選んだとき）。IC の ID は NAVITIME のもの（手入力なら空）
+  tollFrom       String? // 乗ったインター名
+  tollTo         String? // 降りたインター名
+  tollFromIcId   String?
+  tollToIcId     String?
+  tollCar        String? // KEI | NORMAL | MEDIUM | LARGE
+  tollRound      Boolean? // 往復
+  tollFareLabel  String? // 選んだ料金の種類（ETC料金・現金・深夜割引など）
   report         DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
   receiptPhoto   Photo?      @relation("ExpenseReceipt", fields: [receiptPhotoId], references: [id], onDelete: SetNull)
 
@@ -645,4 +653,41 @@ model Category {
   updatedAt  DateTime @updatedAt
 
   @@index([sortOrder])
+}
+
+// 高速道路のインター（NAVITIME の IC 検索の結果を保存しておく。名前検索の候補・表示用）
+model Interchange {
+  id        String   @id // NAVITIME の IC ID
+  name      String
+  roadName  String?
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+// 高速料金の保存（乗ったインター → 降りたインターの片道。車種別）。一度調べた区間は API を使わずに出す
+model TollFare {
+  id         String   @id @default(cuid())
+  fromIcId   String
+  toIcId     String
+  fareKei    Int? // ETC料金（無ければ現金）
+  fareNormal Int?
+  fareMedium Int?
+  fareLarge  Int?
+  /// 料金の種類ごと（ETC・現金・深夜割引など）の車種別料金。[{ code, fares: { KEI, NORMAL, MEDIUM, LARGE } }]
+  options    Json?
+  fetchedAt  DateTime @default(now())
+
+  @@unique([fromIcId, toIcId])
+}
+
+// 高速料金の種類（NAVITIME の運賃区分。ETC料金・深夜割引など）。名前を出すために一度だけ取って保存する
+model TollFareType {
+  id         Int      @id // 運賃区分ID（1024＝通常、1025＝ETC など）
+  caption    String
+  roadGroup  String?
+  payment    String?
+  applyTimes String? // 例）0:00-4:00
+  applyDays  String? // 例）sunday,saturday,holiday
+  updatedAt  DateTime @updatedAt
 }
