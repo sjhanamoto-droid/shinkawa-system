@@ -24,6 +24,7 @@ import type { NotificationType } from "@/lib/constants";
 import { fetchOccurrenceView, fetchOccurrenceViews, loadChangeLog, loadGroupSummary, loadUnassigned, loadVehicleUsage, loadWorkerUsage } from "./query";
 import { createOccurrenceDays, daysOf } from "@/lib/occurrence-days";
 import { completeIfAllSubmitted } from "@/features/reports/auto-complete";
+import { ensureJobForProperty } from "./ensure-job";
 import { randomUUID } from "node:crypto";
 import { fmtKeyShort, shiftKey, ymOf } from "./filters";
 import type { ActionResult, OccurrenceView, OccurrenceInput, MoveInput, ChangeLogView, VehicleUsage, WorkerUsage } from "./types";
@@ -274,9 +275,12 @@ export async function createOccurrence(raw: OccurrenceInput): Promise<ActionResu
     const ids = await db.$transaction(
       async (tx) => {
         const { ids: vehicleIds } = await resolveVehicles(tx, input.vehicleIds);
+        // 作業が無い現場（カレンダーから登録した現場など）は、この予定の部門・種別で作業を作り、予定もそれに付ける
+        const newJobId = await ensureJobForProperty(tx, { propertyId: input.propertyId, department: input.department, category: input.category, actorId: me.id });
         return createOccurrenceDays(
           tx,
           {
+            jobId: newJobId,
             department: input.department,
             category: input.category,
             customerId,
@@ -428,6 +432,8 @@ export async function updateOccurrence(
         });
       }
       await syncVehicles(tx, occ, me.id, input.vehicleIds);
+      // 作業が無い現場に付け替えたときも、この予定の部門・種別で作業を作る
+      await ensureJobForProperty(tx, { propertyId: input.propertyId, department: input.department, category: input.category, actorId: me.id });
       await log(tx, id, me.id, { action: "EDIT" });
       if (dateChanged) await log(tx, id, me.id, { action: "MOVE", field: "date", fromValue: oldDate ?? "日付未定", toValue: input.date ?? "日付未定", scope: "ONE" });
       for (const u of added) await log(tx, id, me.id, { action: "ASSIGN", field: "assignee", toValue: u });
@@ -701,6 +707,7 @@ export async function linkOccurrenceProperty(
       if (occ.customerId && occ.customerId !== property.customerId) throw new ValidationError("この予定の顧客の現場ではありません");
       await bump(tx, occ, expectedVersion, { propertyId: property.id, customerId: property.customerId });
       await log(tx, id, me.id, { action: "EDIT", field: "property", toValue: property.name });
+      await ensureJobForProperty(tx, { propertyId: property.id, department: occ.department, category: occ.category, actorId: me.id });
       if (!sameCustomer || !occ.customerId) return 0;
       const today = dateFromKey(jstDateKey());
       const others = await tx.occurrence.findMany({
