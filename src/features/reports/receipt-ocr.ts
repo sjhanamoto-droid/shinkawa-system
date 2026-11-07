@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { requireUser } from "@/lib/session";
-import { getAnthropic } from "@/lib/anthropic";
+import { getAnthropic, ocrModel } from "@/lib/anthropic";
 import { EXPENSE_CATEGORY_OPTIONS, isExpenseDate, type ExpenseCategory } from "@/lib/reports";
 import { jstDateKey } from "@/lib/date";
 
@@ -59,11 +59,8 @@ export async function readReceipt(dataUrl: string): Promise<ReadReceiptResult> {
 
   try {
     const res = await client.beta.messages.parse({
-      model: process.env.ANTHROPIC_OCR_MODEL || "claude-opus-5",
-      max_tokens: 16000,
-      // 読み取りを断られた場合は別モデルで自動的にやり直す
-      betas: ["server-side-fallback-2026-06-01"],
-      fallbacks: [{ model: "claude-opus-4-8" }],
+      model: ocrModel(),
+      max_tokens: 8000,
       system: SYSTEM,
       output_config: { effort: "low", format: betaZodOutputFormat(receiptSchema) },
       messages: [

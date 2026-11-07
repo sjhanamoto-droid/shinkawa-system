@@ -19,3 +19,13 @@ export function getAnthropic(): Anthropic | null {
 export function anthropicModel(): string {
   return process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 }
+
+/** 領収書の読み取り（OCR）のモデル。精度を優先して Sonnet。ANTHROPIC_OCR_MODEL で変えられる */
+export function ocrModel(): string {
+  return process.env.ANTHROPIC_OCR_MODEL || "claude-sonnet-5-5";
+}
+
+/** 日報の「AIでまとめる」のモデル。速さと費用を優先して Haiku。ANTHROPIC_SUMMARY_MODEL で変えられる */
+export function summaryModel(): string {
+  return process.env.ANTHROPIC_SUMMARY_MODEL || "claude-haiku-5-5";
+}

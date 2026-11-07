@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { requireUser } from "@/lib/session";
-import { getAnthropic } from "@/lib/anthropic";
+import { getAnthropic, summaryModel } from "@/lib/anthropic";
 
 // 話した・書いたメモを「作業内容」と「引き継ぎ事項」に振り分ける。
 // 結果は画面で確認してから各欄に入れる（自動では保存しない）。
@@ -38,11 +38,8 @@ export async function sortReportMemo(memo: string): Promise<AiSortResult> {
 
   try {
     const res = await client.beta.messages.parse({
-      model: "claude-opus-5",
-      max_tokens: 16000,
-      // 断られた場合は別モデルで自動的にやり直す
-      betas: ["server-side-fallback-2026-06-01"],
-      fallbacks: [{ model: "claude-opus-4-8" }],
+      model: summaryModel(),
+      max_tokens: 8000,
       system: SYSTEM,
       output_config: { effort: "low", format: betaZodOutputFormat(sortSchema) },
       messages: [{ role: "user", content: `次のメモを振り分けてください。\n\n【メモ】\n${text}` }],
