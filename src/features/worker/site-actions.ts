@@ -1,5 +1,6 @@
 "use server";
 
+import { reusedBlobPathError } from "@/lib/blob-reuse";
 import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -23,6 +24,8 @@ export async function addSitePhotos(propertyId: string, kind: SitePhotoKind, pho
   if (parsed.added.length === 0) return { error: "写真を選んでください" };
   if (parsed.added.length > MAX_PER_UPLOAD) return { error: `一度に追加できるのは${MAX_PER_UPLOAD}件までです` };
   if (parsed.added.some((p) => p.isVideo)) return { error: "動画は追加できません（写真・PDFのみ）" };
+  const reused = await reusedBlobPathError(parsed.added.map((p) => p.blobPath), me.id);
+  if (reused) return { error: reused };
 
   await db.photo.createMany({
     data: parsed.added.map((p) => ({
@@ -74,6 +77,8 @@ export async function reviseDrawing(photoId: string, photosJson: string): Promis
   const p = parsed.added[0];
   if (!p || parsed.added.length !== 1) return { error: "改訂版のファイルを1つ選んでください" };
   if (p.isVideo) return { error: "動画は図面にできません" };
+  const reused = await reusedBlobPathError([p.blobPath], me.id);
+  if (reused) return { error: reused };
 
   const result = await db.$transaction(async (tx) => {
     // 同時に改訂されても版が分かれないよう、最新のときだけ置き換える

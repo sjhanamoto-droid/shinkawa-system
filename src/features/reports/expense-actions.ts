@@ -1,5 +1,6 @@
 "use server";
 
+import { reusedBlobPathError } from "@/lib/blob-reuse";
 import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -39,6 +40,8 @@ export async function updateReportExpense(input: {
   if (input.receipt.mode === "add") {
     added = toNewReceipt(input.receipt.photo);
     if (!added || "error" in added) return { error: added && "error" in added ? `領収書：${added.error}` : "領収書の写真を読み込めませんでした" };
+    const reused = await reusedBlobPathError([added.blobPath], me.id);
+    if (reused) return { error: `領収書：${reused}` };
   }
 
   const legacy = input.key in LEGACY ? LEGACY[input.key as keyof typeof LEGACY] : null;

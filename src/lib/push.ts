@@ -7,6 +7,23 @@
 import webpush, { WebPushError } from "web-push";
 import { db } from "@/lib/db";
 
+// 通知の宛先は、ブラウザのプッシュサービス（Chrome/Edge・Firefox・Windows・Safari）だけに限る。
+// 任意のURLを登録されると、サーバーから内部のアドレスなどへ通信させられるため（SSRF）。
+const PUSH_HOSTS = ["fcm.googleapis.com", "web.push.apple.com"];
+const PUSH_HOST_SUFFIXES = [".push.services.mozilla.com", ".notify.windows.com", ".push.apple.com"];
+
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:" || (u.port !== "" && u.port !== "443") || u.username || u.password) return false;
+  const host = u.hostname.toLowerCase();
+  return PUSH_HOSTS.includes(host) || PUSH_HOST_SUFFIXES.some((s) => host.endsWith(s));
+}
+
 /** プッシュ通知のペイロード（Service Worker 側で title/body/url を解釈する） */
 export type PushPayload = { title: string; body?: string; url?: string };
 
@@ -44,6 +61,11 @@ export async function sendPushToUser(
 
   await Promise.all(
     subscriptions.map(async (sub) => {
+      // 許可していない宛先（以前に登録されたもの）には送らず、消す
+      if (!isAllowedPushEndpoint(sub.endpoint)) {
+        await db.pushSubscription.deleteMany({ where: { id: sub.id } }).catch(() => undefined);
+        return;
+      }
       try {
         await webpush.sendNotification(
           {

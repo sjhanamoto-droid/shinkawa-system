@@ -1,5 +1,6 @@
 "use server";
 
+import { reusedBlobPathError } from "@/lib/blob-reuse";
 import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -319,6 +320,8 @@ export async function createProperty(_prev: PropertyFormState, formData: FormDat
   if ("error" in nw) return { error: nw.error };
   const sets = parsePhotoFields(formData);
   if ("error" in sets) return { error: sets.error };
+  const reused = await reusedBlobPathError(sets.flatMap((s) => s.added.map((p) => p.blobPath)), me.id);
+  if (reused) return { error: reused };
   const customer = await db.customer.findUnique({ where: { id: d.customerId }, select: { id: true } });
   if (!customer) return { error: "顧客が見つかりません" };
   let ids: { propertyId: string; jobId: string };
@@ -369,6 +372,8 @@ export async function updateProperty(_prev: PropertyFormState, formData: FormDat
   if (kbErr) return { error: kbErr };
   const sets = parsePhotoFields(formData);
   if ("error" in sets) return { error: sets.error };
+  const reused = await reusedBlobPathError(sets.flatMap((s) => s.added.map((p) => p.blobPath)), me.id);
+  if (reused) return { error: reused };
 
   const current = await db.property.findUnique({ where: { id }, select: { status: true } });
   if (!current) return { error: "現場が見つかりません" };

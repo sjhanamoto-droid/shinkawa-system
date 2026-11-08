@@ -87,11 +87,23 @@ export async function backupNewPhotos(opts: { limit: number; deadline: number })
   return { copied, failed, remaining: rows.length === opts.limit };
 }
 
-/** 「削除済み」の猶予が過ぎたものを、Blob の原本ごと消す */
+/**
+ * 「削除済み」の猶予が過ぎたものを、Blob の原本ごと消す。
+ * ただし、同じ原本をまだほかの写真や（猶予中の）削除済みが使っていれば、原本は残して行だけ消す。
+ */
 export async function purgeTrash(): Promise<number> {
   const rows = await db.deletedMedia.findMany({ where: { purgeAfter: { lt: new Date() } }, select: { id: true, blobPath: true }, take: 500 });
   if (rows.length === 0) return 0;
-  await deleteBlobPaths(rows.map((r) => r.blobPath).filter((p): p is string => !!p));
-  await db.deletedMedia.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } });
+  const ids = rows.map((r) => r.id);
+  const paths = Array.from(new Set(rows.map((r) => r.blobPath).filter((p): p is string => !!p)));
+  const [livePhotos, otherTrash] = paths.length
+    ? await Promise.all([
+        db.photo.findMany({ where: { blobPath: { in: paths } }, select: { blobPath: true } }),
+        db.deletedMedia.findMany({ where: { blobPath: { in: paths }, id: { notIn: ids } }, select: { blobPath: true } }),
+      ])
+    : [[], []];
+  const stillUsed = new Set([...livePhotos, ...otherTrash].map((r) => r.blobPath));
+  await deleteBlobPaths(paths.filter((p) => !stillUsed.has(p)));
+  await db.deletedMedia.deleteMany({ where: { id: { in: ids } } });
   return rows.length;
 }

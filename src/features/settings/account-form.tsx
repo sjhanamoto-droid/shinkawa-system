@@ -4,10 +4,10 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertCircle, CheckCircle2, Save, KeyRound } from "lucide-react";
 import { updateAccount, changePassword, type SettingsState } from "./actions";
-import { Field, Input, Select } from "@/components/ui/form";
+import { Field, Input } from "@/components/ui/form";
 import { buttonClass } from "@/components/ui/button";
 import { ColorPicker } from "./color-picker";
-import { DEPARTMENT_LABEL, DEPARTMENT_OPTIONS } from "@/lib/constants";
+import { DEPARTMENT_LABEL } from "@/lib/constants";
 
 function Feedback({ state, okText }: { state: SettingsState; okText: string }) {
   if (state.error) {
@@ -64,13 +64,8 @@ export function AccountForm({ user }: { user: AccountUser }) {
         <Field label="電話番号" htmlFor="acc-phone" hint="任意">
           <Input id="acc-phone" name="phone" type="tel" defaultValue={user.phone ?? ""} placeholder="090-0000-0000" />
         </Field>
-        <Field label="部門" htmlFor="acc-dept" hint="任意">
-          <Select id="acc-dept" name="department" defaultValue={user.department ?? ""}>
-            <option value="">指定なし（両方）</option>
-            {DEPARTMENT_OPTIONS.map((d) => (
-              <option key={d} value={d}>{DEPARTMENT_LABEL[d]}</option>
-            ))}
-          </Select>
+        <Field label="部門" htmlFor="acc-dept" hint="変更は管理者へ">
+          <Input id="acc-dept" defaultValue={user.department && user.department in DEPARTMENT_LABEL ? DEPARTMENT_LABEL[user.department as keyof typeof DEPARTMENT_LABEL] : "指定なし"} disabled />
         </Field>
       </div>
       <Field label="アバター色">

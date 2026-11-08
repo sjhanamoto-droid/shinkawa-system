@@ -46,6 +46,7 @@ model User {
   tags         String[] @default([])
   phone        String?
   canLogin     Boolean  @default(true)
+  lastPushTestAt DateTime? // テスト通知を最後に送った日時（連打を防ぐ）
   avatarColor  String   @default("#2f63f5")
   avatarImage  String? // プロフィール画像（data URL）。一覧の select には含めず /api/avatars で配信する
   sortOrder    Int      @default(0)

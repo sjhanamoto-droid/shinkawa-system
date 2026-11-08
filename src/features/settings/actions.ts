@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { assertCan, PermissionError } from "@/lib/permissions";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { DEPARTMENT_OPTIONS } from "@/lib/constants";
 
 export type SettingsState = { error?: string; ok?: boolean };
 
@@ -68,11 +67,11 @@ export async function updateAppSettings(_prev: SettingsState, formData: FormData
 }
 
 // ── 自分のアカウント設定（全ユーザー） ──
+// 部門は権限（手配担当がどちらの部門を編集できるか）に使うので、本人では変えられない（管理者のユーザー編集だけ）
 const accountSchema = z.object({
   name: z.string().min(1, "氏名を入力してください"),
   kana: z.string().optional(),
   phone: z.string().optional(),
-  department: z.enum(DEPARTMENT_OPTIONS).optional(),
   avatarColor: z.string().optional(),
 });
 
@@ -82,7 +81,6 @@ export async function updateAccount(_prev: SettingsState, formData: FormData): P
     name: nz(formData.get("name")),
     kana: nz(formData.get("kana")),
     phone: nz(formData.get("phone")),
-    department: nz(formData.get("department")),
     avatarColor: nz(formData.get("avatarColor")),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
@@ -94,7 +92,6 @@ export async function updateAccount(_prev: SettingsState, formData: FormData): P
       name: d.name,
       kana: d.kana ?? null,
       phone: d.phone ?? null,
-      department: d.department ?? null,
       ...(d.avatarColor ? { avatarColor: d.avatarColor } : {}),
     },
   });

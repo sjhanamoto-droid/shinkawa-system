@@ -1,5 +1,6 @@
 "use server";
 
+import { reusedBlobPathError } from "@/lib/blob-reuse";
 import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -238,6 +239,11 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
 
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
   if ("error" in expenses || "error" in photos) return { error: "入力内容を確認してください" };
+  const reused = await reusedBlobPathError([
+    ...photos.added.map((p) => p.blobPath),
+    ...expenses.map((e) => (e.receipt && "added" in e.receipt ? e.receipt.added.blobPath : null)),
+  ], me.id);
+  if (reused) return { error: reused };
 
   const handover = handoverChoice === "yes" ? handoverText : null;
   const handoverNone = handoverChoice === "no" ? true : handoverChoice === "yes" ? false : null;

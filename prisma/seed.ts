@@ -3,7 +3,7 @@
 // 決定的（seed 固定）な擬似乱数で、顧客300社・物件約450・案件（定期150＋スポット＋工事）・
 // 前月〜翌月の実施回（1日10〜20件）・配員・変更履歴・通知を作る。
 // SEED_ONLY_IF_EMPTY=1 のときは User が1件でもあればスキップ（vercel-build 用）。
-// パスワードは SEED_PASSWORD（既定 shinkawa123）を全ログインユーザー共通で使う。
+// パスワードは SEED_PASSWORD（8文字以上・必須）を全ログインユーザー共通で使う。未設定なら何も作らない。
 
 import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -91,7 +91,12 @@ async function main() {
       return;
     }
   }
-  const password = process.env.SEED_PASSWORD || "shinkawa123";
+  // 初期パスワードは必ず環境変数で渡す（ソースに固定のパスワードを置かない・ログにも出さない）
+  const password = process.env.SEED_PASSWORD;
+  if (!password || password.length < 8) {
+    console.log("SEED_PASSWORD（8文字以上）が未設定のため、初期データを作りません。");
+    return;
+  }
   const passwordHash = await bcrypt.hash(password, 10);
   const thisMonth = jstMonthKey();
   const prevMonth = addMonthsKey(thisMonth, -1);
@@ -505,7 +510,7 @@ async function main() {
   console.log("\n✅ シード完了");
   console.log(`  顧客 ${customers.length} / 物件 ${properties.length} / 案件 ${jobs.length} / 実施回 ${occurrences.length}（未割当 ${occurrences.filter((o) => !o.date).length}） / 配員 ${uniqAssignments.length} / 車両 ${vehicleDefs.length}台（使用 ${occurrenceVehicles.length}件）`);
   console.log(`  1日あたり平均 ${avg.toFixed(1)} 件（最小 ${Math.min(...counts)} / 最大 ${Math.max(...counts)}）`);
-  console.log(`\n  ログイン: kondo@example.com（最高管理者） / jimu@example.com（事務）/ tehai-c@example.com（清掃手配）/ fujino@example.com（スタッフ）  パスワード: ${password}`);
+  console.log(`\n  ログイン: kondo@example.com（最高管理者） / jimu@example.com（事務）/ tehai-c@example.com（清掃手配）/ fujino@example.com（スタッフ）  パスワード: SEED_PASSWORD の値`);
 }
 
 main()

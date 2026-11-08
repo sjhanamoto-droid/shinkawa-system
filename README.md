@@ -29,7 +29,7 @@ npm run dev               # http://localhost:3000
 
 ローカルに PostgreSQL が無い場合は Neon の開発ブランチを使う（`POSTGRES_PRISMA_URL` にプール接続、`POSTGRES_URL_NON_POOLING` に直結）。
 
-### デモログイン（パスワード共通：`shinkawa123`、`SEED_PASSWORD` で変更可）
+### デモログイン（パスワード共通：`.env` の `SEED_PASSWORD`。未設定なら初期データは作られない）
 
 | 役割 | メール |
 | --- | --- |

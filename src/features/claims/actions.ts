@@ -1,5 +1,6 @@
 "use server";
 
+import { reusedBlobPathError } from "@/lib/blob-reuse";
 import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -48,6 +49,8 @@ export async function saveClaim(_prev: ClaimFormState, fd: FormData): Promise<Cl
     : [];
   const photos = parseAndValidatePhotosField(String(fd.get("photos") ?? ""));
   if ("error" in photos) return { error: photos.error };
+  const reused = await reusedBlobPathError(photos.added.map((p) => p.blobPath), me.id);
+  if (reused) return { error: reused };
 
   const fields = {
     title,
