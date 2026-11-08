@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Inbox, Search } from "lucide-react";
+import { ChevronRight, Inbox, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LANE_DROP_ID } from "./dnd";
 import { OccurrenceCard } from "./occurrence-card";
@@ -17,20 +17,29 @@ export function UnassignedLane({
   onSelect,
   className,
   collapsible = false,
+  open: openProp,
+  onOpenChange,
 }: {
   items: OccurrenceView[];
   dnd: boolean;
   onSelect: (o: OccurrenceView) => void;
   className?: string;
   collapsible?: boolean;
+  /** 開閉を親が持つとき（週表示：畳んだら列ごと細くして、日付列を広げる） */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: LANE_DROP_ID, disabled: !dnd });
   const [q, setQ] = useState("");
-  // PC では常に開く。スマホ（collapsible）では初期状態を畳み、日付列を先に見せる
-  const [open, setOpen] = useState(true);
+  // 初期は開く。スマホ（collapsible）では畳み、日付列を先に見せる
+  const [openState, setOpenState] = useState(true);
   useEffect(() => {
-    if (collapsible && window.matchMedia("(max-width: 767px)").matches) setOpen(false);
-  }, [collapsible]);
+    if (openProp === undefined && collapsible && window.matchMedia("(max-width: 767px)").matches) setOpenState(false);
+  }, [collapsible, openProp]);
+  const open = openProp ?? openState;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setOpenState(v));
+  // 親が開閉を持つときは、PC で畳むと細い縦の帯（アイコン・件数・「開く」だけ）にする
+  const strip = collapsible && openProp !== undefined && !open;
 
   const groups = useMemo(() => {
     const t = q.trim();
@@ -53,10 +62,24 @@ export function UnassignedLane({
         className,
       )}
     >
+      {strip && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`未割当（${items.length}件）を開く`}
+          title="未割当を開く"
+          className="hidden h-full min-h-[12rem] w-full flex-col items-center gap-2 py-3 text-amber-800 hover:bg-amber-100/60 md:flex"
+        >
+          <Inbox className="h-4 w-4 text-amber-600" />
+          <span className="rounded-full bg-amber-200 px-1.5 text-xs font-bold tnum">{items.length}</span>
+          <span className="text-xs font-bold text-ink-muted">開く</span>
+          <ChevronRight className="h-4 w-4 text-ink-muted" />
+        </button>
+      )}
       <button
         type="button"
-        onClick={() => collapsible && setOpen((v) => !v)}
-        className={cn("flex min-h-[2.75rem] items-center gap-2 px-3 py-2 text-left", collapsible && "cursor-pointer")}
+        onClick={() => collapsible && setOpen(!open)}
+        className={cn("flex min-h-[2.75rem] items-center gap-2 px-3 py-2 text-left", collapsible && "cursor-pointer", strip && "md:hidden")}
       >
         <Inbox className="h-4 w-4 text-amber-600" />
         <span className="text-base font-bold text-ink">未割当</span>

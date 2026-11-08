@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,33 @@ function DayColumn({
   );
 }
 
+const LANE_OPEN_KEY = "shinkawa:schedule:unassigned-open";
+
+/** 未割当の列を開いているか。スマホは最初は閉じる。PC は前回の開閉を端末に覚えておく */
+function useLaneOpen() {
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setOpen(false);
+      return;
+    }
+    try {
+      if (window.localStorage.getItem(LANE_OPEN_KEY) === "0") setOpen(false);
+    } catch {
+      // 保存できない端末では毎回開いた状態から
+    }
+  }, []);
+  const set = (v: boolean) => {
+    setOpen(v);
+    try {
+      if (!window.matchMedia("(max-width: 767px)").matches) window.localStorage.setItem(LANE_OPEN_KEY, v ? "1" : "0");
+    } catch {
+      // 無視
+    }
+  };
+  return { open, set };
+}
+
 export function WeekView({
   dateKey,
   byDay,
@@ -107,13 +135,27 @@ export function WeekView({
 }) {
   const start = weekStartOf(dateKey);
   const days = Array.from({ length: 7 }, (_, i) => shiftKey(start, i));
+  const laneOpen = useLaneOpen();
 
   return (
     // 列は最小 180px を確保し、画面が狭いときは横スクロールにする（チップの現場名を隠さないため）
     <div className="md:-mx-4 md:overflow-x-auto md:px-4 md:pb-2">
-    <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_repeat(7,minmax(180px,1fr))]">
-      {/* 未割当の列（工事・スポットなど。PC は左、スマホは上に折りたたみ） */}
-      <UnassignedLane items={unassigned} dnd={dnd} onSelect={onSelect} className="md:max-h-[calc(100vh-8rem)]" collapsible />
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-2",
+        laneOpen.open ? "md:grid-cols-[220px_repeat(7,minmax(180px,1fr))]" : "md:grid-cols-[44px_repeat(7,minmax(180px,1fr))]",
+      )}
+    >
+      {/* 未割当の列（工事・スポットなど。PC は左で、閉じると細い帯になり日付列が広がる。スマホは上に折りたたみ） */}
+      <UnassignedLane
+        items={unassigned}
+        dnd={dnd}
+        onSelect={onSelect}
+        className="md:max-h-[calc(100vh-8rem)]"
+        collapsible
+        open={laneOpen.open}
+        onOpenChange={laneOpen.set}
+      />
       {days.map((k) => (
         <DayColumn
           key={k}
