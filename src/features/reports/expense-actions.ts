@@ -1,9 +1,9 @@
 "use server";
 
+import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { deleteBlobPaths } from "@/lib/media";
 import { parseAndValidatePhotosField } from "@/lib/photos";
 import { canEditReport } from "@/lib/reports";
 
@@ -78,7 +78,7 @@ export async function updateReportExpense(input: {
         where: { id: expense.id },
         data: { amount, receiptPhotoId, ...(amount !== expense.amount ? { ocr: false } : {}) },
       });
-      if (gone.length) await tx.photo.deleteMany({ where: { id: { in: gone.map((p) => p.id) } } });
+      if (gone.length) await trashPhotos(tx, { id: { in: gone.map((p) => p.id) } }, { actorId: me.id, reason: "経費の修正（領収書）" });
       return gone.flatMap((p) => (p.blobPath ? [p.blobPath] : []));
     });
   } catch (e) {
@@ -86,7 +86,8 @@ export async function updateReportExpense(input: {
     throw e;
   }
 
-  await deleteBlobPaths(removedBlobs);
+  // Blob の原本は「削除済み」の猶予が過ぎてから消す（purgeTrash）
+  void removedBlobs;
   revalidatePath(`/reports/${report.id}`);
   if (report.propertyId) revalidatePath(`/properties/${report.propertyId}`);
   return {};

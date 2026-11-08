@@ -1,5 +1,6 @@
 "use server";
 
+import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
@@ -220,7 +221,9 @@ function parsePhotoFields(formData: FormData): PhotoSet[] | { error: string } {
 // kind ごとに「kept に無い既存写真を削除 → added を作成」
 async function applyPhotoSets(tx: Prisma.TransactionClient, propertyId: string, sets: PhotoSet[], createdById: string) {
   for (const set of sets) {
-    await tx.photo.deleteMany({ where: { propertyId, kind: set.kind, id: { notIn: set.kept } } });
+    // 外した写真・図面は「削除済み」へ（過去の版＝改訂済みの図面はフォームに出ないので対象外）
+    // 図面は過去の版ごと外す。古い画面から保存しても、画面で残したもの（kept）は巻き込まない
+    await trashPhotos(tx, { propertyId, kind: set.kind, id: { notIn: set.kept }, supersededAt: null }, { actorId: createdById, reason: "現場の編集", withHistory: true, keepIds: set.kept });
     if (set.added.length > 0) {
       await tx.photo.createMany({
         data: set.added.map((p) => ({
@@ -476,8 +479,11 @@ export async function deleteProperty(id: string): Promise<PropertyFormState | vo
   }
   const p = await db.property.findUnique({ where: { id }, select: { customerId: true } });
   try {
-    // 予定の無い作業は現場と一緒に消す（Job は現場に Cascade）
-    await db.property.delete({ where: { id } });
+    // 予定の無い作業は現場と一緒に消す（Job は現場に Cascade）。写真・図面は先に「削除済み」へ
+    await db.$transaction(async (tx) => {
+      await trashPhotos(tx, { propertyId: id }, { actorId: me.id, reason: "現場の削除" });
+      await tx.property.delete({ where: { id } });
+    });
   } catch {
     return { error: "削除に失敗しました" };
   }

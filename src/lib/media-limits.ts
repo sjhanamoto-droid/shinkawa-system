@@ -25,6 +25,10 @@ export const MEDIA_MAX_COUNT = 60;
 /** Blob へ直接上げる画像の形式（アップローダーが JPEG に変換してから送る） */
 export const IMAGE_ALLOWED_MIMES: readonly string[] = ["image/jpeg", "image/png", "image/webp"];
 
+/** 図面・資料の PDF。Blob へ直接上げる（データベースに入れないので大きなものも置ける） */
+export const PDF_MIME = "application/pdf";
+export const PDF_MAX_BYTES = 20 * 1024 * 1024;
+
 /** MIME からファイル拡張子を決める（Blob 上のパス生成用） */
 export function imageExtFor(mime: string): string {
   if (mime === "image/png") return "png";

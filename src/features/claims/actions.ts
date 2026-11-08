@@ -1,5 +1,6 @@
 "use server";
 
+import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
@@ -7,7 +8,6 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { sendPushToUser } from "@/lib/push";
-import { deleteBlobPaths } from "@/lib/media";
 import { parseAndValidatePhotosField } from "@/lib/photos";
 import { isExpenseDate } from "@/lib/reports";
 import { ANNOUNCEMENT_WORKER_KINDS, claimDedupeKey, normalizeAudience } from "@/lib/announcements";
@@ -86,12 +86,11 @@ export async function saveClaim(_prev: ClaimFormState, fd: FormData): Promise<Cl
         where: { claimId: id, id: { notIn: photos.kept } },
         select: { id: true, blobPath: true },
       });
-      if (gonePhotos.length) await tx.photo.deleteMany({ where: { id: { in: gonePhotos.map((p) => p.id) } } });
+      if (gonePhotos.length) await trashPhotos(tx, { id: { in: gonePhotos.map((p) => p.id) } }, { actorId: me.id, reason: "クレームの編集" });
       if (photos.added.length) await tx.photo.createMany({ data: photoRows(id) });
       return gonePhotos.map((p) => p.blobPath).filter((p): p is string => !!p);
     });
     if (gone === null) return { error: "クレームが見つかりません（削除された可能性があります）" };
-    await deleteBlobPaths(gone);
     revalidatePath("/claims");
     revalidatePath(`/claims/${id}`);
     redirect(`/claims/${id}?toast=${encodeURIComponent("保存しました")}`);
@@ -166,13 +165,13 @@ export async function acknowledgeClaim(id: string): Promise<{ error?: string }> 
 export async function deleteClaim(id: string): Promise<{ error?: string }> {
   const me = await requireUser();
   if (!can(me, "claim.manage")) return { error: "削除する権限がありません" };
-  const blobs = await db.photo.findMany({ where: { claimId: id, blobPath: { not: null } }, select: { blobPath: true } });
-  const [, removed] = await db.$transaction([
-    db.notification.deleteMany({ where: { dedupeKey: claimDedupeKey(id) } }),
-    db.claim.deleteMany({ where: { id } }),
-  ]);
+  const removed = await db.$transaction(async (tx) => {
+    // 写真は「削除済み」へ移してからクレームを消す（写真の原本は猶予の間は残す）
+    await trashPhotos(tx, { claimId: id }, { actorId: me.id, reason: "クレームの削除" });
+    await tx.notification.deleteMany({ where: { dedupeKey: claimDedupeKey(id) } });
+    return tx.claim.deleteMany({ where: { id } });
+  });
   if (removed.count === 0) return { error: "クレームが見つかりません（すでに削除されています）" };
-  await deleteBlobPaths(blobs.map((b) => b.blobPath).filter((p): p is string => !!p));
   revalidatePath("/claims");
   revalidatePath("/", "layout");
   redirect(`/claims?toast=${encodeURIComponent("削除しました")}`);

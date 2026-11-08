@@ -6,14 +6,14 @@ import { jstDateKey } from "@/lib/date";
 import { isBlobConfigured } from "@/lib/media";
 import { mapSearchUrl } from "@/lib/utils";
 import { fmtDayLabel, fmtHm } from "@/lib/worker";
-import { FileText } from "lucide-react";
-import { photoSrc } from "@/lib/photos";
 import { PhotoGrid } from "@/components/photo-grid";
 import { HandoverPanel } from "@/features/properties/handover-panel";
 import { WorkerSubPage } from "@/features/worker/ui/sub-page";
 import { BackButton, FooterBar, FooterSpacer, PrimaryButton } from "@/features/worker/ui/parts";
 import { MySitePhotos, SitePhotoUploader } from "@/features/worker/site-photo-uploader";
 import { loadVisitInfo } from "@/features/worker/queries";
+import { loadDrawings } from "@/features/properties/drawings";
+import { DrawingList } from "@/features/properties/drawing-list";
 import { reportHref } from "@/features/worker/links";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +41,7 @@ export default async function WorkerSiteDetail({ params, searchParams }: { param
       contactName: true,
       contactPhone: true,
       customer: { select: { name: true } },
-      photos: { select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true, createdById: true }, orderBy: { createdAt: "asc" } },
+      photos: { where: { supersededAt: null }, select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true, createdById: true }, orderBy: { createdAt: "asc" } },
       memos: { select: { id: true, content: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 20 },
       handovers: { orderBy: { createdAt: "desc" }, take: 50 },
     },
@@ -58,6 +58,7 @@ export default async function WorkerSiteDetail({ params, searchParams }: { param
   const visit = sp.visit ? await loadVisitInfo(sp.visit, me.id, isPlanner(me), sp.date) : null;
   const v = visit && visit.property?.id === p.id ? visit : null;
   const drawings = p.photos.filter((x) => x.kind === "DRAWING");
+  const drawingItems = await loadDrawings(p.id);
   const others = p.photos.filter((x) => x.kind !== "DRAWING");
   const canDeleteAll = isPlanner(me);
   const mine = (list: typeof p.photos) =>
@@ -164,25 +165,9 @@ export default async function WorkerSiteDetail({ params, searchParams }: { param
 
       <section id="drawings" className="mt-8 scroll-mt-4">
         <h2 className="text-[20px] font-semibold">図面</h2>
-        <div className="mt-3 space-y-2">
-          {drawings.length === 0 && <p className="text-[16px] text-[var(--w-text-muted)]">図面はまだありません</p>}
-          {/* PDF は別のタブで開く（写真の一覧には入れない） */}
-          {drawings
-            .filter((d) => d.width == null)
-            .map((d, i) => (
-              <a
-                key={d.id}
-                href={photoSrc(d.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--w-border)] px-4 py-2 active:bg-[var(--w-soft-bg)]"
-              >
-                <FileText className="h-6 w-6 shrink-0 text-red-500" aria-hidden />
-                <span className="min-w-0 flex-1 truncate text-[17px]">{d.caption || `図面 ${i + 1}`}</span>
-                <span className="shrink-0 text-[14px] text-[var(--w-primary)]">開く</span>
-              </a>
-            ))}
-          {drawings.some((d) => d.width != null) && <PhotoGrid photos={drawings.filter((d) => d.width != null)} />}
+        <p className="mt-1 text-[14px] text-[var(--w-text-muted)]">一覧は縮小画像です。開くとPDF・図面の本体を表示します。図面が変わったら「改訂版を上げる」で新しい版にしてください（前の版も残ります）。</p>
+        <div className="mt-3">
+          {drawingItems.length === 0 ? <p className="text-[16px] text-[var(--w-text-muted)]">図面はまだありません</p> : <DrawingList items={drawingItems} canRevise blobEnabled={blobEnabled} />}
         </div>
         <div className="mt-3">
           <SitePhotoUploader propertyId={p.id} kind="DRAWING" blobEnabled={blobEnabled} />

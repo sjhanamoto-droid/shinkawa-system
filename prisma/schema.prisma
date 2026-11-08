@@ -387,24 +387,30 @@ model OccurrenceChangeLog {
 
 // ──────────────────────────── Photo（写真／動画／PDF） ────────────────────────────
 model Photo {
-  id           String   @id @default(cuid())
-  propertyId   String? // 物件直付け（図面・キーBOX・現調写真）
-  occurrenceId String? // 実施回の作業写真
-  reportId     String?
-  claimId      String? // クレーム再発防止の写真
-  dataUrl      String? // 圧縮済み base64（画像・PDF）
-  thumbUrl     String?
-  blobPath     String? // Vercel Blob 上のパス（動画など）
-  mimeType     String?
-  sizeBytes    Int?
-  duration     Int?
-  caption      String?
-  kind         String   @default("WORK") // WORK | SURVEY | DRAWING | KEYBOX | BEFORE | AFTER | OTHER | RECEIPT
-  isVideo      Boolean  @default(false)
-  width        Int?
-  height       Int?
-  createdById  String?
-  createdAt    DateTime @default(now())
+  id             String    @id @default(cuid())
+  propertyId     String? // 物件直付け（図面・キーBOX・現調写真）
+  occurrenceId   String? // 実施回の作業写真
+  reportId       String?
+  claimId        String? // クレーム再発防止の写真
+  dataUrl        String? // 圧縮済み base64（画像・PDF）
+  thumbUrl       String?
+  blobPath       String? // Vercel Blob 上のパス（動画など）
+  mimeType       String?
+  sizeBytes      Int?
+  duration       Int?
+  caption        String?
+  kind           String    @default("WORK") // WORK | SURVEY | DRAWING | KEYBOX | BEFORE | AFTER | OTHER | RECEIPT
+  isVideo        Boolean   @default(false)
+  width          Int?
+  height         Int?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  // 図面の版。改訂版を上げると、前の版に supersededAt が付き「過去の版」として残る
+  revision       Int       @default(1)
+  replacesId     String? // この版が置き換えた前の版の写真ID
+  supersededAt   DateTime? // 新しい版に置き換えられた日時（null＝最新）
+  backedUpAt     DateTime? // バックアップ用ストアへコピーした日時（動画はコピーしない）
+  backupFailedAt DateTime? // バックアップに失敗した日時（失敗したものは後回しにする）
 
   property   Property?      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   occurrence Occurrence?    @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
@@ -415,6 +421,43 @@ model Photo {
   @@index([propertyId])
   @@index([claimId])
   @@index([occurrenceId])
+  @@index([reportId])
+  @@index([backedUpAt])
+}
+
+// 削除した写真・図面・領収書（30日の猶予）。消した時点の Photo の中身をそのまま残し、Blob の原本も消さない。
+// 猶予が過ぎたら毎日のチェックで原本ごと消す。それまでは「削除済み」から元に戻せる（同じIDで写真に戻す）。
+model DeletedMedia {
+  id           String    @id // 元の写真ID
+  propertyId   String?
+  occurrenceId String?
+  reportId     String?
+  claimId      String?
+  dataUrl      String?
+  thumbUrl     String?
+  blobPath     String?
+  mimeType     String?
+  sizeBytes    Int?
+  duration     Int?
+  caption      String?
+  kind         String
+  isVideo      Boolean   @default(false)
+  width        Int?
+  height       Int?
+  createdById  String?
+  createdAt    DateTime
+  revision     Int       @default(1)
+  replacesId   String?
+  supersededAt DateTime?
+  backedUpAt   DateTime?
+  deletedById  String?
+  deletedAt    DateTime  @default(now())
+  purgeAfter   DateTime // この日時を過ぎたら原本ごと消す
+  reason       String? // どこで消したか（現場の編集・日報の修正など）
+  expenseId    String? // 領収書だったとき、付いていた経費（元に戻すときにつなぎ直す）
+
+  @@index([purgeAfter])
+  @@index([propertyId])
   @@index([reportId])
 }
 

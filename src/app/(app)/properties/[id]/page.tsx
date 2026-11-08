@@ -11,7 +11,6 @@ import { Badge, CategoryBadge, OccurrenceStatusBadge } from "@/components/ui/bad
 import { LinkButton, buttonClass } from "@/components/ui/button";
 import { SearchParamToast } from "@/components/ui/toast";
 import { PhotoGrid } from "@/components/photo-grid";
-import { PdfRow } from "@/components/pdf-row";
 import { PropertyDetailTabs } from "@/features/properties/property-detail-tabs";
 import { PropertyMemoPanel, type PropertyMemoAuthor } from "@/features/properties/property-memo-panel";
 import { RelationControl } from "@/features/properties/relation-control";
@@ -29,6 +28,9 @@ import { loadPropertyReports } from "@/features/reports/queries";
 import { ReportListRow } from "@/features/reports/report-items";
 import { loadPropertyExpenseItems } from "@/features/expenses/queries";
 import { PropertyExpensesTab } from "@/features/expenses/property-expenses-tab";
+import { loadDrawings } from "@/features/properties/drawings";
+import { DrawingList } from "@/features/properties/drawing-list";
+import { isBlobConfigured } from "@/lib/media";
 
 const MEMO_LIMIT = 30;
 const REPORT_LIMIT = 30;
@@ -44,7 +46,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     where: { id },
     include: {
       customer: { select: { id: true, name: true, phone: true } },
-      photos: { select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
+      // 図面の過去の版は一覧に出さない（図面の欄で「過去の版」として見せる）
+      photos: { where: { supersededAt: null }, select: { id: true, caption: true, kind: true, isVideo: true, width: true, height: true }, orderBy: { createdAt: "asc" } },
       memos: { orderBy: { createdAt: "desc" }, take: MEMO_LIMIT },
       _count: { select: { memos: true } },
       handovers: { orderBy: { createdAt: "desc" }, take: 50 },
@@ -108,7 +111,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   for (const a of authorRows) authors[a.id] = { id: a.id, name: a.name, avatarColor: a.avatarColor, avatarUrl: avatarUrlFor(a) };
   const me = authors[user.id] ?? { id: user.id, name: user.name, avatarColor: user.avatarColor, avatarUrl: user.avatarUrl };
 
-  const drawings = property.photos.filter((p) => p.kind === "DRAWING");
+  const drawingItems = await loadDrawings(id);
   const keyboxPhotos = property.photos.filter((p) => p.kind === "KEYBOX");
   const surveyPhotos = property.photos.filter((p) => p.kind === "SURVEY");
   const workPhotos = property.photos.filter((p) => !["DRAWING", "KEYBOX", "SURVEY"].includes(p.kind));
@@ -408,15 +411,10 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       </section>
       <section className="space-y-2.5">
         <SectionTitle>図面・資料（PDF）</SectionTitle>
-        {drawings.length === 0 ? (
+        {drawingItems.length === 0 ? (
           emptyBox(`図面・資料はまだありません${canManage ? "（編集から追加できます）" : ""}`)
         ) : (
-          <div className="space-y-2">
-            {drawings.filter((p) => p.width == null).map((p, i) => (
-              <PdfRow key={p.id} photoId={p.id} label={p.caption || `図面・資料 ${i + 1}`} />
-            ))}
-            {drawings.some((p) => p.width != null) && <PhotoGrid photos={drawings.filter((p) => p.width != null)} />}
-          </div>
+          <DrawingList items={drawingItems} canRevise blobEnabled={isBlobConfigured()} />
         )}
       </section>
       <section className="space-y-2.5">

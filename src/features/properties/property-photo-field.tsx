@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, X, Loader2, FileText } from "lucide-react";
 import type { PhotoKind } from "@/lib/constants";
 import { photoSrc } from "@/lib/photos";
+import { uploadPdfToBlob } from "@/lib/upload-pdf";
+import { pdfThumbnail } from "@/lib/pdf-thumb";
 
 /**
  * 物件フォーム用の kind 固定アップローダー（キーBOX / 図面 / 現調写真）。
@@ -21,6 +23,10 @@ export type PropertyPhotoInit = {
 
 type Item = {
   id?: string;
+  /** Blob にアップロード済みの PDF（データベースには入れない） */
+  blobPath?: string;
+  mimeType?: string;
+  sizeBytes?: number;
   dataUrl?: string;
   thumbUrl?: string;
   caption: string;
@@ -117,7 +123,9 @@ function serialize(items: Item[], kind: PhotoKind): string {
     items.map((p) =>
       p.id
         ? { id: p.id }
-        : {
+        : p.blobPath
+          ? { blobPath: p.blobPath, mimeType: p.mimeType, sizeBytes: p.sizeBytes, thumbUrl: p.thumbUrl, caption: p.caption, kind, isVideo: false }
+          : {
             dataUrl: p.dataUrl,
             thumbUrl: p.thumbUrl,
             caption: p.caption,
@@ -136,10 +144,13 @@ export function PropertyPhotoField({
   allowPdf = false,
   initial = [],
   buttonLabel = "写真を追加",
+  blobEnabled = false,
 }: {
   name: string;
   kind: PhotoKind;
   allowPdf?: boolean;
+  /** Blob が使えるとき、PDF は Blob に直接アップロードする（20MBまで） */
+  blobEnabled?: boolean;
   initial?: PropertyPhotoInit[];
   buttonLabel?: string;
 }) {
@@ -180,11 +191,22 @@ export function PropertyPhotoField({
             nextErrors.push(`${f.name}: この欄にPDFは追加できません`);
             continue;
           }
-          if (f.size > MAX_PDF_BYTES) {
-            nextErrors.push(`${f.name} はサイズ上限(2.5MB)を超えるため追加できませんでした`);
-            continue;
+          if (blobEnabled) {
+            try {
+              const up = await uploadPdfToBlob(f);
+              // 一覧用に1ページ目のサムネイルを作る（PDF 本体は開いたときだけ取りに行く）
+              item = { ...up, thumbUrl: (await pdfThumbnail(f)) ?? undefined, caption: f.name.replace(/\.pdf$/i, ""), isPdf: true };
+            } catch (err) {
+              nextErrors.push(err instanceof Error ? err.message : `${f.name} を保存できませんでした`);
+              continue;
+            }
+          } else {
+            if (f.size > MAX_PDF_BYTES) {
+              nextErrors.push(`${f.name} はサイズ上限(2.5MB)を超えるため追加できませんでした`);
+              continue;
+            }
+            item = await readPdf(f);
           }
-          item = await readPdf(f);
         } else if (f.type.startsWith("image/")) {
           item = await compressImage(f);
         } else {
@@ -313,7 +335,7 @@ export function PropertyPhotoField({
 
       <p className="mt-1.5 text-[11px] text-ink-faint">
         画像は自動で軽量化（最大{MAX_DIM}px）してから保存します。
-        {allowPdf && "PDFは2.5MBまで追加できます。"}
+        {allowPdf && (blobEnabled ? "PDFは20MBまで追加できます。" : "PDFは2.5MBまで追加できます。")}
         削除は×を2回タップ。
       </p>
     </div>

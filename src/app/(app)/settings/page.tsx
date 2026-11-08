@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users2, Building2, UserCog, ChevronRight, Info, Handshake, Car, Lightbulb, Tags } from "lucide-react";
+import { Users2, Building2, UserCog, ChevronRight, Info, Handshake, Car, Lightbulb, Tags, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
@@ -66,6 +66,12 @@ export default async function SettingsPage() {
                   icon={<Tags className="h-5 w-5" />}
                   title="種別マスタ"
                   desc="カレンダーのタグ（AC・定期など）の名称・色・並び順、種別の追加"
+                />
+                <SettingRow
+                  href="/settings/trash"
+                  icon={<Trash2 className="h-5 w-5" />}
+                  title="削除済みの写真・図面"
+                  desc="削除してから30日間は元に戻せる。バックアップの状況"
                 />
                 <SettingRow
                   href="/settings/app"

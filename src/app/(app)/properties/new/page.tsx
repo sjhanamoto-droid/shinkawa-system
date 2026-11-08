@@ -2,6 +2,7 @@ import { requireCan } from "@/lib/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
+import { isBlobConfigured } from "@/lib/media";
 import { PropertyForm, type PropertyFormValues } from "@/features/properties/property-form";
 import { loadCustomerChoices } from "@/features/properties/customer-choices";
 
@@ -26,6 +27,7 @@ export default async function NewPropertyPage({ searchParams }: { searchParams: 
       <PageHeader title="現場を登録" backHref={source ? `/properties/${source.id}` : "/properties"} />
       <PageContainer size="narrow">
         <PropertyForm
+          blobEnabled={isBlobConfigured()}
           customers={customers}
           property={initial}
           work={user.department ? { department: user.department } : null}

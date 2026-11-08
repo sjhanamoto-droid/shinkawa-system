@@ -1,12 +1,12 @@
 "use server";
 
+import { trashPhotos } from "@/lib/trash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { dateFromKey, jstDateKey, storedDateKey } from "@/lib/date";
-import { deleteBlobPaths } from "@/lib/media";
 import { parseAndValidatePhotosField, type NewPhotoInput } from "@/lib/photos";
 import {
   canEditReport,
@@ -359,7 +359,8 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         where: { reportId: report.id, kind: "RECEIPT", id: { notIn: usedReceipts } },
         select: { id: true, blobPath: true },
       });
-      if (goneReceipts.length) await tx.photo.deleteMany({ where: { id: { in: goneReceipts.map((p) => p.id) } } });
+      // 消した写真は「削除済み」へ（30日は元に戻せる。Blob の原本もその間は残す）
+      if (goneReceipts.length) await trashPhotos(tx, { id: { in: goneReceipts.map((p) => p.id) } }, { actorId: me.id, reason: "日報の修正（領収書）" });
 
       // 写真（領収書以外）：残すもの以外を消し、新しいものを足す
       const gonePhotos = await tx.photo.findMany({
@@ -367,7 +368,7 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
         select: { id: true, blobPath: true },
       });
       const gone = [...goneReceipts, ...gonePhotos];
-      if (gonePhotos.length) await tx.photo.deleteMany({ where: { id: { in: gonePhotos.map((p) => p.id) } } });
+      if (gonePhotos.length) await trashPhotos(tx, { id: { in: gonePhotos.map((p) => p.id) } }, { actorId: me.id, reason: "日報の修正（写真）" });
       if (photos.added.length) {
         await tx.photo.createMany({
           // 日報の写真は reportId だけで紐づける（予定や現場の削除に巻き込まれないように）
@@ -435,7 +436,8 @@ export async function saveReport(_prev: ReportFormState, fd: FormData): Promise<
     return { error: "保存に失敗しました。電波状況を確認してもう一度お試しください（入力内容は端末に自動保存されています）" };
   }
 
-  if (removedBlobs.length) await deleteBlobPaths(removedBlobs).catch(() => {});
+  // Blob の原本は「削除済み」の猶予が過ぎてから消す（purgeTrash）
+  void removedBlobs;
 
   revalidatePath("/");
   revalidatePath("/reports");

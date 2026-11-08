@@ -116,6 +116,7 @@ export function PropertyForm({
   customers,
   photos,
   copiedFrom,
+  blobEnabled = false,
 }: {
   property?: PropertyFormValues;
   work?: WorkFormValues | null;
@@ -125,6 +126,8 @@ export function PropertyForm({
   customers: CustomerChoice[];
   photos?: { keybox: PropertyPhotoInit[]; drawing: PropertyPhotoInit[]; survey: PropertyPhotoInit[] };
   copiedFrom?: string;
+  /** 図面の PDF を Blob に直接アップロードできるか */
+  blobEnabled?: boolean;
 }) {
   const isEdit = Boolean(property?.id);
   const hasWork = Boolean(work?.department);
@@ -377,7 +380,7 @@ export function PropertyForm({
 
       <Collapsible title="図面・現調写真・業務連絡" icon={<FileText className="h-4 w-4" />} defaultOpen={isEdit}>
         <Field label="図面・資料（PDF）" hint="材料屋のシステムで消えてしまう図面や、見積書PDFをここに保存しておけます">
-          <PropertyPhotoField name="drawingPhotos" kind="DRAWING" allowPdf initial={photos?.drawing ?? []} buttonLabel="PDF・画像を追加" />
+          <PropertyPhotoField name="drawingPhotos" kind="DRAWING" allowPdf blobEnabled={blobEnabled} initial={photos?.drawing ?? []} buttonLabel="PDF・画像を追加" />
         </Field>
         <Field label="現調写真">
           <PropertyPhotoField name="surveyPhotos" kind="SURVEY" initial={photos?.survey ?? []} buttonLabel="写真を追加" />

@@ -38,7 +38,7 @@ export function isWorkerPath(pathname: string): boolean {
  */
 export function workerPathFor(pathname: string, search: URLSearchParams): string | null {
   if (isWorkerPath(pathname)) return null;
-  if (pathname === "/login" || pathname.startsWith("/api/") || pathname === "/offline") return null;
+  if (pathname === "/login" || pathname.startsWith("/api/") || pathname === "/offline" || pathname.startsWith("/viewer/")) return null;
   // 印刷・PDF はどちらの画面からも開ける
   if (/^\/reports\/[^/]+\/print$/.test(pathname) || /^\/properties\/[^/]+\/expenses\/print$/.test(pathname)) return null;
 

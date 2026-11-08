@@ -22,6 +22,9 @@ function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer } | null 
   }
 }
 
+/** ここで中継して返す写真の大きさの上限（関数のレスポンス上限 4.5MB より小さく） */
+const PROXY_MAX_BYTES = 4 * 1024 * 1024;
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -41,7 +44,7 @@ export async function GET(
 
   const photo = await db.photo.findUnique({
     where: { id },
-    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true, kind: true, report: { select: { userId: true, createdById: true } }, claim: { select: { audience: true } } },
+    select: { dataUrl: true, thumbUrl: true, blobPath: true, isVideo: true, mimeType: true, sizeBytes: true, kind: true, report: { select: { userId: true, createdById: true } }, claim: { select: { audience: true } } },
   });
   // 日報の写真は、その日報を見られる人にだけ返す
   // 領収書は経費を見られる人（本人・入力者・最高管理者・事務）だけ
@@ -59,6 +62,41 @@ export async function GET(
   // 一覧の <img> が動画そのものを落としに行くのを防ぐ（呼び出し側は再生アイコンを出す）。
   if (wantThumb && photo.isVideo && !photo.thumbUrl) {
     return NextResponse.json({ error: "サムネイルがありません" }, { status: 404 });
+  }
+
+  // ?url=1：アプリ内の PDF ビューア用に、本体を読む短時間のURLを返す（大きな PDF はここを通せないため）
+  if (req.nextUrl.searchParams.get("url") === "1") {
+    if (!photo.blobPath) return NextResponse.json({ url: null });
+    try {
+      return NextResponse.json({ url: await signedReadUrl(photo.blobPath) }, { headers: { "Cache-Control": "private, no-store" } });
+    } catch {
+      return NextResponse.json({ error: "取得できませんでした" }, { status: 502 });
+    }
+  }
+
+  // Blob 保存の写真・PDF（4MBまで）は、ここで取り出して「表示用（inline）」で返す。
+  // Blob の署名付きURLは「ダウンロード（attachment）」で返すため、写真を直接開くと
+  // スマホでは表示されずに真っ白になる（<img> の中では表示されるが、プレビューで開くと出ない）。
+  if (photo.blobPath && !photo.isVideo && (!wantThumb || !photo.thumbUrl) && (photo.sizeBytes ?? 0) <= PROXY_MAX_BYTES) {
+    try {
+      const res = await fetch(await signedReadUrl(photo.blobPath), { cache: "no-store" });
+      if (res.ok && res.body) {
+        const headers: Record<string, string> = {
+          "Content-Type": photo.mimeType || res.headers.get("content-type") || "image/jpeg",
+          // 写真は不変（編集時は新IDで再作成）。認証必須のため private
+          "Cache-Control": "private, max-age=31536000, immutable",
+          "Content-Disposition": wantDownload
+            ? `attachment; filename="${photo.mimeType === "application/pdf" ? `file-${id}.pdf` : `photo-${id}.jpg`}"`
+            : "inline",
+        };
+        // 圧縮して届いたときは長さが変わるので、そのときは付けない
+        const len = res.headers.get("content-length");
+        if (len && !res.headers.get("content-encoding")) headers["Content-Length"] = len;
+        return new NextResponse(res.body, { status: 200, headers });
+      }
+    } catch {
+      // 取り出せなかったときは、下の転送に任せる
+    }
   }
 
   // Blob 保存（写真・動画）の本体は、署名付きURLへ転送してブラウザに直接読ませる。

@@ -4,23 +4,12 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, FileUp, Loader2 } from "lucide-react";
 import { photoSrc } from "@/lib/photos";
-import { prepareReceipt } from "@/features/reports/expense-editor";
+import { prepareSiteFile } from "@/lib/prepare-site-file";
 import { addSitePhotos, deleteSitePhoto, type SitePhotoKind } from "./site-actions";
 import { TwoTapDelete } from "./ui/parts";
 
 // 現場の詳細（スタッフ画面）から写真・図面を追加する。
-// 写真は圧縮して保存（Blob があれば直接アップロード）、図面は画像か PDF（2.5MB まで）。1枚ずつ送る。
-
-const MAX_PDF_BYTES = 2.5 * 1024 * 1024;
-
-function readDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+// 写真は圧縮して保存、図面は画像か PDF（原本は非公開の Blob。一覧はサムネイル）。1件ずつ送る。
 
 export function SitePhotoUploader({ propertyId, kind, blobEnabled }: { propertyId: string; kind: SitePhotoKind; blobEnabled: boolean }) {
   const router = useRouter();
@@ -39,17 +28,7 @@ export function SitePhotoUploader({ propertyId, kind, blobEnabled }: { propertyI
     for (const [i, file] of list.entries()) {
       setBusy(`${i + 1} / ${list.length} を保存しています...`);
       try {
-        let photo: Record<string, unknown>;
-        if (file.type === "application/pdf") {
-          if (!drawing) throw new Error("PDF は図面に追加してください");
-          if (file.size > MAX_PDF_BYTES) throw new Error(`${file.name}：PDF は2.5MBまでです`);
-          photo = { dataUrl: await readDataUrl(file), caption: file.name.replace(/\.pdf$/i, ""), kind };
-        } else if (file.type.startsWith("image/")) {
-          const { receipt } = await prepareReceipt(file, blobEnabled);
-          photo = { ...receipt, caption: "", kind };
-        } else {
-          throw new Error(`${file.name}：写真（画像）${drawing ? "か PDF " : ""}を選んでください`);
-        }
+        const photo = await prepareSiteFile(file, { kind, blobEnabled, allowPdf: drawing });
         const r = await addSitePhotos(propertyId, kind, JSON.stringify([photo]));
         if (r.error) errors.push(r.error);
         else ok += 1;

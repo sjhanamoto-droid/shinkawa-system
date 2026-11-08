@@ -4,6 +4,7 @@ import { canEditDepartment, canViewAmounts } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
+import { isBlobConfigured } from "@/lib/media";
 import { PropertyForm } from "@/features/properties/property-form";
 import { loadCustomerChoices } from "@/features/properties/customer-choices";
 import { DeletePropertyButton } from "@/features/properties/delete-property-button";
@@ -16,7 +17,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
   const [property, customers, work, depts] = await Promise.all([
     db.property.findUnique({
       where: { id },
-      include: { photos: { where: { kind: { in: ["KEYBOX", "DRAWING", "SURVEY"] } }, select: { id: true, caption: true, isVideo: true, width: true, kind: true }, orderBy: { createdAt: "asc" } } },
+      include: { photos: { where: { kind: { in: ["KEYBOX", "DRAWING", "SURVEY"] }, supersededAt: null }, select: { id: true, caption: true, isVideo: true, width: true, kind: true }, orderBy: { createdAt: "asc" } } },
     }),
     loadCustomerChoices(),
     loadWorkForForm(id, showAmount),
@@ -33,6 +34,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
       <PageContainer size="narrow">
         <div className="space-y-6">
           <PropertyForm
+          blobEnabled={isBlobConfigured()}
             customers={customers}
             property={property}
             work={work.work}

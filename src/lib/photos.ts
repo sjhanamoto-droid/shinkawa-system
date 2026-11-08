@@ -8,6 +8,8 @@ import {
   IMAGE_ALLOWED_MIMES,
   IMAGE_MAX_BYTES,
   MEDIA_MAX_COUNT,
+  PDF_MAX_BYTES,
+  PDF_MIME,
   VIDEO_ALLOWED_MIMES,
   VIDEO_MAX_BYTES,
   VIDEO_MAX_COUNT,
@@ -65,7 +67,7 @@ const MAX_TOTAL_BYTES = 3 * 1024 * 1024;
 
 // Blob 上のパスは createMediaUploadTarget が作った形だけ許す。
 // 認証済みユーザーが任意のパスを差し込んで他人のファイルを紐づけるのを防ぐ。
-const BLOB_PATH_RE = /^media\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.(mp4|mov|webm|jpg|png|webp)$/;
+const BLOB_PATH_RE = /^media\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.(mp4|mov|webm|jpg|png|webp|pdf)$/;
 
 /** dataUrl の MIME タイプを取り出す（不正なら null） */
 function mimeOf(dataUrl: string): string | null {
@@ -177,18 +179,21 @@ export function parseAndValidatePhotosField(
       const mimeType = typeof o.mimeType === "string" ? o.mimeType.toLowerCase() : "";
       const isVideo = VIDEO_ALLOWED_MIMES.includes(mimeType);
       const isImage = IMAGE_ALLOWED_MIMES.includes(mimeType);
-      if (!isVideo && !isImage) {
+      const isPdf = mimeType === PDF_MIME;
+      if (!isVideo && !isImage && !isPdf) {
         return {
-          error: "対応していない形式です（写真: JPEG / PNG / WebP、動画: MP4 / MOV / WebM）。",
+          error: "対応していない形式です（写真: JPEG / PNG / WebP、動画: MP4 / MOV / WebM、図面: PDF）。",
         };
       }
-      const maxBytes = isVideo ? VIDEO_MAX_BYTES : IMAGE_MAX_BYTES;
+      const maxBytes = isVideo ? VIDEO_MAX_BYTES : isPdf ? PDF_MAX_BYTES : IMAGE_MAX_BYTES;
       const sizeBytes = typeof o.sizeBytes === "number" ? o.sizeBytes : NaN;
       if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > maxBytes) {
         return {
           error: isVideo
             ? `動画のサイズが大きすぎます（1本あたり${formatMb(VIDEO_MAX_BYTES)}まで）。`
-            : `写真のサイズが大きすぎます（1枚あたり${formatMb(IMAGE_MAX_BYTES)}まで）。`,
+            : isPdf
+              ? `PDF のサイズが大きすぎます（1件あたり${formatMb(PDF_MAX_BYTES)}まで）。`
+              : `写真のサイズが大きすぎます（1枚あたり${formatMb(IMAGE_MAX_BYTES)}まで）。`,
         };
       }
 
