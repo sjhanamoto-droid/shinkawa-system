@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronDown, LogOut, UserCog } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { ROLE_LABEL, DEPARTMENT_LABEL, isDepartment, type Role } from "@/lib/constants";
-import { logoutAction } from "@/features/auth/actions";
+import { LogoutForm } from "@/features/auth/logout-form";
 import type { ShellUser } from "./sidebar";
 
 const ShellUserContext = createContext<{ user: ShellUser; unreadCount: number } | null>(null);
@@ -68,12 +68,12 @@ export function HeaderUserMenu() {
             <UserCog className="h-4 w-4" />
             アカウント設定
           </Link>
-          <form action={logoutAction}>
+          <LogoutForm>
             <button type="submit" role="menuitem" className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-semibold text-status-danger hover:bg-red-50">
               <LogOut className="h-4 w-4" />
               ログアウト
             </button>
-          </form>
+          </LogoutForm>
         </div>
       )}
     </div>

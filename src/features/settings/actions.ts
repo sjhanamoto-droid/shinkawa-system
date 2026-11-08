@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { assertCan, PermissionError } from "@/lib/permissions";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { issueSessionCookie } from "@/lib/session-cookie";
 
 export type SettingsState = { error?: string; ok?: boolean };
 
@@ -117,6 +118,17 @@ export async function changePassword(_prev: SettingsState, formData: FormData): 
   const ok = await verifyPassword(parsed.data.current, user.passwordHash);
   if (!ok) return { error: "現在のパスワードが違います" };
 
-  await db.user.update({ where: { id: me.id }, data: { passwordHash: await hashPassword(parsed.data.next) } });
+  // ほかの端末のログインは切る（世代を上げる）。この端末は新しい世代でログインし直す
+  const updated = await db.user.update({
+    where: { id: me.id },
+    data: { passwordHash: await hashPassword(parsed.data.next), sessionVersion: { increment: 1 } },
+    select: { id: true, role: true, name: true, sessionVersion: true },
+  });
+  await issueSessionCookie(updated);
+  // ほかの端末への通知も止める（なくした端末に届き続けないように）。この端末の分だけ残す
+  const keep = formData.get("pushEndpoint");
+  await db.pushSubscription.deleteMany({
+    where: { userId: me.id, ...(typeof keep === "string" && keep ? { endpoint: { not: keep } } : {}) },
+  });
   return { ok: true };
 }

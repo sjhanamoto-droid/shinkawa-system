@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { assertCan, isOwner, PermissionError } from "@/lib/permissions";
 import { hashPassword } from "@/lib/password";
+import { issueSessionCookie } from "@/lib/session-cookie";
 import { validateAvatarDataUrl } from "@/lib/photos";
 import {
   DEFAULT_AVATAR_COLOR,
@@ -166,8 +167,10 @@ export async function updateUser(_prev: UserFormState, formData: FormData): Prom
   const avatarImage = avatarResult as string | null;
 
   const passwordHash = d.password ? await hashPassword(d.password) : undefined;
+  // パスワードを設定し直した・ログインできなくしたときは、今のログインをすべて切る
+  const revoke = !!passwordHash || (target.canLogin && !d.canLogin);
 
-  await db.user.update({
+  const updated = await db.user.update({
     where: { id: d.id },
     data: {
       name: d.name,
@@ -183,8 +186,15 @@ export async function updateUser(_prev: UserFormState, formData: FormData): Prom
       avatarColor: d.avatarColor ?? target.avatarColor,
       avatarImage,
       ...(passwordHash ? { passwordHash } : {}),
+      ...(revoke ? { sessionVersion: { increment: 1 } } : {}),
     },
+    select: { id: true, role: true, name: true, sessionVersion: true },
   });
+  // ログインできなくした・パスワードを設定し直したときは、その人の端末への通知も止める
+  // （自分のパスワードを管理画面から変えたときは、この端末の通知は残したいので消さない）
+  if (!d.canLogin || (passwordHash && d.id !== me.id)) await db.pushSubscription.deleteMany({ where: { userId: d.id } });
+  // 自分のパスワードを管理画面から変えたときは、この端末はログインを続ける
+  if (revoke && d.id === me.id) await issueSessionCookie(updated);
   revalidatePath("/workers");
   revalidatePath(`/workers/${d.id}/edit`);
   redirect("/workers");
@@ -210,7 +220,9 @@ export async function toggleUserActive(id: string): Promise<UserFormState> {
     }
   }
 
-  await db.user.update({ where: { id }, data: { active: !target.active } });
+  // 無効にしたら、ログインを切り（世代を上げる）、端末への通知の登録も消す
+  await db.user.update({ where: { id }, data: { active: !target.active, ...(target.active ? { sessionVersion: { increment: 1 } } : {}) } });
+  if (target.active) await db.pushSubscription.deleteMany({ where: { userId: id } });
   revalidatePath("/workers");
   return { ok: true };
 }

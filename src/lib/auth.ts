@@ -19,10 +19,12 @@ export interface SessionPayload {
   sub: string; // userId
   role: string;
   name: string;
+  /** ログインの世代（User.sessionVersion）。この値の入っていない以前のログインは 0 として扱う */
+  ver: number;
 }
 
 export async function signSession(payload: SessionPayload): Promise<string> {
-  return await new SignJWT({ role: payload.role, name: payload.name })
+  return await new SignJWT({ role: payload.role, name: payload.name, ver: payload.ver })
     .setProtectedHeader({ alg: ALG })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -38,6 +40,7 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
       sub: payload.sub as string,
       role: (payload.role as string) ?? "STAFF",
       name: (payload.name as string) ?? "",
+      ver: typeof payload.ver === "number" ? payload.ver : 0,
     };
   } catch {
     return null;

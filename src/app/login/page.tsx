@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/session";
 import { LoginForm } from "@/features/auth/login-form";
 import { APP_NAME, APP_TAGLINE, COMPANY_NAME } from "@/lib/brand";
 
@@ -10,6 +12,8 @@ export default async function LoginPage({
   searchParams: Promise<{ from?: string }>;
 }) {
   const { from } = await searchParams;
+  // 本当に使えるログインがあるときだけホームへ（使えなくなったログインはこの画面でログインし直す）
+  if (await getCurrentUser()) redirect("/");
   return (
     <main className="relative isolate min-h-dvh overflow-hidden bg-[#0b1110] px-5 py-10 safe-top safe-bottom">
       {/* 背景：深いチャコールに、ブランドの緑をごく薄い光として重ねる＋細いグリッド */}

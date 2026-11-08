@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 import { UI_COOKIE, decideUiMode, workerPathFor } from "@/lib/ui-mode";
 
-// 認証ガード。未ログインは /login へ、ログイン済みで /login に来たらホームへ。
+// 認証ガード。未ログインは /login へ。
+// ログイン済みで /login に来たときのホームへの振り分けは、ログイン画面側で行う（ここでは署名しか確かめられず、
+// パスワード変更などで使えなくなったログインでも「ログイン済み」に見えて、/ と /login を往復してしまうため）。
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -26,13 +28,6 @@ export async function middleware(req: NextRequest) {
     url.pathname = "/login";
     url.search = "";
     if (pathname !== "/") url.searchParams.set("from", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  if (session && isLoginPage) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
     return NextResponse.redirect(url);
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertCircle, CheckCircle2, Save, KeyRound } from "lucide-react";
 import { updateAccount, changePassword, type SettingsState } from "./actions";
@@ -8,6 +8,7 @@ import { Field, Input } from "@/components/ui/form";
 import { buttonClass } from "@/components/ui/button";
 import { ColorPicker } from "./color-picker";
 import { DEPARTMENT_LABEL } from "@/lib/constants";
+import { currentPushEndpoint } from "@/features/notifications/push-endpoint";
 
 function Feedback({ state, okText }: { state: SettingsState; okText: string }) {
   if (state.error) {
@@ -81,8 +82,14 @@ export function AccountForm({ user }: { user: AccountUser }) {
 
 export function PasswordForm() {
   const [state, action] = useActionState<SettingsState, FormData>(changePassword, {});
+  // パスワードを変えると、ほかの端末のログインと通知を止める。この端末の通知は残すので宛先を一緒に送る
+  const [pushEndpoint, setPushEndpoint] = useState("");
+  useEffect(() => {
+    void currentPushEndpoint().then((e) => setPushEndpoint(e ?? ""));
+  }, []);
   return (
     <form action={action} className="space-y-4">
+      <input type="hidden" name="pushEndpoint" value={pushEndpoint} />
       <Field label="現在のパスワード" htmlFor="pw-current" required>
         <Input id="pw-current" name="current" type="password" autoComplete="current-password" required />
       </Field>

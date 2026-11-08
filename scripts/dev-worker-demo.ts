@@ -89,7 +89,7 @@ async function main() {
   const staff = await db.user.upsert({
     where: { email: DEMO_EMAIL },
     create: { name: "テスト スタッフ", kana: "てすと すたっふ", email: DEMO_EMAIL, passwordHash, role: "STAFF", kind: "EMPLOYEE", department: "CLEANING", canLogin: true, active: true, avatarColor: "#067a54", sortOrder: 999 },
-    update: { passwordHash, role: "STAFF", canLogin: true, active: true },
+    update: { passwordHash, role: "STAFF", canLogin: true, active: true, sessionVersion: { increment: 1 } },
     select: { id: true },
   });
 

@@ -6,11 +6,7 @@ import { jstMonthKey } from "@/lib/date";
 import { minutesToHours, parseMonthKey } from "@/lib/attendance";
 import { WORKER_KIND_LABEL, type WorkerKind } from "@/lib/constants";
 import { monthlyAttendance } from "@/features/attendance/queries";
-
-function csvCell(v: string | number): string {
-  const s = String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+import { csvCell } from "@/lib/csv";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();

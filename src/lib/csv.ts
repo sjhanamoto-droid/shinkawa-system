@@ -126,3 +126,14 @@ export function guessCustomerMapping(headers: string[]): CustomerCsvMapping {
   }
   return m;
 }
+
+/**
+ * CSV の1セルを書き出す。
+ * 文字は、= + - @ やタブ・改行で始まると Excel などで数式として動くことがあるので、先頭に ' を付けてただの文字にする（数値はそのまま）。
+ * カンマ・引用符・改行を含むときは引用符で囲む。
+ */
+export function csvCell(v: string | number): string {
+  let s = String(v);
+  if (typeof v === "string" && /^[=+\-@\t\r\n]/.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}

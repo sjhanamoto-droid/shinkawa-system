@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { Avatar } from "@/components/ui/avatar";
 import { ROLE_LABEL, DEPARTMENT_LABEL, isDepartment, type Role } from "@/lib/constants";
-import { logoutAction } from "@/features/auth/actions";
+import { LogoutForm } from "@/features/auth/logout-form";
 import { setUiMode } from "@/features/worker/actions";
 
 // スマホ用のメニュー。役割別のショートカット・通知・クレーム再発防止・設定・ログアウトを整理して表示する。
@@ -82,14 +82,14 @@ export default async function MenuPage() {
             </button>
           </form>
 
-          <form action={logoutAction}>
+          <LogoutForm>
             <button type="submit" className="card flex w-full items-center gap-3.5 p-4 text-status-danger active:bg-red-50">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-status-danger">
                 <LogOut className="h-5 w-5" />
               </span>
               <span className="flex-1 text-left text-[15px] font-bold">ログアウト</span>
             </button>
-          </form>
+          </LogoutForm>
         </div>
       </PageContainer>
     </div>

@@ -54,7 +54,8 @@ export async function sendPushToUser(
     return;
   }
 
-  const subscriptions = await db.pushSubscription.findMany({ where: { userId } });
+  // 在籍していてログインできる人の端末にだけ送る（無効にした人・ログイン不可の人には届けない）
+  const subscriptions = await db.pushSubscription.findMany({ where: { userId, user: { active: true, canLogin: true } } });
   if (subscriptions.length === 0) return;
 
   const body = JSON.stringify(payload);

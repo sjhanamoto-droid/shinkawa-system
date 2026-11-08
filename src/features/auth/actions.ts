@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
-import { signSession, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth";
+import { SESSION_COOKIE } from "@/lib/auth";
+import { issueSessionCookie } from "@/lib/session-cookie";
+import { getCurrentUser } from "@/lib/session";
 
 const loginSchema = z.object({
   email: z.email("メールアドレスの形式が正しくありません"),
@@ -86,20 +88,21 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   loginFailures.delete(normalizedEmail);
 
-  const token = await signSession({ sub: user.id, role: user.role, name: user.name });
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_MAX_AGE,
-  });
+  await issueSessionCookie(user);
 
   redirect(safeFrom(parsed.data.from));
 }
 
-export async function logoutAction() {
+/**
+ * ログアウト。この端末で通知を受け取っていれば、その登録も消す（共有の端末に前の人の通知が届き続けないように）。
+ * pushEndpoint は端末（LogoutButton）が送る。自分の登録だけ消す
+ */
+export async function logoutAction(formData?: FormData) {
+  const endpoint = formData?.get("pushEndpoint");
+  if (typeof endpoint === "string" && endpoint) {
+    const me = await getCurrentUser();
+    if (me) await db.pushSubscription.deleteMany({ where: { endpoint, userId: me.id } }).catch(() => undefined);
+  }
   const store = await cookies();
   store.delete(SESSION_COOKIE);
   redirect("/login");

@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { ROLE_LABEL, type Role } from "@/lib/constants";
 import { UI_COOKIE, canUseAdminUi, isPhoneUserAgent } from "@/lib/ui-mode";
-import { logoutAction } from "@/features/auth/actions";
+import { LogoutForm } from "@/features/auth/logout-form";
 import { clearUiMode, setUiMode } from "@/features/worker/actions";
 import { WorkerTabBar } from "@/features/worker/ui/tab-bar";
 
@@ -71,11 +71,11 @@ export default async function WorkerMenu() {
         </form>
       )}
 
-      <form action={logoutAction} className="mt-4">
+      <LogoutForm className="mt-4">
         <button type="submit" className="h-16 w-full rounded-[18px] border border-white/50 text-[18px]">
           ログアウト
         </button>
-      </form>
+      </LogoutForm>
       <WorkerTabBar unreadCount={unreadCount} />
     </div>
   );

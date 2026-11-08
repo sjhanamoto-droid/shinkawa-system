@@ -41,10 +41,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       avatarImage: true,
       active: true,
       canLogin: true,
+      sessionVersion: true,
       updatedAt: true,
     },
   });
   if (!user || !user.active || !user.canLogin) return null;
+  // パスワードの変更・リセット・無効化より前のログインは使えない
+  if (payload.ver !== user.sessionVersion) return null;
   return {
     id: user.id,
     name: user.name,
