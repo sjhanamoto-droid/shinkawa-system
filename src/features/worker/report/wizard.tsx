@@ -66,6 +66,8 @@ export type WizardProps = {
   single?: boolean;
   blobEnabled: boolean;
   aiEnabled: boolean;
+  /** 勤務時間（合計）を出すか。最高管理者・事務・経理だけ */
+  showHours: boolean;
   storageKey: string;
   /** 1画面目の戻る・閉じた後の行き先 */
   exitHref: string;
@@ -204,7 +206,7 @@ export function ReportWizard(props: WizardProps) {
   // ── 進み具合の5マス（押せない） ──
   const cellValue = (i: number): string => {
     if (i === 0) return step > 0 ? "✓" : "";
-    if (i === 1) return step > 1 ? fmtHoursShort(minutes) : "";
+    if (i === 1) return step > 1 ? (props.showHours ? fmtHoursShort(minutes) : "✓") : "";
     if (i === 2) return v.transport === "none" ? "なし" : transportTotal(v) > 0 ? fmtYenShort(transportTotal(v)) : "";
     if (i === 3) return receiptTotal(v) > 0 ? fmtYenShort(receiptTotal(v)) : step > 3 ? "なし" : "";
     return v.detail.trim() ? "✓" : "";
@@ -370,7 +372,7 @@ export function ReportWizard(props: WizardProps) {
           {(state.fieldErrors?.startTime || state.fieldErrors?.endTime) && (
             <p className="text-[15px] text-[var(--w-danger)]">{state.fieldErrors.startTime ?? state.fieldErrors.endTime}</p>
           )}
-          <p className="text-center text-[22px] font-semibold text-[var(--w-primary)]">合計 {fmtDuration(minutes)}</p>
+          {props.showHours && <p className="text-center text-[22px] font-semibold text-[var(--w-primary)]">合計 {fmtDuration(minutes)}</p>}
           <p className="text-center text-[15px] text-[var(--w-text-muted)]">＋−は{TIME_STEP}分ずつ。時間を押すと入力できます</p>
         </section>
 
@@ -518,7 +520,8 @@ export function ReportWizard(props: WizardProps) {
             )}
             {state.fieldErrors?.handover && <span className="text-[14px] text-[var(--w-danger)]">{state.fieldErrors.handover}</span>}
           </div>
-          <details className="rounded-xl border border-dashed border-[#94a3b8] bg-[var(--w-soft-bg)] px-4 py-3" open={props.initialPhotos.length > 0}>
+          {/* 写真は任意だが、最初から開いておく（追加し忘れを減らす。閉じることもできる） */}
+          <details className="rounded-xl border border-dashed border-[#94a3b8] bg-[var(--w-soft-bg)] px-4 py-3" open>
             <summary className="cursor-pointer text-center text-[16px] text-[var(--w-text-sub)]">現場の写真を追加（任意）</summary>
             {state.fieldErrors?.photos && <p className="mt-2 text-[14px] text-[var(--w-danger)]">{state.fieldErrors.photos}</p>}
             <div className="mt-3">

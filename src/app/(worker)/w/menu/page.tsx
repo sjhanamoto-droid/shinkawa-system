@@ -11,7 +11,7 @@ import { WorkerTabBar } from "@/features/worker/ui/tab-bar";
 
 export const dynamic = "force-dynamic";
 
-/** メニュー：お知らせ・自分の稼働時間・カタログ・使い方・アカウント設定・（権限者）管理画面・ログアウト */
+/** メニュー：お知らせ・勤務表・経費精算書・カタログ・使い方・アカウント設定・（権限者）管理画面・ログアウト */
 export default async function WorkerMenu() {
   const me = await requireUser();
   const [unreadCount, store, h] = await Promise.all([db.notification.count({ where: { userId: me.id, read: false } }), cookies(), headers()]);
@@ -20,7 +20,7 @@ export default async function WorkerMenu() {
   const forcedOnPc = !phone && store.get(UI_COOKIE)?.value === "worker";
   const items = [
     { href: "/w/notifications", label: "お知らせ", icon: Bell, badge: unreadCount > 0 ? `${unreadCount}件` : null },
-    { href: "/w/statement", label: "自分の稼働時間", icon: Clock, badge: null },
+    { href: "/w/statement", label: "勤務表・経費精算書", icon: Clock, badge: null },
     { href: "/w/catalog", label: "カタログ", icon: BookOpen, badge: null },
     { href: "/w/help", label: "使い方", icon: CircleHelp, badge: null },
     { href: "/w/account", label: "アカウント設定", icon: UserRound, badge: null },

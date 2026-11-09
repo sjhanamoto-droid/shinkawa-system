@@ -28,7 +28,7 @@ describe("worker: 時間", () => {
 describe("worker: 現場の状態", () => {
   const today = "2026-10-05";
   const v = { dateKey: today, startTime: "09:00", endTime: "12:00", submitted: false };
-  it("終了予定の30分前から日報まだ", () => {
+  it("終了予定の30分前から日報送付前", () => {
     expect(visitState(v, today, 9 * 60)).toBe("before");
     expect(visitState(v, today, 11 * 60 + 29)).toBe("before");
     expect(visitState(v, today, 11 * 60 + 30)).toBe("due");
@@ -42,7 +42,7 @@ describe("worker: 現場の状態", () => {
     expect(visitState({ ...v, startTime: null, endTime: null }, today, 0)).toBe("due");
     expect(visitState({ ...v, startTime: "22:00", endTime: "05:00" }, today, 23 * 60)).toBe("before");
   });
-  it("札には日報まだを優先、無ければ次の現場", () => {
+  it("札には日報送付前を優先、無ければ次の現場", () => {
     expect(pickFocus([{ id: 1, state: "before" as const }, { id: 2, state: "due" as const }])?.id).toBe(2);
     expect(pickFocus([{ id: 1, state: "sent" as const }, { id: 2, state: "before" as const }])?.id).toBe(2);
     expect(pickFocus([{ id: 1, state: "sent" as const }])).toBeNull();

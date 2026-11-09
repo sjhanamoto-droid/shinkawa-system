@@ -2,31 +2,48 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { addDaysKey, jstDateKey, jstMonthKey } from "@/lib/date";
+import { addDaysKey, addMonthsKey, jstDateKey, jstMonthKey } from "@/lib/date";
 import { MISSING_LOOKBACK_DAYS } from "@/lib/reports";
 import { fmtDayLabel, fmtYenShort } from "@/lib/worker";
-import { loadMyRecentReports } from "@/features/reports/queries";
+import { loadMySubmittedReports } from "@/features/reports/queries";
 import { loadMonthExpenseTotal, loadMyVisits } from "@/features/worker/queries";
 import { reportHref } from "@/features/worker/links";
 import { WorkerTabBar } from "@/features/worker/ui/tab-bar";
-import { SentStamp, StatePill } from "@/features/worker/ui/parts";
+import { StatePill } from "@/features/worker/ui/parts";
+import { ReportMonthSwiper, type MonthReports } from "@/features/worker/report-month-swiper";
+
+/** 提出した日報をさかのぼって見せる月数（今月を含む） */
+const MONTHS_BACK = 12;
 
 export const dynamic = "force-dynamic";
 
-/** 日報タブ：まだの日報、今月の立替合計、提出した日報 */
+/** 日報タブ：まだの日報、今月の立替合計、提出した日報（月ごと。横にスライドして月を移動） */
 export default async function WorkerReportsPage() {
   const me = await requireUser();
   const today = jstDateKey();
-  const [visits, total, recent, unreadCount] = await Promise.all([
+  const thisMonth = jstMonthKey();
+  const firstMonth = addMonthsKey(thisMonth, -(MONTHS_BACK - 1));
+  const [visits, total, sent, unreadCount] = await Promise.all([
     loadMyVisits(me.id, addDaysKey(today, -MISSING_LOOKBACK_DAYS), today),
-    loadMonthExpenseTotal(me.id, jstMonthKey()),
-    loadMyRecentReports(me.id, 30),
+    loadMonthExpenseTotal(me.id, thisMonth),
+    loadMySubmittedReports(me.id, `${firstMonth}-01`),
     db.notification.count({ where: { userId: me.id, read: false } }),
   ]);
   // まだの日報：今日の分は作業が終わる頃から（それまではホームの「これから」）、過去の日は提出していないもの
   const due = visits.filter((v) => v.state === "due").sort((a, b) => (a.dateKey < b.dateKey ? 1 : -1));
   const [first, ...rest] = due;
-  const sent = recent.filter((r) => r.status === "SUBMITTED");
+  // 月ごとに分ける。12か月前から今月まで（提出が無い月も空のページとして出し、いつでも月を移れるように）
+  const byMonth = new Map<string, MonthReports["reports"]>();
+  for (const r of sent) {
+    const ym = r.workDateKey.slice(0, 7);
+    const list = byMonth.get(ym) ?? [];
+    list.push({ id: r.id, workDateKey: r.workDateKey, place: r.propertyName ?? r.title });
+    byMonth.set(ym, list);
+  }
+  const months: MonthReports[] = [];
+  for (let ym = firstMonth; ym <= thisMonth; ym = addMonthsKey(ym, 1)) {
+    months.push({ ym, reports: byMonth.get(ym) ?? [] });
+  }
 
   return (
     <div className="flex min-h-dvh flex-col px-5 pb-6 text-white w-safe-top">
@@ -73,22 +90,7 @@ export default async function WorkerReportsPage() {
         <span className="text-[17px] font-semibold">精算書を見る</span>
       </Link>
 
-      <h2 className="mt-8 text-[20px] font-medium">提出した日報</h2>
-      {sent.length === 0 ? (
-        <p className="mt-3 text-[16px] text-[var(--w-primary-soft)]">まだありません</p>
-      ) : (
-        <div className="mt-3 space-y-3">
-          {sent.map((r) => (
-            <Link key={r.id} href={`/w/reports/${r.id}`} className="flex min-h-[84px] items-center gap-3 rounded-2xl bg-white px-4 py-3 text-[var(--w-text)]">
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] text-[var(--w-text-muted)]">{fmtDayLabel(r.workDateKey)}</p>
-                <p className="truncate text-[20px]">{r.propertyName ?? r.title}</p>
-              </div>
-              <SentStamp />
-            </Link>
-          ))}
-        </div>
-      )}
+      <ReportMonthSwiper months={months} />
       <WorkerTabBar unreadCount={unreadCount} />
     </div>
   );

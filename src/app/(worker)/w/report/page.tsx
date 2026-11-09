@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { can } from "@/lib/permissions";
 import { dateFromKey, jstDateKey, storedDateKey } from "@/lib/date";
 import { getAppSettings } from "@/lib/settings";
 import { isBlobConfigured } from "@/lib/media";
@@ -51,7 +52,8 @@ export default async function WorkerReportPage({
   const sp = await searchParams;
   const today = jstDateKey();
   const step = Math.min(5, Math.max(0, Number(sp.step) || 0));
-  const common = { blobEnabled: isBlobConfigured(), aiEnabled: isAnthropicConfigured() };
+  // 勤務時間（合計）は最高管理者・事務・経理だけに見せる
+  const common = { blobEnabled: isBlobConfigured(), aiEnabled: isAnthropicConfigured(), showHours: can(me, "attendance.view") };
   const categories = await getCategories();
 
   // ── 書きかけ・提出済みの日報を直す ──

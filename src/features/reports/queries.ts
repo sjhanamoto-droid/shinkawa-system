@@ -462,6 +462,17 @@ export async function loadMyRecentReports(userId: string, take = 10) {
   return rows.map(toListItem);
 }
 
+/** 本人の提出済みの日報（from の日以降。スタッフ画面の日報タブで月ごとに見せる） */
+export async function loadMySubmittedReports(userId: string, fromKey: string, take = 500) {
+  const rows = await db.dailyReport.findMany({
+    where: { userId, status: "SUBMITTED", workDate: { gte: dateFromKey(fromKey) } },
+    select: listSelect,
+    orderBy: [{ workDate: "desc" }, { createdAt: "desc" }],
+    take,
+  });
+  return rows.map(toListItem);
+}
+
 /** 全員分の一覧（予定を扱う役割向け）。絞り込み: 日付範囲・担当者・キーワード・状態 */
 export async function loadReportList(opts: {
   from?: string;

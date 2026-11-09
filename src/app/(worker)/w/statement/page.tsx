@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/session";
+import { can } from "@/lib/permissions";
 import { addMonthsKey, jstMonthKey } from "@/lib/date";
 import { parseMonthKey } from "@/lib/attendance";
 import { fmtHm, fmtYenShort } from "@/lib/worker";
@@ -17,6 +18,8 @@ export default async function StatementPage({ searchParams }: { searchParams: Pr
   const s = await loadStatement(me.id, ym);
   const [y, m] = ym.split("-").map(Number);
   const hours = Math.round((s.minutes / 60) * 10) / 10;
+  // 勤務時間の合計は最高管理者・事務・経理だけに見せる
+  const showHours = can(me, "attendance.view");
 
   return (
     <div className="min-h-dvh bg-[#f7f8fb]">
@@ -38,9 +41,9 @@ export default async function StatementPage({ searchParams }: { searchParams: Pr
         </div>
         <p className="mt-3 text-[15px] text-[var(--w-primary-soft)]">立替の合計</p>
         <p className="text-[46px] leading-[56px]">{fmtYenShort(s.total)}</p>
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className={`mt-4 grid gap-2 ${showHours ? "grid-cols-3" : "grid-cols-2"}`}>
           <Tile label="勤務日数" value={`${s.workDays}日`} />
-          <Tile label="勤務時間" value={`${hours}h`} />
+          {showHours && <Tile label="勤務時間" value={`${hours}h`} />}
           <Tile label="領収書" value={`${s.receipts}枚`} />
         </div>
       </header>
@@ -71,7 +74,7 @@ export default async function StatementPage({ searchParams }: { searchParams: Pr
             })}
           </div>
         )}
-        <p className="mt-3 px-1 text-[13px] text-[var(--w-text-muted)]">提出した日報の作業時間と経費を集計しています。</p>
+        <p className="mt-3 px-1 text-[13px] text-[var(--w-text-muted)]">{showHours ? "提出した日報の作業時間と経費を集計しています。" : "提出した日報の経費を集計しています。"}</p>
       </div>
 
       <FooterSpacer />

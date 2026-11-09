@@ -89,7 +89,7 @@ export type VisitState = "before" | "due" | "sent";
 export const DUE_BEFORE_END_MIN = 30;
 
 /**
- * 今日の現場の状態。提出済み → sent。過去の日、または今日で終了予定の30分前を過ぎたら due（日報まだ）。
+ * 今日の現場の状態。提出済み → sent。過去の日、または今日で終了予定の30分前を過ぎたら due（日報送付前）。
  * 終了予定が無ければ開始予定を過ぎたら due。どちらも無ければ due（いつでも書ける）。
  */
 export function visitState(v: { dateKey: string; startTime: string | null; endTime: string | null; submitted: boolean }, todayKey: string, nowMin: number): VisitState {
@@ -104,7 +104,7 @@ export function visitState(v: { dateKey: string; startTime: string | null; endTi
   return "due";
 }
 
-/** ホームの札に出す現場：日報まだを優先、無ければ提出していない次の現場。すべて提出済みなら null */
+/** ホームの札に出す現場：日報送付前を優先、無ければ提出していない次の現場。すべて提出済みなら null */
 export function pickFocus<T extends { state: VisitState }>(visits: T[]): T | null {
   return visits.find((v) => v.state === "due") ?? visits.find((v) => v.state !== "sent") ?? null;
 }

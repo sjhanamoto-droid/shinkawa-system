@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 export type VisitState = "before" | "due" | "sent";
 
-/** これから／日報まだ／提出済み */
+/** これから／日報送付前／提出済み */
 export function StatePill({ state, onGreen = false, className }: { state: VisitState; onGreen?: boolean; className?: string }) {
   const style =
     state === "due"
@@ -18,7 +18,7 @@ export function StatePill({ state, onGreen = false, className }: { state: VisitS
       : state === "sent"
         ? "bg-[var(--w-primary-soft)] text-[var(--w-primary-dark)]"
         : "bg-[var(--w-disabled-bg)] text-[var(--w-text-sub)]";
-  const label = state === "due" ? "日報まだ" : state === "sent" ? "提出済み" : "これから";
+  const label = state === "due" ? "日報送付前" : state === "sent" ? "提出済み" : "これから";
   return <span className={cn("inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[14px]", style, className)}>{label}</span>;
 }
 

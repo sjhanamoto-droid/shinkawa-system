@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/session";
+import { can } from "@/lib/permissions";
 import { canEditReport, workMinutes } from "@/lib/reports";
 import { photoSrc } from "@/lib/photos";
 import { catLabel } from "@/lib/categories";
@@ -40,7 +41,7 @@ export default async function WorkerReportDetail({ params, searchParams }: { par
 
       {done && <p className="mx-5 mt-4 rounded-xl bg-[var(--w-primary-soft)] px-4 py-3 text-[16px] font-semibold text-[var(--w-primary-dark)]">修正を保存しました</p>}
       <div className="px-5 py-2">
-        <Line label="時間" value={`${fmtHm(r.startTime)}〜${fmtHm(r.endTime)}（${fmtDuration(minutes)}）`} href={edit(1)} />
+        <Line label="時間" value={`${fmtHm(r.startTime)}〜${fmtHm(r.endTime)}${can(me, "attendance.view") ? `（${fmtDuration(minutes)}）` : ""}`} href={edit(1)} />
         {ex && (
           <>
             {ex.tolls.map((t) => (
