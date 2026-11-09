@@ -32,10 +32,15 @@ export default async function StatementPage({ searchParams }: { searchParams: Pr
             <Link href={`/w/statement?ym=${addMonthsKey(ym, -1)}`} aria-label="前の月" className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/40">
               <ChevronLeft className="h-5 w-5" />
             </Link>
-            {ym < thisMonth && (
+            {/* 次の月は常に出し、今月（最新）のときは押せない（グレー） */}
+            {ym < thisMonth ? (
               <Link href={`/w/statement?ym=${addMonthsKey(ym, 1)}`} aria-label="次の月" className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/40">
                 <ChevronRight className="h-5 w-5" />
               </Link>
+            ) : (
+              <span aria-disabled="true" aria-label="次の月（今月が最新です）" className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg border border-white/20 text-white/30">
+                <ChevronRight className="h-5 w-5" />
+              </span>
             )}
           </div>
         </div>
